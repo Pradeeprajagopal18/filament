@@ -2210,6 +2210,17 @@
             "type": "string",
             "title": "Project Id"
           },
+          "parent_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Run Id"
+          },
           "agent": {
             "type": "string",
             "title": "Agent"
@@ -2240,6 +2251,15 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Context Pack"
+          },
+          "trace": {
+            "items": {},
+            "type": "array",
+            "title": "Trace"
+          },
+          "turns": {
+            "type": "integer",
+            "title": "Turns"
           },
           "model": {
             "anyOf": [
@@ -2308,6 +2328,7 @@
         "required": [
           "id",
           "project_id",
+          "parent_run_id",
           "agent",
           "goal",
           "status",
@@ -2315,6 +2336,8 @@
           "input",
           "output",
           "context_pack",
+          "trace",
+          "turns",
           "model",
           "input_tokens",
           "output_tokens",

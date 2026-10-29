@@ -8,8 +8,15 @@ export interface Artifact {
   run_id: string | null; updated_at: string
 }
 export interface Link { id: string; source_id: string; target_id: string; kind: string }
+export interface TraceEvent {
+  type: 'model' | 'tool' | 'stop'
+  text?: string; tool_calls?: string[]; tokens?: [number, number]
+  tool?: string; input?: unknown; result?: unknown; error?: boolean
+  reason?: string
+}
 export interface Run {
-  id: string; agent: string; goal: string; status: string; autonomy: string
+  id: string; parent_run_id: string | null; agent: string; goal: string; status: string; autonomy: string
+  trace: TraceEvent[]; turns: number
   output: Record<string, unknown>; context_pack: { items: { kind: string; id: string; title: string }[]; approx_tokens: number }
   model: string | null; input_tokens: number; output_tokens: number; cost_usd: number | null
   error: string | null; started_at: string

@@ -9,6 +9,7 @@ export function ProjectPage({ project }: { project: Project }) {
   const [artifacts, setArtifacts] = useState<Artifact[]>([])
   const [runs, setRuns] = useState<Run[]>([])
   const [selected, setSelected] = useState<Artifact | null>(null)
+  const [openRun, setOpenRun] = useState<Run | null>(null)
   const [impact, setImpact] = useState<Artifact[]>([])
   const [idea, setIdea] = useState('')
   const [autonomy, setAutonomy] = useState('L2')
@@ -26,13 +27,20 @@ export function ProjectPage({ project }: { project: Project }) {
     if (selected) api.impact(selected.id).then(r => setImpact(r.affected)).catch(() => setImpact([]))
   }, [selected])
 
+  const GOALS: Record<string, string> = {
+    orchestrator: 'Take this idea to a reviewed design',
+    requirements: 'Draft the PRD and stories',
+    flow: 'Draw the user flow and sequence',
+  }
+
   async function run(agent: string) {
     setBusy(agent); setError('')
     try {
-      const input = agent === 'requirements' ? { idea } : {}
-      const r = await api.startRun(project.id, agent, agent === 'requirements' ? 'Draft requirements' : 'Draw the flow', input, autonomy)
-      if (r.status !== 'succeeded') setError(r.error ?? 'Run failed')
-      if (agent === 'requirements' && r.status === 'succeeded') setIdea('')
+      const input = agent === 'flow' ? {} : { idea }
+      const r = await api.startRun(project.id, agent, GOALS[agent], input, autonomy)
+      if (r.status !== 'succeeded') setError(r.error ?? `Run ${r.status}`)
+      if (agent !== 'flow' && r.status === 'succeeded') setIdea('')
+      setOpenRun(r)
       await load()
     } catch (e) { setError(String(e)) } finally { setBusy('') }
   }
@@ -45,6 +53,8 @@ export function ProjectPage({ project }: { project: Project }) {
   }
 
   const grouped = TYPE_ORDER.map(t => [t, artifacts.filter(a => a.type === t)] as const).filter(([, list]) => list.length)
+  const topRuns = runs.filter(r => !r.parent_run_id)
+  const childrenOf = (id: string) => runs.filter(r => r.parent_run_id === id).reverse()
 
   return (
     <div className="page">
@@ -60,7 +70,17 @@ export function ProjectPage({ project }: { project: Project }) {
         <textarea rows={3} value={idea} onChange={e => setIdea(e.target.value)}
           placeholder="Describe the idea, e.g. 'Let shoppers save a card for one-click checkout'" />
         <div className="row">
-          <label>Autonomy
+          <button disabled={!idea.trim() || !!busy} onClick={() => run('orchestrator')}>
+            {busy === 'orchestrator' ? 'Agents working…' : 'Take idea to design'}
+          </button>
+          <span className="muted small">or run one agent:</span>
+          <button className="secondary" disabled={!idea.trim() || !!busy} onClick={() => run('requirements')}>
+            {busy === 'requirements' ? 'Writing…' : 'Requirements'}
+          </button>
+          <button className="secondary" disabled={!!busy || !artifacts.some(a => a.type === 'story')} onClick={() => run('flow')}>
+            {busy === 'flow' ? 'Drawing…' : 'Flow'}
+          </button>
+          <label className="push">Autonomy
             <select value={autonomy} onChange={e => setAutonomy(e.target.value)}>
               <option value="L0">L0 · suggest only</option>
               <option value="L1">L1 · save drafts</option>
@@ -68,13 +88,8 @@ export function ProjectPage({ project }: { project: Project }) {
               <option value="L3">L3 · act and report</option>
             </select>
           </label>
-          <button disabled={!idea.trim() || !!busy} onClick={() => run('requirements')}>
-            {busy === 'requirements' ? 'Writing PRD…' : 'Write PRD and stories'}
-          </button>
-          <button className="secondary" disabled={!!busy || !artifacts.some(a => a.type === 'story')} onClick={() => run('flow')}>
-            {busy === 'flow' ? 'Drawing…' : 'Draw the flow'}
-          </button>
         </div>
+        <p className="muted small">The orchestrator inspects the project, decides which specialists to call and in what order, and reviews their work. Approval gates, budgets and autonomy limits are enforced by the platform.</p>
         <ErrorLine error={error} />
       </section>
 
@@ -123,23 +138,77 @@ export function ProjectPage({ project }: { project: Project }) {
         </section>
       </div>
 
-      <section className="card">
-        <h2>Agent runs</h2>
-        <table>
-          <thead><tr><th>Agent</th><th>Status</th><th>Autonomy</th><th>Model</th><th>Tokens in / out</th><th>Context items</th></tr></thead>
-          <tbody>
-            {runs.map(r => (
-              <tr key={r.id} title={r.error ?? ''}>
-                <td>{r.agent}</td><td><Badge value={r.status} /></td><td>{r.autonomy}</td><td>{r.model}</td>
-                <td><Tokens n={r.input_tokens} /> / <Tokens n={r.output_tokens} /></td>
-                <td>{r.context_pack?.items?.length ?? 0}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+      <div className="split">
+        <section className="card list">
+          <h2>Agent runs</h2>
+          {topRuns.length === 0 && <p className="muted">No runs yet.</p>}
+          {topRuns.map(r => (
+            <div key={r.id}>
+              <RunRow run={r} active={openRun?.id === r.id} onClick={() => setOpenRun(r)} />
+              {childrenOf(r.id).map(c => (
+                <RunRow key={c.id} run={c} child active={openRun?.id === c.id} onClick={() => setOpenRun(c)} />
+              ))}
+            </div>
+          ))}
+        </section>
+        <section className="card detail">
+          {openRun ? <RunLog run={openRun} /> : <p className="muted">Select a run to see every model turn and tool call.</p>}
+        </section>
+      </div>
     </div>
   )
+}
+
+function RunRow({ run, child, active, onClick }: { run: Run; child?: boolean; active: boolean; onClick: () => void }) {
+  return (
+    <button className={`item ${active ? 'active' : ''} ${child ? 'child' : ''}`} onClick={onClick}>
+      <span className="item-title">{child ? '↳ ' : ''}{run.agent} <span className="muted small">· {run.turns} turns · <Tokens n={run.input_tokens + run.output_tokens} /> tokens</span></span>
+      <Badge value={run.status} />
+    </button>
+  )
+}
+
+export function RunLog({ run }: { run: Run }) {
+  const summary = run.output?.summary as string | undefined
+  const created = (run.output?.created as { id: string; type: string; title: string }[] | undefined) ?? []
+  const questions = (run.output?.questions as string[] | undefined) ?? []
+  return (
+    <div>
+      <div className="row spread">
+        <div>
+          <h2>{run.agent} run</h2>
+          <p className="muted">{run.goal} · {run.autonomy} · {run.model ?? '—'}</p>
+        </div>
+        <Badge value={run.status} />
+      </div>
+      {summary && <p className="summary">{summary}</p>}
+      {run.error && <p className="error">{run.error}</p>}
+      <div className="stats">
+        <div><b>{run.turns}</b><span>turns</span></div>
+        <div><b><Tokens n={run.input_tokens} /></b><span>input tokens</span></div>
+        <div><b><Tokens n={run.output_tokens} /></b><span>output tokens</span></div>
+        <div><b>{run.context_pack?.items?.length ?? 0}</b><span>context items</span></div>
+        <div><b>{run.cost_usd == null ? '—' : `$${run.cost_usd.toFixed(4)}`}</b><span>cost</span></div>
+      </div>
+      <h3>Run log</h3>
+      <ol className="trace">
+        {run.trace.map((e, i) => (
+          <li key={i} className={`trace-${e.type} ${e.error ? 'trace-error' : ''}`}>
+            {e.type === 'model' && <><span className="tag">model</span> decided: {e.tool_calls?.length ? e.tool_calls.join(', ') : 'answer and stop'}{e.text ? <em> — {e.text.slice(0, 160)}</em> : null}</>}
+            {e.type === 'tool' && <><span className="tag">{e.error ? 'error' : 'tool'}</span> <code>{e.tool}</code> <span className="muted small">{brief(e.input)}</span>{e.error ? <div className="error small">{brief(e.result)}</div> : null}</>}
+            {e.type === 'stop' && <><span className="tag">stop</span> {e.reason}</>}
+          </li>
+        ))}
+      </ol>
+      {created.length > 0 && (<><h3>Created</h3>{created.map(a => <div key={a.id} className="muted">{a.type} · {a.title}</div>)}</>)}
+      {questions.length > 0 && (<><h3>Questions for a human</h3>{questions.map((q, i) => <div key={i} className="muted">{q}</div>)}</>)}
+    </div>
+  )
+}
+
+function brief(v: unknown): string {
+  const s = typeof v === 'string' ? v : JSON.stringify(v)
+  return s && s.length > 140 ? s.slice(0, 140) + '…' : s ?? ''
 }
 
 // -- Memory -------------------------------------------------------------------------

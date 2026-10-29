@@ -5,18 +5,16 @@ os.environ.pop("ANTHROPIC_API_KEY", None)  # tests always run offline
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
-from sqlalchemy import create_engine  # noqa: E402
 from sqlalchemy.orm import sessionmaker  # noqa: E402
 from sqlalchemy.pool import StaticPool  # noqa: E402
 
-from filament.db import Base, get_session  # noqa: E402
+from filament.db import Base, get_session, make_engine  # noqa: E402
 from filament.main import create_app  # noqa: E402
 
 
 @pytest.fixture
 def client():
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False},
-                           poolclass=StaticPool)
+    engine = make_engine("sqlite://", poolclass=StaticPool)
     from filament import models  # noqa: F401
 
     Base.metadata.create_all(engine)

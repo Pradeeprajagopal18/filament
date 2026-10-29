@@ -125,12 +125,13 @@ def project_list(ws: str | None = typer.Option(None)):
 # -- agents ---------------------------------------------------------------------------
 @app.command("run")
 def run(
-    agent: str = typer.Argument(..., help="requirements | flow"),
+    agent: str = typer.Argument(..., help="orchestrator | requirements | flow"),
     project: str = typer.Option(..., "--project", "-p"),
     idea: str | None = typer.Option(None, help="Idea text (requirements agent)"),
     from_file: Path | None = typer.Option(None, "--from", help="Read the idea from a file"),
     autonomy: str = typer.Option("L1", help="L0 suggest .. L4 autonomous"),
     goal: str | None = typer.Option(None),
+    trace: bool = typer.Option(False, help="Print every model turn and tool call"),
 ):
     """Run an agent against a project."""
     payload: dict = {}
@@ -143,12 +144,41 @@ def run(
     r = _call("POST", f"/projects/{project}/runs", json=body)
     colour = "green" if r["status"] == "succeeded" else "red"
     console.print(f"Run {r['id']}: [{colour}]{r['status']}[/{colour}]  model={r['model']}  "
-                  f"tokens in/out={r['input_tokens']}/{r['output_tokens']}")
+                  f"turns={r['turns']}  tokens in/out={r['input_tokens']}/{r['output_tokens']}")
     if r["error"]:
         console.print(f"[red]{r['error']}[/red]")
-    out = {k: v for k, v in r["output"].items() if k != "spec"}
-    if out:
-        console.print_json(json.dumps(out))
+    if trace:
+        _print_trace(r["trace"])
+    out = r["output"]
+    if out.get("summary"):
+        console.print(f"\n[bold]Summary:[/bold] {out['summary']}")
+    for a in out.get("created", []):
+        console.print(f"  + {a['type']:<6} {a['id']}  {a['title']}")
+    for child in out.get("child_run_ids", []):
+        console.print(f"  ↳ child run {child}")
+    for q in out.get("questions", []):
+        console.print(f"  ? {q}")
+
+
+def _print_trace(trace: list[dict]) -> None:
+    for e in trace:
+        if e["type"] == "model":
+            tools = ", ".join(e["tool_calls"]) or "—"
+            text = f"  {e['text'][:120]}" if e.get("text") else ""
+            console.print(f"[dim]model[/dim] → {tools}{text}")
+        elif e["type"] == "tool":
+            mark = "[red]✘[/red]" if e["error"] else "[green]✔[/green]"
+            console.print(f"  {mark} {e['tool']}  [dim]{json.dumps(e['input'])[:100]}[/dim]")
+        else:
+            console.print(f"[dim]stop: {e['reason']}[/dim]")
+
+
+@app.command("trace")
+def show_trace(run_id: str):
+    """Show the step-by-step log of a run."""
+    r = _call("GET", f"/runs/{run_id}")
+    console.print(f"{r['agent']} · {r['status']} · {r['turns']} turns")
+    _print_trace(r["trace"])
 
 
 @app.command("approve")

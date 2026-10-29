@@ -105,6 +105,8 @@ class Run(Base):
 
     id: Mapped[str] = mapped_column(String(12), primary_key=True, default=new_id)
     project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), index=True)
+    parent_run_id: Mapped[str | None] = mapped_column(ForeignKey("runs.id"), nullable=True,
+                                                      index=True)
     agent: Mapped[str] = mapped_column(String(60), index=True)
     goal: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(30), default="queued")
@@ -112,6 +114,8 @@ class Run(Base):
     input: Mapped[dict] = mapped_column(JSON, default=dict)
     output: Mapped[dict] = mapped_column(JSON, default=dict)
     context_pack: Mapped[dict] = mapped_column(JSON, default=dict)
+    trace: Mapped[list] = mapped_column(JSON, default=list)  # every model turn and tool call
+    turns: Mapped[int] = mapped_column(Integer, default=0)
     model: Mapped[str | None] = mapped_column(String(80), nullable=True)
     input_tokens: Mapped[int] = mapped_column(Integer, default=0)
     output_tokens: Mapped[int] = mapped_column(Integer, default=0)

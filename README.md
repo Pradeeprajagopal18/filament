@@ -16,8 +16,11 @@ work in the same place, and every agent output is linked, cited and reviewable.
 | Project graph | Typed, versioned artifacts (idea, PRD, story, flow, ADR, …) and typed links between them; impact analysis ("what does changing this affect?") |
 | Shared memory | Org / team / project facts, decisions and standards with provenance; agent-written entries stay *proposed* until a human confirms |
 | Context engine | Builds a budgeted context pack per run from the graph and memory, stored on the run so every output is explainable |
+| Agentic tool-use loop | Agents choose their own next step with tools (search graph, read, search memory, create/update/link artifacts, propose memory, ask a human, finish); the platform enforces turn and token budgets, autonomy and delegation limits, and logs every step |
+| Orchestrator Agent | Takes a goal ("take this idea to a reviewed design"), inspects the project, delegates to specialists as child runs, skips work that already exists |
 | Requirements Agent | Idea → PRD + user stories with Given/When/Then acceptance criteria, linked into the graph |
 | Flow Agent | PRD/stories → user flow and sequence diagrams (Mermaid), rendered in the UI |
+| Run log | Every model turn and tool call, tokens, context items and child runs, in the UI and via `fil trace` |
 | Autonomy levels | L0 suggest · L1 draft · L2 send to review with an approval gate · L3/L4 act and report |
 | Ask Filament | Answers from memory and the graph with citations; unanswered questions are logged |
 | What we're missing | Unanswered questions and agent context misses clustered into gaps |
@@ -61,8 +64,10 @@ fil ready fix ./my-repo --write                  # starter AGENTS.md, CODEOWNERS
 fil ws create "Acme"                              # then: export FIL_WORKSPACE=<id>
 fil project create "Checkout v2"
 fil memory add "All checkout payments use idempotency keys" --kind standard
-fil run requirements -p <project-id> --idea "Let shoppers save a card" --autonomy L2
+fil run orchestrator -p <project-id> --idea "Let shoppers save a card" --autonomy L2 --trace
+fil run requirements -p <project-id> --idea "Let shoppers save a card"
 fil run flow -p <project-id>
+fil trace <run-id>
 fil approve <artifact-id>
 fil ask "Do checkout payments use idempotency keys?"
 fil gaps

@@ -11,6 +11,8 @@ Guidance for AI coding agents (and humans) working in this repo.
 ## Layout
 - `backend/filament/models.py` — data model (graph, memory, runs, approvals, signals, readiness)
 - `backend/filament/api/` — FastAPI routers; every route is also exposed in `cli.py`
+- `backend/filament/agents/base.py` — the tool-use loop and guardrails (turns, tokens, autonomy)
+- `backend/filament/agents/tools.py` — tools agents can call; the only way agents write
 - `backend/filament/agents/` — one module per agent, registered in `agents/__init__.py`
 - `backend/filament/context.py` — context engine (graph walk + memory ranking, token budget)
 - `backend/filament/llm.py` — the only place that calls the Anthropic API
@@ -19,7 +21,11 @@ Guidance for AI coding agents (and humans) working in this repo.
 
 ## Conventions
 - Call the Anthropic Messages API directly through `llm.complete`; no agent frameworks.
-- Every agent must work offline: pass an `offline_response` so tests never hit the network.
+- Agents are agentic: they get a goal and tools, and the model decides the steps. Do not
+  hard-code a fixed call sequence in an agent; express it in the system prompt instead.
+- Guardrails (approval gates, autonomy, budgets, delegation depth) live in the platform, never
+  in prompts alone.
+- Every agent must work offline: implement `offline_script` so tests never hit the network.
 - Agents write artifacts and memory through `Agent.save_artifact` / `Agent.remember` so
   autonomy levels and provenance are applied consistently.
 - New API capability → add the CLI command and the `api.ts` client method in the same change.

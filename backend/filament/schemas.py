@@ -145,6 +145,7 @@ class RunIn(BaseModel):
 class RunOut(ORM):
     id: str
     project_id: str
+    parent_run_id: str | None
     agent: str
     goal: str
     status: str
@@ -152,6 +153,8 @@ class RunOut(ORM):
     input: dict
     output: dict
     context_pack: dict
+    trace: list
+    turns: int
     model: str | None
     input_tokens: int
     output_tokens: int

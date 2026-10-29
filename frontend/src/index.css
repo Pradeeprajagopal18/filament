@@ -90,3 +90,18 @@ td.pass { color: var(--good); } td.fail { color: var(--bad); }
 .grade-D, .grade-F { background: #f7e5e1; color: var(--bad); }
 .count { font-size: 20px; font-weight: 700; color: var(--accent); }
 .error { color: var(--bad); white-space: pre-wrap; }
+
+.push { margin-left: auto; }
+.list .item.child { padding-left: 22px; }
+.summary { background: var(--accent-soft); border-radius: 6px; padding: 10px 12px; margin: 8px 0; }
+.stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 12px 0; }
+.stats div { background: #f6f5f1; border-radius: 6px; padding: 8px 10px; display: flex; flex-direction: column; }
+.stats b { font-size: 16px; }
+.stats span { font-size: 11px; color: var(--muted); }
+.trace { list-style: none; padding: 0; margin: 0; font-size: 13px; }
+.trace li { padding: 6px 0 6px 12px; border-left: 2px solid var(--line); margin-left: 4px; }
+.trace li.trace-model { border-left-color: var(--accent); }
+.trace li.trace-error { border-left-color: var(--bad); }
+.trace li.trace-stop { color: var(--muted); }
+.tag { display: inline-block; min-width: 44px; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.trace em { color: var(--muted); }

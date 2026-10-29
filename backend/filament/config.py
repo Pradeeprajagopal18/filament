@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     # When a model has no entry, cost is left empty rather than guessed.
     pricing: dict[str, dict[str, float]] = {}
 
+    # Agent loop guardrails: hard limits the model cannot override.
+    max_agent_turns: int = 12
+    run_token_budget: int = 200_000
+
     # Context engine budget (approximate tokens) for each run's context pack.
     context_budget_tokens: int = 12_000
 

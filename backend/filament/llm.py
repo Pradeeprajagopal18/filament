@@ -29,6 +29,90 @@ class LLMResult:
         )
 
 
+@dataclass
+class ToolCall:
+    id: str
+    name: str
+    input: dict
+
+
+@dataclass
+class ModelTurn:
+    """One assistant turn in a tool-use loop."""
+
+    text: str
+    tool_calls: list[ToolCall]
+    stop_reason: str
+    model: str
+    input_tokens: int
+    output_tokens: int
+    offline: bool = False
+
+    def assistant_content(self) -> list[dict]:
+        """The turn as Messages API content blocks, to append to the conversation."""
+        blocks: list[dict] = []
+        if self.text:
+            blocks.append({"type": "text", "text": self.text})
+        for c in self.tool_calls:
+            blocks.append({"type": "tool_use", "id": c.id, "name": c.name, "input": c.input})
+        return blocks
+
+    def cost_usd(self, settings: Settings | None = None) -> float | None:
+        return LLMResult(self.text, self.model, self.input_tokens, self.output_tokens).cost_usd(
+            settings
+        )
+
+
+# An offline policy decides the next turn from the conversation so far (used without an API
+# key, and in tests). It must return a ModelTurn with tool calls, or no tool calls to stop.
+OfflinePolicy = Callable[[list[dict]], ModelTurn]
+
+
+def chat(
+    system: str,
+    messages: list[dict],
+    tools: list[dict],
+    *,
+    model: str | None = None,
+    max_tokens: int | None = None,
+    offline_policy: OfflinePolicy | None = None,
+) -> ModelTurn:
+    """One step of a tool-use conversation with the Messages API."""
+    settings = get_settings()
+    model = model or settings.model_default
+
+    if settings.offline:
+        if offline_policy is None:
+            return ModelTurn("(offline)", [], "end_turn", f"{model} (offline)", 0, 0, True)
+        turn = offline_policy(messages)
+        turn.model = f"{model} (offline)"
+        turn.offline = True
+        turn.input_tokens = approx_tokens(system + str(messages)[-20_000:])
+        turn.output_tokens = approx_tokens(str(turn.assistant_content()))
+        return turn
+
+    import anthropic
+
+    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    message = client.messages.create(
+        model=model,
+        max_tokens=max_tokens or settings.max_output_tokens,
+        system=system,
+        tools=tools,
+        messages=messages,
+    )
+    text = "".join(b.text for b in message.content if b.type == "text")
+    calls = [ToolCall(b.id, b.name, dict(b.input)) for b in message.content if b.type == "tool_use"]
+    return ModelTurn(
+        text=text,
+        tool_calls=calls,
+        stop_reason=message.stop_reason or "end_turn",
+        model=model,
+        input_tokens=message.usage.input_tokens,
+        output_tokens=message.usage.output_tokens,
+    )
+
+
 def approx_tokens(text: str) -> int:
     """Rough token estimate (~4 characters per token) for budgeting and offline accounting."""
     return max(1, len(text) // 4)

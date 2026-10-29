@@ -1,27 +1,12 @@
-"""Requirements Agent: idea -> PRD + user stories with acceptance criteria."""
+"""Requirements Agent: idea -> PRD + user stories with acceptance criteria, agentically.
 
-import json
+The agent inspects the graph and memory, decides what to write, checks for duplicates, links
+its work, asks humans about real ambiguity, and proposes decisions for shared memory.
+"""
 
-from filament.agents.base import Agent, AgentError, parse_json
+from filament.agents.base import Agent, AgentError, OfflineScript
+from filament.agents.tools import SPECIALIST_TOOLS
 from filament.models import Artifact
-
-SCHEMA = """{
-  "prd": {
-    "title": str,
-    "problem": str,
-    "goals": [str],
-    "non_goals": [str],
-    "users": [str],
-    "requirements": [str],
-    "non_functional": [str],
-    "open_questions": [str]
-  },
-  "stories": [
-    {"title": str, "as_a": str, "i_want": str, "so_that": str,
-     "acceptance_criteria": ["Given ... When ... Then ..."]}
-  ],
-  "decisions": [str]
-}"""
 
 
 class RequirementsAgent(Agent):
@@ -29,126 +14,83 @@ class RequirementsAgent(Agent):
     description = (
         "Turns an idea or opportunity into a PRD and user stories with acceptance criteria."
     )
+    tools = SPECIALIST_TOOLS
     system = (
-        "You are the Requirements Agent in Filament, an agentic software delivery platform. "
-        "You write clear, testable product requirements. Use the provided context (prior "
-        "decisions, standards, linked artifacts) and do not contradict confirmed decisions. "
-        "Keep stories small and independently shippable. Acceptance criteria use "
-        "Given/When/Then. List genuine unknowns as open questions instead of inventing facts. "
-        "Respond with a single JSON object only, matching this shape:\n" + SCHEMA
+        "You are the Requirements Agent. You turn ideas into clear, testable requirements.\n"
+        "Work like a strong product manager:\n"
+        "1. Search shared memory for standards and decisions that constrain this idea, and "
+        "search the project graph for existing PRDs/stories so you extend rather than duplicate.\n"
+        "2. Create one PRD (type 'prd', link derives_from the idea) with sections: Problem, "
+        "Goals, Non-goals, Users, Requirements, Non-functional requirements, Open questions.\n"
+        "3. Create 3-8 small, independently shippable stories (type 'story', link implements "
+        "the PRD). Each story: 'As a ..., I want ..., so that ...' then Given/When/Then "
+        "acceptance criteria.\n"
+        "4. If something important is ambiguous, call ask_human, then proceed with a stated "
+        "assumption listed under Open questions.\n"
+        "5. Propose durable product decisions with propose_memory.\n"
+        "Never invent facts about users, metrics or systems; list unknowns instead."
     )
 
-    def _idea(self) -> tuple[str, Artifact | None]:
-        idea_text = self.run_record.input.get("idea", "")
-        idea_art = None
+    def prepare(self) -> None:
+        self.idea_text = self.run_record.input.get("idea", "") or ""
+        self.idea_art: Artifact | None = None
         for aid in self.target_artifact_ids():
             art = self.session.get(Artifact, aid)
             if art and art.type in {"idea", "opportunity", "feature_request"}:
-                idea_art = art
-                idea_text = idea_text or f"{art.title}\n\n{art.content}"
-        if not idea_text.strip():
+                self.idea_art = art
+                self.idea_text = self.idea_text or f"{art.title}\n\n{art.content}"
+        if not self.idea_text.strip():
             raise AgentError("Provide input.idea text or an idea artifact in input.artifact_ids")
-        return idea_text, idea_art
+        if self.idea_art is None and self.persists:
+            # The idea is the requester's own input, saved as approved human work.
+            title = self.idea_text.strip().splitlines()[0][:120]
+            self.idea_art = Artifact(project_id=self.project.id, type="idea", title=title,
+                                     content=self.idea_text, status="approved",
+                                     author=self.run_record.requested_by,
+                                     run_id=self.run_record.id)
+            self.session.add(self.idea_art)
+            self.session.flush()
 
-    def execute(self, context: str) -> dict:
-        idea_text, idea_art = self._idea()
-        if idea_art is None and self.persists:
-            title = idea_text.strip().splitlines()[0][:120]
-            idea_art = self.save_artifact("idea", title, idea_text)
-            if idea_art:  # the idea is the requester's own input, not agent output
-                idea_art.author = self.run_record.requested_by
-                idea_art.status = "approved"
+    def task(self, context: str) -> str:
+        idea_ref = f" (artifact id {self.idea_art.id})" if self.idea_art else ""
+        return (f"Goal: {self.run_record.goal}\n\nProject: {self.project.name}\n"
+                f"{self.project.description}\n\n## Context already gathered\n{context}\n\n"
+                f"## Idea{idea_ref}\n{self.idea_text}")
 
-        prompt = (
-            f"Project: {self.project.name}\n{self.project.description}\n\n"
-            f"## Context\n{context}\n\n## Idea\n{idea_text}\n\n"
-            "Write the PRD and 3-8 user stories."
+    def result(self) -> dict:
+        prds = self.ids_of("prd")
+        return {"idea_id": self.idea_art.id if self.idea_art else None,
+                "prd_id": prds[0] if prds else None, "story_ids": self.ids_of("story")}
+
+    def offline_script(self) -> OfflineScript:
+        first = self.idea_text.strip().splitlines()[0][:80]
+        mem = yield [("search_memory", {"query": self.idea_text[:300]}),
+                     ("search_graph", {"query": first, "types": ["prd", "story"]})]
+        standards = [m["content"] for m in mem[0].get("results", [])]
+        nfr = "\n".join(f"- {s}" for s in standards) or "- Meets the team's adopted standards"
+        idea_link = ([{"target_id": self.idea_art.id, "kind": "derives_from"}]
+                     if self.idea_art else [])
+        prd = (
+            f"# PRD: {first}\n\n## Problem\n{self.idea_text.strip()}\n\n## Goals\n- Deliver: "
+            f"{first}\n\n## Non-goals\n- Anything not described in the idea\n\n## Users\n"
+            f"- Primary user (to confirm)\n\n## Requirements\n- The system supports: {first}\n\n"
+            f"## Non-functional requirements\n{nfr}\n\n## Open questions\n"
+            "- Offline draft: set ANTHROPIC_API_KEY for a full analysis"
         )
-        result = self.llm(prompt, offline_response=lambda: json.dumps(offline_draft(idea_text)))
-        spec = parse_json(result.text)
-        prd = spec.get("prd") or {}
-        stories = spec.get("stories") or []
-        if not prd or not stories:
-            raise AgentError("Model response missing prd or stories")
-
-        prd_art = self.save_artifact("prd", prd.get("title", "PRD"), render_prd(prd), data=prd,
-                                     gate=True)
-        self.link(prd_art, idea_art, "derives_from")
-        story_ids = []
-        for s in stories:
-            art = self.save_artifact("story", s.get("title", "Story"), render_story(s), data=s,
-                                     gate=True)
-            self.link(art, prd_art, "implements")
-            if art:
-                story_ids.append(art.id)
-        sources = [prd_art.id] if prd_art else []
-        for d in spec.get("decisions", []):
-            self.remember(d, kind="decision", sources=sources)
-
-        return {
-            "prd_id": prd_art.id if prd_art else None,
-            "story_ids": story_ids,
-            "idea_id": idea_art.id if idea_art else None,
-            "spec": spec,
-        }
-
-
-def render_prd(prd: dict) -> str:
-    def section(title: str, items: list[str]) -> str:
-        return f"## {title}\n" + "\n".join(f"- {i}" for i in items) + "\n" if items else ""
-
-    return (
-        f"# {prd.get('title', 'PRD')}\n\n## Problem\n{prd.get('problem', '')}\n\n"
-        + section("Goals", prd.get("goals", []))
-        + section("Non-goals", prd.get("non_goals", []))
-        + section("Users", prd.get("users", []))
-        + section("Requirements", prd.get("requirements", []))
-        + section("Non-functional requirements", prd.get("non_functional", []))
-        + section("Open questions", prd.get("open_questions", []))
-    ).strip()
-
-
-def render_story(s: dict) -> str:
-    ac = "\n".join(f"- {c}" for c in s.get("acceptance_criteria", []))
-    return (
-        f"As a {s.get('as_a', 'user')}, I want {s.get('i_want', '')} "
-        f"so that {s.get('so_that', '')}.\n\n### Acceptance criteria\n{ac}"
-    )
-
-
-def offline_draft(idea: str) -> dict:
-    """Deterministic draft used when no API key is configured (demo and tests)."""
-    first = idea.strip().splitlines()[0][:80] if idea.strip() else "New capability"
-    return {
-        "prd": {
-            "title": f"PRD: {first}",
-            "problem": idea.strip(),
-            "goals": [f"Deliver: {first}"],
-            "non_goals": ["Anything not described in the idea"],
-            "users": ["Primary user (to confirm)"],
-            "requirements": [f"The system supports: {first}"],
-            "non_functional": ["Meets the team's adopted standards"],
-            "open_questions": ["Offline draft - set ANTHROPIC_API_KEY for a full analysis"],
-        },
-        "stories": [
-            {
-                "title": f"Basic flow for {first}",
-                "as_a": "user",
-                "i_want": first.lower(),
-                "so_that": "I get the intended outcome",
-                "acceptance_criteria": [
-                    "Given a signed-in user When they use the feature Then it completes",
-                ],
-            },
-            {
-                "title": "Error handling",
-                "as_a": "user",
-                "i_want": "clear errors when something fails",
-                "so_that": "I know what to do next",
-                "acceptance_criteria": [
-                    "Given invalid input When submitted Then a clear error is shown",
-                ],
-            },
-        ],
-        "decisions": [],
-    }
+        res = yield [("create_artifact", {"type": "prd", "title": f"PRD: {first}",
+                                          "content": prd, "link_to": idea_link})]
+        prd_id = res[0].get("id")
+        link = [{"target_id": prd_id, "kind": "implements"}] if prd_id else []
+        stories = [
+            (f"Basic flow for {first}", "user", first.lower(), "I get the intended outcome",
+             "Given a signed-in user When they use the feature Then it completes"),
+            ("Error handling", "user", "clear errors when something fails",
+             "I know what to do next",
+             "Given invalid input When submitted Then a clear error is shown"),
+        ]
+        yield [("create_artifact", {
+            "type": "story", "title": t, "link_to": link,
+            "content": f"As a {who}, I want {want}, so that {why}.\n\n"
+                       f"### Acceptance criteria\n- {ac}"}) for t, who, want, why, ac in stories]
+        yield [("finish", {"summary": f"Drafted a PRD and {len(stories)} stories for '{first}'"
+                                      f" using {len(standards)} memory entries."})]

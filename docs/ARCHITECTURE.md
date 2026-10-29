@@ -50,14 +50,25 @@ flowchart TB
 1. `POST /api/projects/{id}/runs` creates a `Run` with an agent name, goal, input and autonomy level.
 2. The **context engine** gathers target artifacts, their neighbours within two hops, and
    ranked memory visible to the project, within a token budget. The pack is saved on the run.
-3. The **agent** calls `llm.complete` (Anthropic Messages API, or an offline stub), parses
-   JSON, and writes artifacts, links and *proposed* memory according to the autonomy level.
-4. Tokens and cost accumulate on the run; failures are recorded, never raised to the client.
+3. The **agent loop** (`agents/base.py`) sends the goal, context and tool definitions to the
+   Messages API. The model replies with tool calls; the platform executes them
+   (`agents/tools.py`) and returns results, until the model calls `finish` or a guardrail
+   stops it (max turns, token budget). Each tool call runs in a savepoint, so a bad call is
+   reported back to the model without corrupting the run.
+4. Write tools apply the autonomy level: L0 saves nothing, L1 saves drafts, L2 sends to review
+   with an approval, L3+ saves as approved. Agent memory is always *proposed*.
+5. The **Orchestrator** has a `delegate` tool that runs specialists as child runs (depth 1),
+   inheriting its autonomy. Its plan comes from the model, not from code.
+6. Every model turn and tool call is stored in `runs.trace`, with tokens and cost. A failed run
+   rolls back its writes but keeps its audit trail.
 
 ## Extending
 
-- **New agent:** subclass `Agent` in `backend/filament/agents/`, implement `execute`, provide an
-  `offline_response`, register it in `agents/__init__.py`, add a test.
+- **New agent:** subclass `Agent`, set `system` (how it should work) and `tools`, implement
+  `task` (the opening message), `offline_script` (a deterministic run for tests) and optionally
+  `result`; register it in `agents/__init__.py`, add a test.
+- **New tool:** add a handler and `Tool` entry in `agents/tools.py`; write tools must go through
+  `Agent.save_artifact` / `Agent.remember`.
 - **New readiness check:** add it in `readiness/scanner.py::run_checks` with a weight and a fix.
 
 ## Next (from the roadmap)
