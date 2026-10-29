@@ -55,6 +55,9 @@ class RequirementsAgent(Agent):
         if idea_art is None and self.persists:
             title = idea_text.strip().splitlines()[0][:120]
             idea_art = self.save_artifact("idea", title, idea_text)
+            if idea_art:  # the idea is the requester's own input, not agent output
+                idea_art.author = self.run_record.requested_by
+                idea_art.status = "approved"
 
         prompt = (
             f"Project: {self.project.name}\n{self.project.description}\n\n"

@@ -54,3 +54,18 @@ def test_scan_endpoint(client, tmp_path: Path):
     body = r.json()
     assert body["grade"] in "ABCDF" and len(body["checks"]) == 12
     assert client.get("/api/readiness").json()[0]["id"] == body["id"]
+
+
+def test_commented_out_codeowners_does_not_count(tmp_path: Path):
+    (tmp_path / ".github").mkdir()
+    (tmp_path / ".github/CODEOWNERS").write_text("# * @someone\n")
+    check = next(c for c in scan(str(tmp_path)).checks if c.id == "codeowners")
+    assert not check.passed
+
+
+def test_monorepo_lockfile_and_lint_found_in_subdirectories(tmp_path: Path):
+    (tmp_path / "backend").mkdir()
+    (tmp_path / "backend/uv.lock").write_text("")
+    (tmp_path / "backend/pyproject.toml").write_text("[tool.ruff]\n")
+    checks = {c.id: c for c in scan(str(tmp_path)).checks}
+    assert checks["lockfile"].passed and checks["lint"].passed

@@ -1,0 +1,31 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: filament
+      POSTGRES_PASSWORD: filament
+      POSTGRES_DB: filament
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+
+  api:
+    build: ./backend
+    environment:
+      FILAMENT_DATABASE_URL: postgresql+psycopg://filament:filament@db:5432/filament
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      FILAMENT_CORS_ORIGINS: '["http://localhost:5173"]'
+    ports: ["8000:8000"]
+    depends_on: [db]
+
+  web:
+    image: node:22-alpine
+    working_dir: /app
+    command: sh -c "npm ci && npx vite --host 0.0.0.0 --port 5173"
+    environment:
+      VITE_API_TARGET: http://api:8000
+    volumes: [./frontend:/app]
+    ports: ["5173:5173"]
+    depends_on: [api]
+
+volumes:
+  pgdata:

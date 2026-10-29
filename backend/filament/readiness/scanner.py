@@ -63,6 +63,14 @@ class Repo:
                 return c
         return None
 
+    def exists_anywhere(self, *names: str) -> str | None:
+        """First file at any depth whose name matches (monorepo-friendly)."""
+        wanted = {n.lower() for n in names}
+        for p in self.files:
+            if p.name.lower() in wanted:
+                return str(p).replace("\\", "/")
+        return None
+
     def any_name(self, predicate: Callable[[str], bool]) -> list[str]:
         return [str(p) for p in self.files if predicate(p.name.lower())]
 
@@ -127,7 +135,11 @@ def run_checks(repo: Repo) -> list[Check]:
         "Add AGENTS.md with build/test commands, layout, conventions and do-not-touch areas.")
 
     owners = repo.exists("CODEOWNERS", ".github/CODEOWNERS", "docs/CODEOWNERS")
-    add("codeowners", "Code owners defined", 8, owners, "Found {found}", "No CODEOWNERS file",
+    if owners and not any(line.strip() and not line.lstrip().startswith("#")
+                          for line in repo.read(owners).splitlines()):
+        owners = None  # file exists but every line is a comment
+    add("codeowners", "Code owners defined", 8, owners, "Found {found}",
+        "No CODEOWNERS file with an active ownership rule",
         "Add .github/CODEOWNERS so agents and reviewers know who owns what.")
 
     test_suffixes = ("_test.go", ".test.ts", ".test.js", ".spec.ts", ".spec.js", "test.java")
@@ -148,12 +160,15 @@ def run_checks(repo: Repo) -> list[Check]:
         "Via {found}", "No single build/test entry point detected",
         "Add a Makefile (or package.json scripts) with `build` and `test` targets.")
 
-    lint = repo.exists(".editorconfig", "ruff.toml", ".ruff.toml", ".flake8", ".eslintrc",
+    lint = repo.exists_anywhere(".editorconfig", "ruff.toml", ".ruff.toml", ".flake8", ".eslintrc",
                        ".eslintrc.js", ".eslintrc.json", "eslint.config.js", "eslint.config.mjs",
                        "biome.json", ".prettierrc", ".golangci.yml", "rustfmt.toml",
                        "checkstyle.xml")
-    if not lint and repo.exists("pyproject.toml") and "[tool.ruff" in repo.read("pyproject.toml"):
-        lint = "pyproject.toml [tool.ruff]"
+    if not lint:
+        for f in repo.files:
+            if f.name == "pyproject.toml" and "[tool.ruff" in repo.read(str(f)):
+                lint = f"{f} [tool.ruff]"
+                break
     add("lint", "Lint and format config", 7, lint, "Found {found}", "No lint/format config",
         "Add linter and formatter config so agent output matches team style.")
 
@@ -164,8 +179,8 @@ def run_checks(repo: Repo) -> list[Check]:
         "Found {found}", "No OpenAPI/AsyncAPI/proto/GraphQL specs",
         "Check in API specs so agents and simulations can use the contract.")
 
-    dev = repo.exists("Dockerfile", "docker-compose.yml", "compose.yaml",
-                      ".devcontainer/devcontainer.json", "devbox.json", ".tool-versions",
+    dev = repo.exists_anywhere("Dockerfile", "docker-compose.yml", "compose.yaml",
+                      "devcontainer.json", "devbox.json", ".tool-versions",
                       ".nvmrc", ".python-version", "flake.nix")
     add("dev_env", "Reproducible dev environment", 8, dev, "Found {found}",
         "No container, devcontainer or version pin files",
@@ -178,7 +193,7 @@ def run_checks(repo: Repo) -> list[Check]:
         "No CONTRIBUTING.md, ARCHITECTURE.md or docs/",
         "Add CONTRIBUTING.md and a short ARCHITECTURE.md.")
 
-    lock = repo.exists("uv.lock", "poetry.lock", "requirements.txt", "package-lock.json",
+    lock = repo.exists_anywhere("uv.lock", "poetry.lock", "requirements.txt", "package-lock.json",
                        "pnpm-lock.yaml", "yarn.lock", "go.sum", "cargo.lock", "gradle.lockfile")
     add("lockfile", "Dependencies pinned", 5, lock, "Found {found}", "No lockfile",
         "Commit a lockfile so agent builds are reproducible.")
