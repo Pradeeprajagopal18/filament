@@ -9,7 +9,9 @@ from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-IGNORE_DIRS = {".git", "node_modules", ".venv", "venv", "dist", "build", "__pycache__", "target"}
+IGNORE_DIRS = {".git", "node_modules", ".venv", "venv", "dist", "build", "__pycache__", "target",
+               "dist-demo", ".next", ".nuxt", "out", "coverage", "vendor", ".terraform",
+               ".pytest_cache", ".ruff_cache", ".mypy_cache", "bower_components"}
 
 
 @dataclass
@@ -20,6 +22,13 @@ class Check:
     passed: bool
     detail: str
     fix: str
+    kind: str = "common"  # which repo kind the check belongs to
+    status: str = ""  # pass | fail | skip (skip = not applicable, excluded from the score)
+    generate: str | None = None  # generator Filament can run to create the missing item
+
+    def __post_init__(self):
+        if not self.status:
+            self.status = "pass" if self.passed else "fail"
 
 
 @dataclass
@@ -29,6 +38,8 @@ class ReadinessResult:
     grade: str
     stack: list[str]
     checks: list[Check] = field(default_factory=list)
+    kinds: list[str] = field(default_factory=list)
+    profile: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -49,6 +60,8 @@ class Repo:
         self.files: list[Path] = []
         for path in root.rglob("*"):
             if any(part in IGNORE_DIRS for part in path.relative_to(root).parts):
+                continue
+            if path.name.endswith((".min.js", ".min.css", ".map")):
                 continue
             if path.is_file():
                 self.files.append(path.relative_to(root))
@@ -116,93 +129,11 @@ def _one_command(repo: Repo) -> str | None:
 
 
 def run_checks(repo: Repo) -> list[Check]:
-    checks: list[Check] = []
+    """Kind-aware readiness checks (see filament.repos.checks)."""
+    from filament.repos.checks import run_checks as kind_checks
+    from filament.repos.profile import detect
 
-    def add(id_, title, weight, found, detail_ok, detail_bad, fix):
-        checks.append(Check(id_, title, weight, bool(found),
-                            detail_ok.format(found=found) if found else detail_bad, fix))
-
-    readme = repo.exists("README.md", "README.rst", "README")
-    add("readme", "README explains the project", 10,
-        readme if readme and len(repo.read(readme)) >= 300 else None,
-        "Found {found}", "README missing or under 300 characters",
-        "Add a README covering purpose, setup, how to run and how to test.")
-
-    agent_file = repo.exists("AGENTS.md", "CLAUDE.md", ".github/copilot-instructions.md",
-                             ".cursorrules", ".cursor/rules")
-    add("agent_instructions", "Agent instructions file", 15, agent_file,
-        "Found {found}", "No AGENTS.md / CLAUDE.md / copilot-instructions.md",
-        "Add AGENTS.md with build/test commands, layout, conventions and do-not-touch areas.")
-
-    owners = repo.exists("CODEOWNERS", ".github/CODEOWNERS", "docs/CODEOWNERS")
-    if owners and not any(line.strip() and not line.lstrip().startswith("#")
-                          for line in repo.read(owners).splitlines()):
-        owners = None  # file exists but every line is a comment
-    add("codeowners", "Code owners defined", 8, owners, "Found {found}",
-        "No CODEOWNERS file with an active ownership rule",
-        "Add .github/CODEOWNERS so agents and reviewers know who owns what.")
-
-    test_suffixes = ("_test.go", ".test.ts", ".test.js", ".spec.ts", ".spec.js", "test.java")
-    tests = [f for f in repo.rel if "/test" in f"/{f}" or f.split("/")[-1].startswith("test_")
-             or f.endswith(test_suffixes)]
-    add("tests", "Automated tests present", 15,
-        f"{len(tests)} test files" if tests else None, "{found}", "No test files found",
-        "Add a test suite; agents need tests to verify their changes.")
-
-    ci = repo.any_name(lambda n: n.endswith((".yml", ".yaml")))
-    ci = [c for c in ci if c.replace("\\", "/").startswith(".github/workflows/")]
-    ci_found = (ci[0] if ci else None) or repo.exists(".gitlab-ci.yml", "Jenkinsfile",
-                                                     ".circleci/config.yml", "azure-pipelines.yml")
-    add("ci", "CI pipeline configured", 10, ci_found, "Found {found}", "No CI configuration",
-        "Add a CI workflow that builds and runs tests on every pull request.")
-
-    add("one_command", "Build and test in one command", 10, _one_command(repo),
-        "Via {found}", "No single build/test entry point detected",
-        "Add a Makefile (or package.json scripts) with `build` and `test` targets.")
-
-    lint = repo.exists_anywhere(".editorconfig", "ruff.toml", ".ruff.toml", ".flake8", ".eslintrc",
-                       ".eslintrc.js", ".eslintrc.json", "eslint.config.js", "eslint.config.mjs",
-                       "biome.json", ".prettierrc", ".golangci.yml", "rustfmt.toml",
-                       "checkstyle.xml")
-    if not lint:
-        for f in repo.files:
-            if f.name == "pyproject.toml" and "[tool.ruff" in repo.read(str(f)):
-                lint = f"{f} [tool.ruff]"
-                break
-    add("lint", "Lint and format config", 7, lint, "Found {found}", "No lint/format config",
-        "Add linter and formatter config so agent output matches team style.")
-
-    specs = repo.any_name(lambda n: n.startswith(("openapi", "swagger", "asyncapi"))
-                          and n.endswith((".yaml", ".yml", ".json")))
-    specs += repo.any_name(lambda n: n.endswith(".proto") or n.endswith(".graphql"))
-    add("api_specs", "API contracts checked in", 5, specs[0] if specs else None,
-        "Found {found}", "No OpenAPI/AsyncAPI/proto/GraphQL specs",
-        "Check in API specs so agents and simulations can use the contract.")
-
-    dev = repo.exists_anywhere("Dockerfile", "docker-compose.yml", "compose.yaml",
-                      "devcontainer.json", "devbox.json", ".tool-versions",
-                      ".nvmrc", ".python-version", "flake.nix")
-    add("dev_env", "Reproducible dev environment", 8, dev, "Found {found}",
-        "No container, devcontainer or version pin files",
-        "Add a Dockerfile or .devcontainer, or pin tool versions.")
-
-    docs = repo.exists("CONTRIBUTING.md", "docs/README.md", "docs/index.md", "ARCHITECTURE.md")
-    if not docs and any(f.startswith("docs/") for f in repo.rel):
-        docs = "docs/"
-    add("docs", "Contributor and architecture docs", 7, docs, "Found {found}",
-        "No CONTRIBUTING.md, ARCHITECTURE.md or docs/",
-        "Add CONTRIBUTING.md and a short ARCHITECTURE.md.")
-
-    lock = repo.exists_anywhere("uv.lock", "poetry.lock", "requirements.txt", "package-lock.json",
-                       "pnpm-lock.yaml", "yarn.lock", "go.sum", "cargo.lock", "gradle.lockfile")
-    add("lockfile", "Dependencies pinned", 5, lock, "Found {found}", "No lockfile",
-        "Commit a lockfile so agent builds are reproducible.")
-
-    env_files = [f for f in repo.rel if f.split("/")[-1] in {".env", ".env.local", ".env.prod"}]
-    checks.append(Check("no_secrets_files", "No .env files committed", 5, not env_files,
-                        "None found" if not env_files else f"Found {', '.join(env_files[:3])}",
-                        "Remove committed .env files and rotate any secrets in them."))
-    return checks
+    return kind_checks(repo, detect(repo))
 
 
 @contextmanager
@@ -226,19 +157,23 @@ def checkout(repo: str):
 
 
 def scan(repo: str) -> ReadinessResult:
+    from filament.repos.checks import run_checks as kind_checks
+    from filament.repos.checks import score as score_checks
+    from filament.repos.profile import detect
+
     with checkout(repo) as root:
         indexed = Repo(root)
-        checks = run_checks(indexed)
+        profile = detect(indexed)
+        checks = kind_checks(indexed, profile)
         stack = detect_stack(indexed)
-    total = sum(c.weight for c in checks)
-    score = round(100 * sum(c.weight for c in checks if c.passed) / total, 1)
+    score = score_checks(checks)
     return ReadinessResult(repo=repo, score=score, grade=grade_for(score), stack=stack,
-                           checks=checks)
+                           checks=checks, kinds=profile.kind_names, profile=profile.to_dict())
 
 
 def fix_files(result: ReadinessResult) -> dict[str, str]:
     """Starter files for failing checks. Humans (or the Readiness Agent) refine them."""
-    failing = {c.id for c in result.checks if not c.passed}
+    failing = {c.id for c in result.checks if c.status == "fail"}
     stack = ", ".join(result.stack) or "unknown"
     files: dict[str, str] = {}
     if "agent_instructions" in failing:

@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 ArtifactType = Literal[
     "idea", "opportunity", "prd", "story", "flow", "adr", "api_contract",
     "task", "pr", "test_plan", "release", "incident", "doc", "feature_request",
+    "ui_mock", "component_view",
 ]
 ArtifactStatus = Literal["draft", "in_review", "approved", "done", "rejected"]
 MemoryScope = Literal["org", "team", "project", "run"]
@@ -221,6 +222,9 @@ class ReadinessCheckOut(BaseModel):
     weight: int
     detail: str
     fix: str
+    kind: str = "common"
+    status: str = ""
+    generate: str | None = None
 
 
 class ReadinessOut(ORM):
@@ -356,3 +360,30 @@ class AgentSettingOut(BaseModel):
     token_budget: int
     context_budget: int
     overridden: list[str]
+
+
+# -- repos (Launchpad) ----------------------------------------------------------------------
+class RepoIn(BaseModel):
+    repo: str = Field(description="Local path or git URL")
+    project_id: str | None = Field(default=None, description="Attach to an existing project")
+
+
+class RepoSummary(ORM):
+    id: str
+    workspace_id: str
+    project_id: str
+    ref: str
+    name: str
+    kinds: list
+    score: float
+    grade: str
+    generated: dict
+    scanned_at: datetime
+
+
+class RepoDetail(RepoSummary):
+    analysis: dict
+
+
+class GenerateIn(BaseModel):
+    items: list[str] = Field(default_factory=list, description="Generator ids; empty = all missing")

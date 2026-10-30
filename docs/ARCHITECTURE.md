@@ -44,6 +44,7 @@ flowchart TB
 | `approvals` | Human gates on artifacts |
 | `signals` | Questions, unanswered questions and context misses for gap detection |
 | `readiness_reports` | Launchpad results per repo |
+| `repos` | Onboarded repos: kinds, latest analysis (readiness, API, UI, components) and `generated` (generator → draft artifact) |
 
 ## How a run works
 
@@ -93,7 +94,20 @@ flowchart TB
   `result`; register it in `agents/__init__.py`, add a test.
 - **New tool:** add a handler and `Tool` entry in `agents/tools.py`; write tools must go through
   `Agent.save_artifact` / `Agent.remember`.
-- **New readiness check:** add it in `readiness/scanner.py::run_checks` with a weight and a fix.
+- **New readiness check:** add it in `repos/checks.py::run_checks` with a weight, a fix, the repo kinds it applies to and, if Filament can draft it, a `generate` id.
+- **New repo kind or framework:** detection lives in `repos/profile.py`; routes in `repos/api_extract.py`; pages in `repos/ui_extract.py`; connections in `repos/deps.py`. Add a fixture repo in `tests/test_repos.py`.
+
+## Repo intelligence (Launchpad)
+
+Onboarding a repo runs one deterministic pass (no model, so it is fast, repeatable and never invents endpoints):
+
+1. **Profile**: the repo is classified into one or more kinds (frontend, backend, api, infrastructure, config, data, library, mobile, docs, monorepo), each with the evidence behind it.
+2. **Kind-aware readiness**: common checks run everywhere; code, API, frontend, infrastructure, config and library checks run only where they apply. Non-applicable checks are `skip` and don't affect the score.
+3. **API**: checked-in contracts win; otherwise routes are inferred from code and turned into OpenAPI 3.1, marked `x-source: inferred`.
+4. **UI**: routes → components → a wireframe of each page's real headings, inputs, buttons and child components.
+5. **Components**: a graph of what the repo connects to, every node backed by file:line evidence.
+
+Missing items (agent instructions, overview, architecture, ownership, API contract) are created **in Filament first**: as draft artifacts in the repo's project, with conventions proposed to project memory. Agents can use them immediately; `GET /repos/{id}/export` gives the files to commit once a person approves them.
 
 ## Next (from the roadmap)
 

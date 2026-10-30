@@ -29,8 +29,33 @@ export interface Memory {
 }
 export interface UsageRow { key: string; runs: number; input_tokens: number; output_tokens: number; cost_usd: number | null }
 export interface Gap { topic: string; count: number; examples: string[] }
-export interface Check { id: string; title: string; passed: boolean; weight: number; detail: string; fix: string }
+export interface Check {
+  id: string; title: string; passed: boolean; weight: number; detail: string; fix: string
+  kind?: string; status?: 'pass' | 'fail' | 'skip'; generate?: string | null
+}
 export interface Readiness { id: string; repo: string; score: number; grade: string; checks: Check[]; created_at: string }
+export interface Evidence { file: string; line: number | null; detail: string }
+export interface Endpoint {
+  method: string; path: string; file: string | null; line: number | null; handler: string
+  framework: string; summary: string; tag: string; params: { name: string; in: string }[]
+}
+export interface UiElement { type: string; label: string; repeated?: boolean; children?: UiElement[] }
+export interface UiPage { path: string; component: string; file: string | null; router: string; elements: UiElement[]; mock_html: string }
+export interface DepNode { id: string; label: string; category: string; evidence: Evidence[] }
+export interface RepoAnalysis {
+  repo: string; name: string
+  profile: { kinds: { kind: string; confidence: number; evidence: string[] }[]; kind_names: string[]; frameworks: string[]; languages: Record<string, number>; packages: string[]; manifests: string[]; file_count: number }
+  readiness: { score: number; grade: string; checks: Check[] }
+  commands: Record<string, string>
+  api: { source: 'spec' | 'inferred' | 'none'; specs: string[]; endpoints: Endpoint[]; openapi: Record<string, unknown> | null }
+  ui: { pages: UiPage[]; components: string[] }
+  components: { nodes: DepNode[]; edges: { source: string; target: string; label: string }[]; mermaid: string; summary: Record<string, number> }
+}
+export interface RepoSummary {
+  id: string; workspace_id: string; project_id: string; ref: string; name: string; kinds: string[]
+  score: number; grade: string; generated: Record<string, string>; scanned_at: string
+}
+export interface RepoDetail extends RepoSummary { analysis: RepoAnalysis }
 export interface McpTool { name: string; description: string; input_schema?: unknown }
 export interface McpServer {
   id: string; name: string; description: string; scope: string; scope_ref: string | null
@@ -99,6 +124,13 @@ const httpApi = {
   gaps: (ws: string) => call<Gap[]>('GET', `/workspaces/${ws}/gaps`),
   scan: (repo: string) => call<Readiness>('POST', '/readiness/scan', { repo }),
   readiness: () => call<Readiness[]>('GET', '/readiness'),
+  repos: (ws: string) => call<RepoSummary[]>('GET', `/workspaces/${ws}/repos`),
+  onboardRepo: (ws: string, repo: string) => call<RepoDetail>('POST', `/workspaces/${ws}/repos`, { repo }),
+  repo: (id: string) => call<RepoDetail>('GET', `/repos/${id}`),
+  rescanRepo: (id: string) => call<RepoDetail>('POST', `/repos/${id}/rescan`),
+  generateRepo: (id: string, items: string[]) => call<RepoDetail>('POST', `/repos/${id}/generate`, { items }),
+  repoOpenapi: (id: string) => callText('GET', `/repos/${id}/openapi`),
+  artifact: (id: string) => call<Artifact>('GET', `/artifacts/${id}`),
   mcpServers: (ws: string) => call<McpServer[]>('GET', `/workspaces/${ws}/mcp`),
   addMcpServer: (ws: string, body: McpServerInput) => call<McpServer>('POST', `/workspaces/${ws}/mcp?test=true`, body),
   updateMcpServer: (id: string, body: Partial<McpServerInput>) => call<McpServer>('PATCH', `/mcp/${id}`, body),

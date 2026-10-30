@@ -31,7 +31,10 @@ work in the same place, and every agent output is linked, cited and reviewable.
 | Ask Filament | Answers from memory and the graph with citations; unanswered questions are logged |
 | What we're missing | Unanswered questions and agent context misses clustered into gaps |
 | Token usage | Tokens and cost per agent, project, model, person or status |
-| Launchpad readiness | Grades any repo (local path or git URL) A–F on 12 agent-readiness checks and generates starter fixes |
+| Launchpad repos | Onboards any repo (app, backend, API, frontend, infrastructure, config, library, monorepo): detects its type with evidence, runs only the readiness checks that apply, and creates missing pieces as drafts in Filament's graph and memory |
+| API docs | Collects OpenAPI / AsyncAPI / gRPC / GraphQL contracts, or infers endpoints from FastAPI, Flask, Django, Express, NestJS, Spring and Go code, and generates an OpenAPI 3.1 document |
+| UI mocks | Finds pages (React Router, Vue, Angular, Next.js, tab-based apps) and renders a wireframe of each from its real markup |
+| Component view | Maps what a repo connects to (databases, caches, queues, SaaS, internal services, cloud resources) from manifests, env vars, connection strings, compose, k8s and Terraform, each with file:line evidence |
 | `fil` CLI | Every capability from the terminal |
 
 ## Quick start
@@ -65,6 +68,9 @@ docker compose up --build
 ```bash
 cd backend && source .venv/bin/activate
 fil ready scan github.com/acme/checkout-api      # Launchpad readiness (no server needed)
+fil repo add github.com/acme/checkout-api        # onboard: type, readiness, API, UI, components
+fil repo generate <id>                           # create missing items as drafts in Filament
+fil repo openapi <id> -o openapi.yaml            # API contract (checked in or inferred)
 fil ready fix ./my-repo --write                  # starter AGENTS.md, CODEOWNERS, Makefile, ...
 
 fil ws create "Acme"                              # then: export FIL_WORKSPACE=<id>

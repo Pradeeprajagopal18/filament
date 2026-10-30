@@ -21,7 +21,8 @@ if TYPE_CHECKING:
     from filament.agents.base import Agent
 
 ARTIFACT_TYPES = ["idea", "opportunity", "prd", "story", "flow", "adr", "api_contract", "task",
-                  "test_plan", "release", "incident", "doc", "feature_request"]
+                  "test_plan", "release", "incident", "doc", "feature_request", "ui_mock",
+                  "component_view"]
 LINK_KINDS = ["implements", "derives_from", "visualizes", "depends_on", "verifies", "relates_to",
               "supersedes"]
 EDITABLE = {"draft", "in_review"}

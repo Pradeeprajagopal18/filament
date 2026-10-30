@@ -255,3 +255,27 @@ class AgentSetting(Base):
     max_turns: Mapped[int | None] = mapped_column(Integer, nullable=True)
     token_budget: Mapped[int | None] = mapped_column(Integer, nullable=True)
     context_budget: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class RepoRecord(Base):
+    """A repository onboarded through Launchpad, with its latest analysis.
+
+    `generated` maps a generator id (agents_md, api_contract, ...) to the artifact Filament
+    created for it, so readiness items can be satisfied in the platform before they exist in
+    the repo itself.
+    """
+
+    __tablename__ = "repos"
+    __table_args__ = (UniqueConstraint("workspace_id", "ref"),)
+
+    id: Mapped[str] = mapped_column(String(12), primary_key=True, default=new_id)
+    workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"))
+    ref: Mapped[str] = mapped_column(String(500))  # local path or git URL
+    name: Mapped[str] = mapped_column(String(200))
+    kinds: Mapped[list] = mapped_column(JSON, default=list)
+    score: Mapped[float] = mapped_column(Float, default=0)
+    grade: Mapped[str] = mapped_column(String(2), default="F")
+    analysis: Mapped[dict] = mapped_column(JSON, default=dict)
+    generated: Mapped[dict] = mapped_column(JSON, default=dict)
+    scanned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)

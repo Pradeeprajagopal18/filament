@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, DEMO, type Health, type Project, type Workspace } from './api'
-import { AskPage, GapsPage, LaunchpadPage, MemoryPage, ProjectPage, UsagePage } from './pages'
+import { LaunchpadPage } from './launchpad'
+import { AskPage, GapsPage, MemoryPage, ProjectPage, UsagePage } from './pages'
 import { ConnectorsPage, RunnersPage } from './settings'
 
 type View = { kind: 'project'; project: Project } | { kind: 'memory' | 'ask' | 'usage' | 'launchpad' | 'gaps' | 'connectors' | 'runners' }
@@ -94,7 +95,7 @@ export default function App() {
         {ws && view.kind === 'ask' && <AskPage ws={ws} />}
         {ws && view.kind === 'usage' && <UsagePage ws={ws} />}
         {ws && view.kind === 'gaps' && <GapsPage ws={ws} />}
-        {view.kind === 'launchpad' && <LaunchpadPage />}
+        {ws && view.kind === 'launchpad' && <LaunchpadPage ws={ws} />}
         {ws && view.kind === 'connectors' && <ConnectorsPage ws={ws} />}
         {ws && view.kind === 'runners' && <RunnersPage ws={ws} />}
       </main>

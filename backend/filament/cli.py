@@ -32,6 +32,9 @@ app.add_typer(mcp_app, name="mcp")
 app.add_typer(runner_app, name="runner")
 app.add_typer(agent_app, name="agent")
 app.add_typer(config_app, name="config")
+repo_app = typer.Typer(help="Launchpad repos: type, readiness, API docs, UI, components",
+                       no_args_is_help=True)
+app.add_typer(repo_app, name="repo")
 
 console = Console()
 API = os.environ.get("FIL_API", "http://localhost:8000/api")
@@ -58,23 +61,31 @@ def _call(method: str, path: str, **kwargs):
 
 # -- Launchpad -------------------------------------------------------------------
 @ready_app.command("scan")
-def ready_scan(repo: str, as_json: bool = typer.Option(False, "--json")):
-    """Grade a local path or git URL for agent readiness."""
+def ready_scan(repo: str, as_json: bool = typer.Option(False, "--json"),
+               all_checks: bool = typer.Option(False, "--all", help="Include skipped checks")):
+    """Grade a local path or git URL for agent readiness, using checks for its repo type."""
     from filament.readiness import scan
 
     result = scan(repo)
     if as_json:
         console.print_json(json.dumps(result.to_dict()))
         return
-    table = Table(title=f"{repo}  —  grade {result.grade} ({result.score}/100)")
-    for col in ("", "Check", "Weight", "Detail"):
+    kinds = ", ".join(result.kinds) or "unknown"
+    table = Table(title=f"{repo}  —  {kinds}  —  grade {result.grade} ({result.score}/100)")
+    for col in ("", "Check", "Type", "Weight", "Detail"):
         table.add_column(col)
     for c in result.checks:
-        table.add_row("[green]✔[/green]" if c.passed else "[red]✘[/red]", c.title,
-                      str(c.weight), c.detail if c.passed else f"{c.detail} → {c.fix}")
+        if c.status == "skip" and not all_checks:
+            continue
+        mark = {"pass": "[green]✔[/green]", "fail": "[red]✘[/red]"}.get(c.status, "[dim]–[/dim]")
+        detail = c.detail if c.status != "fail" else f"{c.detail} → {c.fix}"
+        if c.generate:
+            detail += " [dim](Filament can generate this)[/dim]"
+        table.add_row(mark, c.title, c.kind, str(c.weight), detail)
     console.print(table)
-    if result.stack:
-        console.print(f"Stack: {', '.join(result.stack)}")
+    frameworks = ", ".join(result.profile.get("frameworks", []))
+    if frameworks:
+        console.print(f"Frameworks: {frameworks}")
 
 
 @ready_app.command("fix")
@@ -443,6 +454,92 @@ def config_apply(file: Path = typer.Option(..., "-f", "--file"),
               headers={"Content-Type": "text/plain"})
     console.print(f"Applied: {r['applied']}")
 
+
+
+# -- Launchpad repos -------------------------------------------------------------
+def _repo_line(r: dict) -> str:
+    kinds = ", ".join(r["kinds"])
+    return f"[bold]{r['name']}[/bold] ({kinds}) grade {r['grade']} · {r['score']:.0f}"
+
+
+@repo_app.command("add")
+def repo_add(repo: str, ws: str | None = typer.Option(None),
+             project: str | None = typer.Option(None, help="Attach to an existing project")):
+    """Onboard a repo (local path or git URL): detect its type and analyze everything."""
+    r = _call("POST", f"/workspaces/{_ws(ws)}/repos", json={"repo": repo, "project_id": project})
+    console.print(f"{_repo_line(r)}  id={r['id']}")
+    _repo_summary(r)
+
+
+def _repo_summary(r: dict) -> None:
+    a = r["analysis"]
+    fails = [c for c in a["readiness"]["checks"] if c["status"] == "fail"]
+    for c in fails:
+        tag = "  [cyan](Filament can create this)[/cyan]" if c.get("generate") else ""
+        console.print(f"  [red]✗[/red] {c['title']} — {c['detail']}{tag}")
+    api = a["api"]
+    if api["endpoints"]:
+        console.print(f"  API: {len(api['endpoints'])} endpoints ({api['source']})")
+    if a["ui"]["pages"]:
+        console.print(f"  UI: {len(a['ui']['pages'])} pages")
+    deps = [n["label"] for n in a["components"]["nodes"] if n["category"] != "self"]
+    if deps:
+        console.print(f"  Connects to: {', '.join(deps[:12])}")
+
+
+@repo_app.command("list")
+def repo_list(ws: str | None = typer.Option(None)):
+    for r in _call("GET", f"/workspaces/{_ws(ws)}/repos"):
+        console.print(f"{r['id']}  {_repo_line(r)}  {r['ref']}")
+
+
+@repo_app.command("show")
+def repo_show(repo_id: str, section: str = typer.Option(
+        "summary", help="summary | api | ui | components")):
+    r = _call("GET", f"/repos/{repo_id}")
+    a = r["analysis"]
+    console.print(_repo_line(r))
+    if section == "api":
+        table = Table(title=f"API ({a['api']['source']})")
+        for col in ("Method", "Path", "Handler", "Where"):
+            table.add_column(col)
+        for e in a["api"]["endpoints"]:
+            where = f"{e['file']}:{e['line']}" if e.get("line") else (e.get("file") or "")
+            table.add_row(e["method"], e["path"], e.get("handler") or "", where)
+        console.print(table)
+    elif section == "ui":
+        for pg in a["ui"]["pages"]:
+            kinds = ", ".join(sorted({el["type"] for el in pg["elements"]}))
+            console.print(f"  {pg['path']}  → {pg['component']}  [{kinds}]")
+    elif section == "components":
+        console.print(a["components"]["mermaid"])
+    else:
+        _repo_summary(r)
+
+
+@repo_app.command("generate")
+def repo_generate(repo_id: str, item: list[str] = typer.Option(
+        [], "--item", help="agents_md | overview | architecture | codeowners | api_contract")):
+    """Create missing items as drafts in Filament (default: everything a failing check needs)."""
+    r = _call("POST", f"/repos/{repo_id}/generate", json={"items": item})
+    for gen_id, art in r["generated"].items():
+        console.print(f"  [green]✓[/green] {gen_id} → artifact {art} (draft)")
+    console.print("Conventions were proposed to project memory for review.")
+
+
+@repo_app.command("openapi")
+def repo_openapi(repo_id: str, out: str | None = typer.Option(None, "-o")):
+    """Print or save the OpenAPI document (from the repo's spec or inferred from code)."""
+    resp = httpx.get(f"{API}/repos/{repo_id}/openapi", timeout=60)
+    if resp.status_code >= 400:
+        console.print(f"[red]{resp.status_code}: {resp.text}[/red]")
+        raise typer.Exit(1)
+    if out:
+        with open(out, "w") as fh:
+            fh.write(resp.text)
+        console.print(f"Wrote {out}")
+    else:
+        print(resp.text)
 
 if __name__ == "__main__":
     app()

@@ -52,7 +52,8 @@ def test_scan_endpoint(client, tmp_path: Path):
     r = client.post("/api/readiness/scan", json={"repo": str(tmp_path)})
     assert r.status_code == 201
     body = r.json()
-    assert body["grade"] in "ABCDF" and len(body["checks"]) == 12
+    applicable = [c for c in body["checks"] if c["status"] != "skip"]
+    assert body["grade"] in "ABCDF" and len(applicable) == 11  # common + code checks
     assert client.get("/api/readiness").json()[0]["id"] == body["id"]
 
 

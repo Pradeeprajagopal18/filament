@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, type Artifact, type Gap, type Memory, type Project, type Readiness, type Run, type UsageRow } from './api'
+import { api, type Artifact, type Gap, type Memory, type Project, type Run, type UsageRow } from './api'
 import { Badge, Content, ErrorLine, Tokens } from './components'
 
 const TYPE_ORDER = ['idea', 'prd', 'story', 'flow', 'adr', 'api_contract', 'task', 'test_plan', 'release']
@@ -327,74 +327,6 @@ export function UsagePage({ ws }: { ws: string }) {
         </table>
         {rows.some(r => r.cost_usd == null) && <p className="muted small">Cost shows once model pricing is set in FILAMENT_PRICING.</p>}
       </section>
-    </div>
-  )
-}
-
-// -- Launchpad -------------------------------------------------------------------------
-export function LaunchpadPage() {
-  const [repo, setRepo] = useState('')
-  const [reports, setReports] = useState<Readiness[]>([])
-  const [current, setCurrent] = useState<Readiness | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  useEffect(() => { api.readiness().then(setReports) }, [])
-
-  async function scan() {
-    setBusy(true); setError('')
-    try {
-      const r = await api.scan(repo)
-      setCurrent(r)
-      setReports(rs => [r, ...rs])
-    } catch (e) { setError(String(e)) } finally { setBusy(false) }
-  }
-
-  return (
-    <div className="page">
-      <h1>Launchpad · repo readiness</h1>
-      <p className="muted">Is this repo structured so agents can work in it? Paste a local path or a git URL.</p>
-      <section className="card row">
-        <input value={repo} onChange={e => setRepo(e.target.value)} placeholder="github.com/acme/checkout-api or /path/to/repo" />
-        <button disabled={!repo.trim() || busy} onClick={scan}>{busy ? 'Scanning…' : 'Check readiness'}</button>
-      </section>
-      <ErrorLine error={error} />
-      {current && (
-        <section className="card">
-          <div className="row spread">
-            <h2>{current.repo}</h2>
-            <span className={`grade grade-${current.grade}`}>{current.grade}<small>{current.score}</small></span>
-          </div>
-          <table>
-            <tbody>
-              {current.checks.map(c => (
-                <tr key={c.id}>
-                  <td className={c.passed ? 'pass' : 'fail'}>{c.passed ? '✔' : '✘'}</td>
-                  <td>{c.title}</td>
-                  <td className="muted">{c.passed ? c.detail : <>{c.detail} — <em>{c.fix}</em></>}</td>
-                  <td className="muted">{c.weight}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className="muted small">Generate starter files for failing checks with <code>fil ready fix &lt;path&gt; --write</code>.</p>
-        </section>
-      )}
-      {reports.length > 0 && (
-        <section className="card">
-          <h2>History</h2>
-          <table>
-            <thead><tr><th>Repo</th><th>Grade</th><th>Score</th><th>Checked</th></tr></thead>
-            <tbody>
-              {reports.map(r => (
-                <tr key={r.id} onClick={() => setCurrent(r)} className="clickable">
-                  <td>{r.repo}</td><td><span className={`grade-sm grade-${r.grade}`}>{r.grade}</span></td>
-                  <td>{r.score}</td><td>{new Date(r.created_at).toLocaleString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      )}
     </div>
   )
 }

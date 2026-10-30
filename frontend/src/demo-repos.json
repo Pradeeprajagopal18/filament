@@ -1,0 +1,3421 @@
+[
+ {
+  "analysis": {
+   "repo": "github.com/acme/checkout-api",
+   "name": "checkout-api",
+   "profile": {
+    "kinds": [
+     {
+      "kind": "backend",
+      "confidence": 0.9,
+      "evidence": [
+       "depends on fastapi"
+      ]
+     },
+     {
+      "kind": "api",
+      "confidence": 0.6,
+      "evidence": [
+       "HTTP server framework"
+      ]
+     }
+    ],
+    "frameworks": [
+     "FastAPI"
+    ],
+    "languages": [
+     "Python"
+    ],
+    "packages": [],
+    "manifests": [
+     "pyproject.toml"
+    ],
+    "file_count": 14,
+    "kind_names": [
+     "backend",
+     "api"
+    ]
+   },
+   "readiness": {
+    "score": 54.5,
+    "grade": "D",
+    "checks": [
+     {
+      "id": "readme",
+      "title": "README explains the project",
+      "weight": 10,
+      "passed": false,
+      "detail": "README missing or under 300 characters",
+      "fix": "Add a README covering purpose, setup, how to run and how to test.",
+      "kind": "common",
+      "status": "fail",
+      "generate": "overview"
+     },
+     {
+      "id": "agent_instructions",
+      "title": "Agent instructions file",
+      "weight": 15,
+      "passed": false,
+      "detail": "No AGENTS.md / CLAUDE.md / copilot-instructions.md",
+      "fix": "Add AGENTS.md with build/test commands, layout, conventions and do-not-touch areas.",
+      "kind": "common",
+      "status": "fail",
+      "generate": "agents_md"
+     },
+     {
+      "id": "codeowners",
+      "title": "Code owners defined",
+      "weight": 8,
+      "passed": false,
+      "detail": "No CODEOWNERS file with an active ownership rule",
+      "fix": "Add .github/CODEOWNERS so agents and reviewers know who owns what.",
+      "kind": "common",
+      "status": "fail",
+      "generate": "codeowners"
+     },
+     {
+      "id": "ci",
+      "title": "CI pipeline configured",
+      "weight": 10,
+      "passed": true,
+      "detail": "Found .github/workflows/ci.yml",
+      "fix": "Add a CI workflow that validates every pull request.",
+      "kind": "common",
+      "status": "pass",
+      "generate": null
+     },
+     {
+      "id": "docs",
+      "title": "Contributor and architecture docs",
+      "weight": 7,
+      "passed": false,
+      "detail": "No CONTRIBUTING.md, ARCHITECTURE.md or docs/",
+      "fix": "Add CONTRIBUTING.md and a short ARCHITECTURE.md.",
+      "kind": "common",
+      "status": "fail",
+      "generate": "architecture"
+     },
+     {
+      "id": "no_secrets_files",
+      "title": "No .env files committed",
+      "weight": 5,
+      "passed": true,
+      "detail": "None found",
+      "fix": "Remove committed .env files and rotate any secrets in them.",
+      "kind": "common",
+      "status": "pass",
+      "generate": null
+     },
+     {
+      "id": "tests",
+      "title": "Automated tests present",
+      "weight": 15,
+      "passed": true,
+      "detail": "1 test files",
+      "fix": "Add a test suite; agents need tests to verify their changes.",
+      "kind": "code",
+      "status": "pass",
+      "generate": null
+     },
+     {
+      "id": "one_command",
+      "title": "Build and test in one command",
+      "weight": 10,
+      "passed": true,
+      "detail": "Via Makefile",
+      "fix": "Add a Makefile (or package.json scripts) with `build` and `test` targets.",
+      "kind": "code",
+      "status": "pass",
+      "generate": null
+     },
+     {
+      "id": "lint",
+      "title": "Lint and format config",
+      "weight": 7,
+      "passed": true,
+      "detail": "Found pyproject.toml [tool.ruff]",
+      "fix": "Add linter and formatter config so agent output matches team style.",
+      "kind": "common",
+      "status": "pass",
+      "generate": null
+     },
+     {
+      "id": "dev_env",
+      "title": "Reproducible dev environment",
+      "weight": 8,
+      "passed": true,
+      "detail": "Found docker-compose.yml",
+      "fix": "Add a Dockerfile or .devcontainer, or pin tool versions.",
+      "kind": "code",
+      "status": "pass",
+      "generate": null
+     },
+     {
+      "id": "lockfile",
+      "title": "Dependencies pinned",
+      "weight": 5,
+      "passed": true,
+      "detail": "Found uv.lock",
+      "fix": "Commit a lockfile (or .terraform.lock.hcl) so builds are reproducible.",
+      "kind": "common",
+      "status": "pass",
+      "generate": null
+     },
+     {
+      "id": "api_contract",
+      "title": "API contract checked in",
+      "weight": 10,
+      "passed": false,
+      "detail": "No OpenAPI / AsyncAPI / proto / GraphQL contract",
+      "fix": "Check in an API contract; Filament can generate one from the code.",
+      "kind": "api",
+      "status": "fail",
+      "generate": "api_contract"
+     },
+     {
+      "id": "ui_component_tests",
+      "title": "Component tests or Storybook",
+      "weight": 7,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Add component tests (Testing Library) or Storybook stories.",
+      "kind": "frontend",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "e2e_tests",
+      "title": "End-to-end tests",
+      "weight": 7,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Add Playwright or Cypress end-to-end tests.",
+      "kind": "frontend",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "a11y_lint",
+      "title": "Accessibility linting",
+      "weight": 5,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Add eslint-plugin-jsx-a11y (or equivalent) and axe checks.",
+      "kind": "frontend",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "iac_validate_ci",
+      "title": "Infrastructure validated in CI",
+      "weight": 10,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Run terraform fmt/validate, helm lint or kubeconform on every pull request.",
+      "kind": "infrastructure",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "iac_policy_scan",
+      "title": "Policy and security scanning",
+      "weight": 8,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Add a policy scanner (checkov, tfsec, trivy or conftest) to CI.",
+      "kind": "infrastructure",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "no_state_files",
+      "title": "No state files committed",
+      "weight": 8,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Remove *.tfstate from the repo (it can contain secrets) and use remote state.",
+      "kind": "infrastructure",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "config_schema",
+      "title": "Config schema defined",
+      "weight": 8,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Add a schema so changes are validated before they ship.",
+      "kind": "config",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "env_separation",
+      "title": "Environments separated",
+      "weight": 7,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Keep each environment's values in its own folder or file.",
+      "kind": "config",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "config_validation_ci",
+      "title": "Config validated in CI",
+      "weight": 8,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Validate every change against the schema in CI.",
+      "kind": "config",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "no_plaintext_secrets",
+      "title": "No plaintext secrets in config",
+      "weight": 10,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Move secrets to a secret manager and reference them.",
+      "kind": "config",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "changelog",
+      "title": "Changelog maintained",
+      "weight": 5,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Keep a CHANGELOG so consumers see what changed.",
+      "kind": "library",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "release_workflow",
+      "title": "Automated releases",
+      "weight": 5,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Automate versioned releases from CI.",
+      "kind": "library",
+      "status": "skip",
+      "generate": null
+     }
+    ]
+   },
+   "commands": {
+    "test": "make test",
+    "lint": "make lint",
+    "dev": "make dev",
+    "install": "pip install -e ."
+   },
+   "layout": [
+    {
+     "path": "app",
+     "files": 6
+    },
+    {
+     "path": "tests",
+     "files": 1
+    }
+   ],
+   "api": {
+    "source": "inferred",
+    "specs": [],
+    "endpoints": [
+     {
+      "method": "GET",
+      "path": "/health",
+      "file": "app/main.py",
+      "line": 12,
+      "handler": "health",
+      "framework": "FastAPI",
+      "summary": "Liveness probe.",
+      "params": [],
+      "tag": "health"
+     },
+     {
+      "method": "POST",
+      "path": "/v1/carts",
+      "file": "app/routers/carts.py",
+      "line": 4,
+      "handler": "create_cart",
+      "framework": "FastAPI",
+      "summary": "Start a cart for a shopper.",
+      "params": [],
+      "tag": "carts"
+     },
+     {
+      "method": "GET",
+      "path": "/v1/carts/{cart_id}",
+      "file": "app/routers/carts.py",
+      "line": 8,
+      "handler": "get_cart",
+      "framework": "FastAPI",
+      "summary": "Read a cart with line items.",
+      "params": [
+       {
+        "name": "cart_id",
+        "in": "path"
+       }
+      ],
+      "tag": "carts"
+     },
+     {
+      "method": "POST",
+      "path": "/v1/carts/{cart_id}/items",
+      "file": "app/routers/carts.py",
+      "line": 12,
+      "handler": "add_item",
+      "framework": "FastAPI",
+      "summary": "Add a product to the cart.",
+      "params": [
+       {
+        "name": "cart_id",
+        "in": "path"
+       }
+      ],
+      "tag": "carts"
+     },
+     {
+      "method": "DELETE",
+      "path": "/v1/carts/{cart_id}/items/{item_id}",
+      "file": "app/routers/carts.py",
+      "line": 16,
+      "handler": "remove_item",
+      "framework": "FastAPI",
+      "summary": "Remove a line item.",
+      "params": [
+       {
+        "name": "cart_id",
+        "in": "path"
+       },
+       {
+        "name": "item_id",
+        "in": "path"
+       }
+      ],
+      "tag": "carts"
+     },
+     {
+      "method": "GET",
+      "path": "/v1/orders",
+      "file": "app/routers/orders.py",
+      "line": 10,
+      "handler": "list_orders",
+      "framework": "FastAPI",
+      "summary": "Orders for a customer.",
+      "params": [],
+      "tag": "orders"
+     },
+     {
+      "method": "POST",
+      "path": "/v1/orders",
+      "file": "app/routers/orders.py",
+      "line": 6,
+      "handler": "place_order",
+      "framework": "FastAPI",
+      "summary": "Turn a cart into an order and emit order.placed.",
+      "params": [],
+      "tag": "orders"
+     },
+     {
+      "method": "GET",
+      "path": "/v1/orders/{order_id}",
+      "file": "app/routers/orders.py",
+      "line": 14,
+      "handler": "get_order",
+      "framework": "FastAPI",
+      "summary": "Read one order.",
+      "params": [
+       {
+        "name": "order_id",
+        "in": "path"
+       }
+      ],
+      "tag": "orders"
+     },
+     {
+      "method": "POST",
+      "path": "/v1/orders/{order_id}/cancel",
+      "file": "app/routers/orders.py",
+      "line": 18,
+      "handler": "cancel_order",
+      "framework": "FastAPI",
+      "summary": "Cancel before fulfilment.",
+      "params": [
+       {
+        "name": "order_id",
+        "in": "path"
+       }
+      ],
+      "tag": "orders"
+     },
+     {
+      "method": "POST",
+      "path": "/v1/payments/intents",
+      "file": "app/routers/payments.py",
+      "line": 6,
+      "handler": "create_intent",
+      "framework": "FastAPI",
+      "summary": "Create a Stripe payment intent for an order.",
+      "params": [],
+      "tag": "payments"
+     },
+     {
+      "method": "POST",
+      "path": "/v1/payments/webhooks/stripe",
+      "file": "app/routers/payments.py",
+      "line": 10,
+      "handler": "stripe_webhook",
+      "framework": "FastAPI",
+      "summary": "Payment status from Stripe.",
+      "params": [],
+      "tag": "payments"
+     },
+     {
+      "method": "POST",
+      "path": "/v1/payments/{payment_id}/refund",
+      "file": "app/routers/payments.py",
+      "line": 14,
+      "handler": "refund",
+      "framework": "FastAPI",
+      "summary": "Refund a captured payment.",
+      "params": [
+       {
+        "name": "payment_id",
+        "in": "path"
+       }
+      ],
+      "tag": "payments"
+     }
+    ],
+    "openapi": {
+     "openapi": "3.1.0",
+     "info": {
+      "title": "checkout-api",
+      "version": "inferred",
+      "description": "Generated by Filament from the code. Review request and response schemas before publishing."
+     },
+     "paths": {
+      "/health": {
+       "get": {
+        "operationId": "health",
+        "summary": "Liveness probe.",
+        "tags": [
+         "health"
+        ],
+        "responses": {
+         "200": {
+          "description": "Successful response"
+         }
+        },
+        "x-source": "app/main.py:12"
+       }
+      },
+      "/v1/carts": {
+       "post": {
+        "operationId": "create_cart",
+        "summary": "Start a cart for a shopper.",
+        "tags": [
+         "carts"
+        ],
+        "responses": {
+         "200": {
+          "description": "Successful response"
+         }
+        },
+        "x-source": "app/routers/carts.py:4"
+       }
+      },
+      "/v1/carts/{cart_id}": {
+       "get": {
+        "operationId": "get_cart",
+        "summary": "Read a cart with line items.",
+        "tags": [
+         "carts"
+        ],
+        "responses": {
+         "200": {
+          "description": "Successful response"
+         }
+        },
+        "parameters": [
+         {
+          "name": "cart_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+           "type": "string"
+          }
+         }
+        ],
+        "x-source": "app/routers/carts.py:8"
+       }
+      },
+      "/v1/carts/{cart_id}/items": {
+       "post": {
+        "operationId": "add_item",
+        "summary": "Add a product to the cart.",
+        "tags": [
+         "carts"
+        ],
+        "responses": {
+         "200": {
+          "description": "Successful response"
+         }
+        },
+        "parameters": [
+         {
+          "name": "cart_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+           "type": "string"
+          }
+         }
+        ],
+        "x-source": "app/routers/carts.py:12"
+       }
+      },
+      "/v1/carts/{cart_id}/items/{item_id}": {
+       "delete": {
+        "operationId": "remove_item",
+        "summary": "Remove a line item.",
+        "tags": [
+         "carts"
+        ],
+        "responses": {
+         "200": {
+          "description": "Successful response"
+         }
+        },
+        "parameters": [
+         {
+          "name": "cart_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+           "type": "string"
+          }
+         },
+         {
+          "name": "item_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+           "type": "string"
+          }
+         }
+        ],
+        "x-source": "app/routers/carts.py:16"
+       }
+      },
+      "/v1/orders": {
+       "get": {
+        "operationId": "list_orders",
+        "summary": "Orders for a customer.",
+        "tags": [
+         "orders"
+        ],
+        "responses": {
+         "200": {
+          "description": "Successful response"
+         }
+        },
+        "x-source": "app/routers/orders.py:10"
+       },
+       "post": {
+        "operationId": "place_order",
+        "summary": "Turn a cart into an order and emit order.placed.",
+        "tags": [
+         "orders"
+        ],
+        "responses": {
+         "200": {
+          "description": "Successful response"
+         }
+        },
+        "x-source": "app/routers/orders.py:6"
+       }
+      },
+      "/v1/orders/{order_id}": {
+       "get": {
+        "operationId": "get_order",
+        "summary": "Read one order.",
+        "tags": [
+         "orders"
+        ],
+        "responses": {
+         "200": {
+          "description": "Successful response"
+         }
+        },
+        "parameters": [
+         {
+          "name": "order_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+           "type": "string"
+          }
+         }
+        ],
+        "x-source": "app/routers/orders.py:14"
+       }
+      },
+      "/v1/orders/{order_id}/cancel": {
+       "post": {
+        "operationId": "cancel_order",
+        "summary": "Cancel before fulfilment.",
+        "tags": [
+         "orders"
+        ],
+        "responses": {
+         "200": {
+          "description": "Successful response"
+         }
+        },
+        "parameters": [
+         {
+          "name": "order_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+           "type": "string"
+          }
+         }
+        ],
+        "x-source": "app/routers/orders.py:18"
+       }
+      },
+      "/v1/payments/intents": {
+       "post": {
+        "operationId": "create_intent",
+        "summary": "Create a Stripe payment intent for an order.",
+        "tags": [
+         "payments"
+        ],
+        "responses": {
+         "200": {
+          "description": "Successful response"
+         }
+        },
+        "x-source": "app/routers/payments.py:6"
+       }
+      },
+      "/v1/payments/webhooks/stripe": {
+       "post": {
+        "operationId": "stripe_webhook",
+        "summary": "Payment status from Stripe.",
+        "tags": [
+         "payments"
+        ],
+        "responses": {
+         "200": {
+          "description": "Successful response"
+         }
+        },
+        "x-source": "app/routers/payments.py:10"
+       }
+      },
+      "/v1/payments/{payment_id}/refund": {
+       "post": {
+        "operationId": "refund",
+        "summary": "Refund a captured payment.",
+        "tags": [
+         "payments"
+        ],
+        "responses": {
+         "200": {
+          "description": "Successful response"
+         }
+        },
+        "parameters": [
+         {
+          "name": "payment_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+           "type": "string"
+          }
+         }
+        ],
+        "x-source": "app/routers/payments.py:14"
+       }
+      }
+     }
+    }
+   },
+   "ui": {
+    "pages": [],
+    "components": []
+   },
+   "components": {
+    "nodes": [
+     {
+      "id": "checkout-api",
+      "label": "checkout-api",
+      "category": "self",
+      "evidence": [
+       {
+        "file": "docker-compose.yml",
+        "line": null,
+        "detail": "compose service 'api'"
+       }
+      ]
+     },
+     {
+      "id": "postgres",
+      "label": "PostgreSQL",
+      "category": "datastore",
+      "evidence": [
+       {
+        "file": "pyproject.toml",
+        "line": null,
+        "detail": "depends on sqlalchemy"
+       },
+       {
+        "file": "app/db.py",
+        "line": 3,
+        "detail": "reads DATABASE_URL"
+       },
+       {
+        "file": "pyproject.toml",
+        "line": null,
+        "detail": "depends on psycopg"
+       },
+       {
+        "file": "docker-compose.yml",
+        "line": null,
+        "detail": "compose service 'db', image postgres:16"
+       }
+      ]
+     },
+     {
+      "id": "redis",
+      "label": "Redis",
+      "category": "cache",
+      "evidence": [
+       {
+        "file": "pyproject.toml",
+        "line": null,
+        "detail": "depends on redis"
+       },
+       {
+        "file": "app/cache.py",
+        "line": 2,
+        "detail": "reads REDIS_URL"
+       },
+       {
+        "file": "docker-compose.yml",
+        "line": null,
+        "detail": "compose service 'cache', image redis:7"
+       }
+      ]
+     },
+     {
+      "id": "stripe",
+      "label": "Stripe",
+      "category": "external",
+      "evidence": [
+       {
+        "file": "pyproject.toml",
+        "line": null,
+        "detail": "depends on stripe"
+       },
+       {
+        "file": "app/routers/payments.py",
+        "line": 4,
+        "detail": "calls api.stripe.com"
+       }
+      ]
+     },
+     {
+      "id": "kafka",
+      "label": "Kafka",
+      "category": "queue",
+      "evidence": [
+       {
+        "file": "pyproject.toml",
+        "line": null,
+        "detail": "depends on aiokafka"
+       },
+       {
+        "file": "app/routers/orders.py",
+        "line": 4,
+        "detail": "reads KAFKA_BROKERS"
+       }
+      ]
+     },
+     {
+      "id": "sentry",
+      "label": "Sentry",
+      "category": "observability",
+      "evidence": [
+       {
+        "file": "pyproject.toml",
+        "line": null,
+        "detail": "depends on sentry-sdk"
+       },
+       {
+        "file": "app/main.py",
+        "line": 6,
+        "detail": "reads SENTRY_DSN"
+       }
+      ]
+     },
+     {
+      "id": "inventory",
+      "label": "inventory",
+      "category": "service",
+      "evidence": [
+       {
+        "file": "docker-compose.yml",
+        "line": 6,
+        "detail": "calls inventory"
+       }
+      ]
+     }
+    ],
+    "edges": [
+     {
+      "from": "checkout-api",
+      "to": "postgres",
+      "label": "uses"
+     },
+     {
+      "from": "checkout-api",
+      "to": "redis",
+      "label": "uses"
+     },
+     {
+      "from": "checkout-api",
+      "to": "stripe",
+      "label": "uses"
+     },
+     {
+      "from": "checkout-api",
+      "to": "kafka",
+      "label": "uses"
+     },
+     {
+      "from": "checkout-api",
+      "to": "sentry",
+      "label": "uses"
+     },
+     {
+      "from": "checkout-api",
+      "to": "inventory",
+      "label": "calls"
+     }
+    ],
+    "mermaid": "flowchart LR\n  n_checkout_api([\"checkout-api\"])\n  n_postgres[(\"PostgreSQL\")]\n  n_redis[(\"Redis\")]\n  n_stripe[\"Stripe\"]\n  n_kafka[[\"Kafka\"]]\n  n_sentry[\"Sentry\"]\n  n_inventory[\"inventory\"]\n  n_checkout_api -->|uses| n_postgres\n  n_checkout_api -->|uses| n_redis\n  n_checkout_api -->|uses| n_stripe\n  n_checkout_api -->|uses| n_kafka\n  n_checkout_api -->|uses| n_sentry\n  n_checkout_api -->|calls| n_inventory\n  classDef self fill:#fbf1df,stroke:#c47f17,stroke-width:2px\n  class n_checkout_api self\n  classDef datastore fill:#e7f1fb,stroke:#5b8cc4\n  class n_postgres datastore\n  classDef cache fill:#e7f1fb,stroke:#5b8cc4\n  class n_redis cache\n  classDef queue fill:#efedff,stroke:#7b6fd0\n  class n_kafka queue\n  classDef external fill:#f9ece7,stroke:#c4825b\n  class n_stripe external\n  classDef observability fill:#f0efec,stroke:#999\n  class n_sentry observability\n  classDef service fill:#fff,stroke:#666\n  class n_inventory service",
+    "summary": {
+     "self": 1,
+     "datastore": 1,
+     "cache": 1,
+     "external": 1,
+     "queue": 1,
+     "observability": 1,
+     "service": 1
+    },
+    "name": "checkout-api"
+   },
+   "dependencies": [
+    {
+     "ecosystem": "pypi",
+     "name": "fastapi",
+     "file": "pyproject.toml",
+     "dev": false
+    },
+    {
+     "ecosystem": "pypi",
+     "name": "sqlalchemy",
+     "file": "pyproject.toml",
+     "dev": false
+    },
+    {
+     "ecosystem": "pypi",
+     "name": "psycopg",
+     "file": "pyproject.toml",
+     "dev": false
+    },
+    {
+     "ecosystem": "pypi",
+     "name": "redis",
+     "file": "pyproject.toml",
+     "dev": false
+    },
+    {
+     "ecosystem": "pypi",
+     "name": "stripe",
+     "file": "pyproject.toml",
+     "dev": false
+    },
+    {
+     "ecosystem": "pypi",
+     "name": "aiokafka",
+     "file": "pyproject.toml",
+     "dev": false
+    },
+    {
+     "ecosystem": "pypi",
+     "name": "sentry-sdk",
+     "file": "pyproject.toml",
+     "dev": false
+    }
+   ]
+  },
+  "drafts": {
+   "overview": {
+    "title": "Overview: checkout-api",
+    "content": "# checkout-api\n\n_Purpose: TODO, one sentence on what this repo is for and who uses it._\n\n**Type:** backend, api  \n**Frameworks:** FastAPI  \n**Languages:** Python\n\n## Getting started\n- test: `make test`\n- lint: `make lint`\n- dev: `make dev`\n- install: `pip install -e .`\n\n## Connects to\n- PostgreSQL (datastore)\n- Redis (cache)\n- Stripe (external)\n- Kafka (queue)\n- Sentry (observability)\n- inventory (service)\n\n## API\n12 endpoints (inferred from code).",
+    "data": {}
+   },
+   "agents_md": {
+    "title": "AGENTS.md draft: checkout-api",
+    "content": "# Agent instructions: checkout-api\n\nRepo type: backend, api. Frameworks: FastAPI. Languages: Python.\n\n## Commands\n- test: `make test`\n- lint: `make lint`\n- dev: `make dev`\n- install: `pip install -e .`\n\n## Layout\n- `app/` (6 files)\n- `tests/` (1 files)\n\n## Conventions\n- Follow the lint and format config (Found pyproject.toml [tool.ruff]).\n- The API has 12 endpoints; keep the contract in sync with every route change.\n- Every change ships with tests or validation appropriate to this repo.\n\n## Do not touch\n- Lockfiles by hand, generated code, and secrets.\n\n_Drafted by Filament from the repository. Review before relying on it._",
+    "data": {}
+   },
+   "codeowners": {
+    "title": "CODEOWNERS suggestion: checkout-api",
+    "content": "```\n# Suggested CODEOWNERS (replace the placeholders with real teams)\n* @your-org/owners\n/app/ @your-org/app-owners\n/tests/ @your-org/tests-owners\n```",
+    "data": {}
+   },
+   "architecture": {
+    "title": "Architecture: checkout-api",
+    "content": "# Architecture: checkout-api\n\n```mermaid\nflowchart LR\n  n_checkout_api([\"checkout-api\"])\n  n_postgres[(\"PostgreSQL\")]\n  n_redis[(\"Redis\")]\n  n_stripe[\"Stripe\"]\n  n_kafka[[\"Kafka\"]]\n  n_sentry[\"Sentry\"]\n  n_inventory[\"inventory\"]\n  n_checkout_api -->|uses| n_postgres\n  n_checkout_api -->|uses| n_redis\n  n_checkout_api -->|uses| n_stripe\n  n_checkout_api -->|uses| n_kafka\n  n_checkout_api -->|uses| n_sentry\n  n_checkout_api -->|calls| n_inventory\n  classDef self fill:#fbf1df,stroke:#c47f17,stroke-width:2px\n  class n_checkout_api self\n  classDef datastore fill:#e7f1fb,stroke:#5b8cc4\n  class n_postgres datastore\n  classDef cache fill:#e7f1fb,stroke:#5b8cc4\n  class n_redis cache\n  classDef queue fill:#efedff,stroke:#7b6fd0\n  class n_kafka queue\n  classDef external fill:#f9ece7,stroke:#c4825b\n  class n_stripe external\n  classDef observability fill:#f0efec,stroke:#999\n  class n_sentry observability\n  classDef service fill:#fff,stroke:#666\n  class n_inventory service\n```\n\n| Component | Type | Evidence |\n| --- | --- | --- |\n| PostgreSQL | datastore | depends on sqlalchemy (pyproject.toml) |\n| Redis | cache | depends on redis (pyproject.toml) |\n| Stripe | external | depends on stripe (pyproject.toml) |\n| Kafka | queue | depends on aiokafka (pyproject.toml) |\n| Sentry | observability | depends on sentry-sdk (pyproject.toml) |\n| inventory | service | calls inventory (docker-compose.yml:6) |\n\n_Generated by Filament from dependencies, environment variables, URLs, docker-compose, Kubernetes and Terraform._",
+    "data": {
+     "components": {
+      "nodes": [
+       {
+        "id": "checkout-api",
+        "label": "checkout-api",
+        "category": "self",
+        "evidence": [
+         {
+          "file": "docker-compose.yml",
+          "line": null,
+          "detail": "compose service 'api'"
+         }
+        ]
+       },
+       {
+        "id": "postgres",
+        "label": "PostgreSQL",
+        "category": "datastore",
+        "evidence": [
+         {
+          "file": "pyproject.toml",
+          "line": null,
+          "detail": "depends on sqlalchemy"
+         },
+         {
+          "file": "app/db.py",
+          "line": 3,
+          "detail": "reads DATABASE_URL"
+         },
+         {
+          "file": "pyproject.toml",
+          "line": null,
+          "detail": "depends on psycopg"
+         },
+         {
+          "file": "docker-compose.yml",
+          "line": null,
+          "detail": "compose service 'db', image postgres:16"
+         }
+        ]
+       },
+       {
+        "id": "redis",
+        "label": "Redis",
+        "category": "cache",
+        "evidence": [
+         {
+          "file": "pyproject.toml",
+          "line": null,
+          "detail": "depends on redis"
+         },
+         {
+          "file": "app/cache.py",
+          "line": 2,
+          "detail": "reads REDIS_URL"
+         },
+         {
+          "file": "docker-compose.yml",
+          "line": null,
+          "detail": "compose service 'cache', image redis:7"
+         }
+        ]
+       },
+       {
+        "id": "stripe",
+        "label": "Stripe",
+        "category": "external",
+        "evidence": [
+         {
+          "file": "pyproject.toml",
+          "line": null,
+          "detail": "depends on stripe"
+         },
+         {
+          "file": "app/routers/payments.py",
+          "line": 4,
+          "detail": "calls api.stripe.com"
+         }
+        ]
+       },
+       {
+        "id": "kafka",
+        "label": "Kafka",
+        "category": "queue",
+        "evidence": [
+         {
+          "file": "pyproject.toml",
+          "line": null,
+          "detail": "depends on aiokafka"
+         },
+         {
+          "file": "app/routers/orders.py",
+          "line": 4,
+          "detail": "reads KAFKA_BROKERS"
+         }
+        ]
+       },
+       {
+        "id": "sentry",
+        "label": "Sentry",
+        "category": "observability",
+        "evidence": [
+         {
+          "file": "pyproject.toml",
+          "line": null,
+          "detail": "depends on sentry-sdk"
+         },
+         {
+          "file": "app/main.py",
+          "line": 6,
+          "detail": "reads SENTRY_DSN"
+         }
+        ]
+       },
+       {
+        "id": "inventory",
+        "label": "inventory",
+        "category": "service",
+        "evidence": [
+         {
+          "file": "docker-compose.yml",
+          "line": 6,
+          "detail": "calls inventory"
+         }
+        ]
+       }
+      ],
+      "edges": [
+       {
+        "from": "checkout-api",
+        "to": "postgres",
+        "label": "uses"
+       },
+       {
+        "from": "checkout-api",
+        "to": "redis",
+        "label": "uses"
+       },
+       {
+        "from": "checkout-api",
+        "to": "stripe",
+        "label": "uses"
+       },
+       {
+        "from": "checkout-api",
+        "to": "kafka",
+        "label": "uses"
+       },
+       {
+        "from": "checkout-api",
+        "to": "sentry",
+        "label": "uses"
+       },
+       {
+        "from": "checkout-api",
+        "to": "inventory",
+        "label": "calls"
+       }
+      ],
+      "mermaid": "flowchart LR\n  n_checkout_api([\"checkout-api\"])\n  n_postgres[(\"PostgreSQL\")]\n  n_redis[(\"Redis\")]\n  n_stripe[\"Stripe\"]\n  n_kafka[[\"Kafka\"]]\n  n_sentry[\"Sentry\"]\n  n_inventory[\"inventory\"]\n  n_checkout_api -->|uses| n_postgres\n  n_checkout_api -->|uses| n_redis\n  n_checkout_api -->|uses| n_stripe\n  n_checkout_api -->|uses| n_kafka\n  n_checkout_api -->|uses| n_sentry\n  n_checkout_api -->|calls| n_inventory\n  classDef self fill:#fbf1df,stroke:#c47f17,stroke-width:2px\n  class n_checkout_api self\n  classDef datastore fill:#e7f1fb,stroke:#5b8cc4\n  class n_postgres datastore\n  classDef cache fill:#e7f1fb,stroke:#5b8cc4\n  class n_redis cache\n  classDef queue fill:#efedff,stroke:#7b6fd0\n  class n_kafka queue\n  classDef external fill:#f9ece7,stroke:#c4825b\n  class n_stripe external\n  classDef observability fill:#f0efec,stroke:#999\n  class n_sentry observability\n  classDef service fill:#fff,stroke:#666\n  class n_inventory service",
+      "summary": {
+       "self": 1,
+       "datastore": 1,
+       "cache": 1,
+       "external": 1,
+       "queue": 1,
+       "observability": 1,
+       "service": 1
+      },
+      "name": "checkout-api"
+     }
+    }
+   },
+   "api_contract": {
+    "title": "API contract: checkout-api",
+    "content": "OpenAPI 3.1, 12 endpoints, inferred from code.\n\n```yaml\nopenapi: 3.1.0\ninfo:\n  title: checkout-api\n  version: inferred\n  description: Generated by Filament from the code. Review request and response schemas before publishing.\npaths:\n  /health:\n    get:\n      operationId: health\n      summary: Liveness probe.\n      tags:\n      - health\n      responses:\n        '200':\n          description: Successful response\n      x-source: app/main.py:12\n  /v1/carts:\n    post:\n      operationId: create_cart\n      summary: Start a cart for a shopper.\n      tags:\n      - carts\n      responses:\n        '200':\n          description: Successful response\n      x-source: app/routers/carts.py:4\n  /v1/carts/{cart_id}:\n    get:\n      operationId: get_cart\n      summary: Read a cart with line items.\n      tags:\n      - carts\n      responses:\n        '200':\n          description: Successful response\n      parameters:\n      - name: cart_id\n        in: path\n        required: true\n        schema:\n          type: string\n      x-source: app/routers/carts.py:8\n  /v1/carts/{cart_id}/items:\n    post:\n      operationId: add_item\n      summary: Add a product to the cart.\n      tags:\n      - carts\n      responses:\n        '200':\n          description: Successful response\n      parameters:\n      - name: cart_id\n        in: path\n        required: true\n        schema:\n          type: string\n      x-source: app/routers/carts.py:12\n  /v1/carts/{cart_id}/items/{item_id}:\n    delete:\n      operationId: remove_item\n      summary: Remove a line item.\n      tags:\n      - carts\n      responses:\n        '200':\n          description: Successful response\n      parameters:\n      - name: cart_id\n        in: path\n        required: true\n        schema:\n          type: string\n      - name: item_id\n        in: path\n        required: true\n        schema:\n          type: string\n      x-source: app/routers/carts.py:16\n  /v1/orders:\n    get:\n      operationId: list_orders\n      summary: Orders for a customer.\n      tags:\n      - orders\n      responses:\n        '200':\n          description: Successful response\n      x-source: app/routers/orders.py:10\n    post:\n      operationId: place_order\n      summary: Turn a cart into an order and emit order.placed.\n      tags:\n      - orders\n      responses:\n        '200':\n          description: Successful response\n      x-source: app/routers/orders.py:6\n  /v1/orders/{order_id}:\n    get:\n      operationId: get_order\n      summary: Read one order.\n      tags:\n      - orders\n      responses:\n        '200':\n          description: Successful response\n      parameters:\n      - name: order_id\n        in: path\n        required: true\n        schema:\n          type: string\n      x-source: app/routers/orders.py:14\n  /v1/orders/{order_id}/cancel:\n    post:\n      operationId: cancel_order\n      summary: Cancel before fulfilment.\n      tags:\n      - orders\n      responses:\n        '200':\n          description: Successful response\n      parameters:\n      - name: order_id\n        in: path\n        required: true\n        schema:\n          type: string\n      x-source: app/routers/orders.py:18\n  /v1/payments/intents:\n    post:\n      operationId: create_intent\n      summary: Create a Stripe payment intent for an order.\n      tags:\n      - payments\n      responses:\n        '200':\n          description: Successful response\n      x-source: app/routers/payments.py:6\n  /v1/payments/webhooks/stripe:\n    post:\n      operationId: stripe_webhook\n      summary: Payment status from Stripe.\n      tags:\n      - payments\n      responses:\n        '200':\n          description: Successful response\n      x-source: app/routers/payments.py:10\n  /v1/payments/{payment_id}/refund:\n    post:\n      operationId: refund\n      summary: Refund a captured payment.\n      tags:\n      - payments\n      responses:\n        '200':\n          description: Successful response\n      parameters:\n      - name: payment_id\n        in: path\n        required: true\n        schema:\n          type: string\n      x-source: app/routers/payments.py:14\n```",
+    "data": {
+     "openapi": {
+      "openapi": "3.1.0",
+      "info": {
+       "title": "checkout-api",
+       "version": "inferred",
+       "description": "Generated by Filament from the code. Review request and response schemas before publishing."
+      },
+      "paths": {
+       "/health": {
+        "get": {
+         "operationId": "health",
+         "summary": "Liveness probe.",
+         "tags": [
+          "health"
+         ],
+         "responses": {
+          "200": {
+           "description": "Successful response"
+          }
+         },
+         "x-source": "app/main.py:12"
+        }
+       },
+       "/v1/carts": {
+        "post": {
+         "operationId": "create_cart",
+         "summary": "Start a cart for a shopper.",
+         "tags": [
+          "carts"
+         ],
+         "responses": {
+          "200": {
+           "description": "Successful response"
+          }
+         },
+         "x-source": "app/routers/carts.py:4"
+        }
+       },
+       "/v1/carts/{cart_id}": {
+        "get": {
+         "operationId": "get_cart",
+         "summary": "Read a cart with line items.",
+         "tags": [
+          "carts"
+         ],
+         "responses": {
+          "200": {
+           "description": "Successful response"
+          }
+         },
+         "parameters": [
+          {
+           "name": "cart_id",
+           "in": "path",
+           "required": true,
+           "schema": {
+            "type": "string"
+           }
+          }
+         ],
+         "x-source": "app/routers/carts.py:8"
+        }
+       },
+       "/v1/carts/{cart_id}/items": {
+        "post": {
+         "operationId": "add_item",
+         "summary": "Add a product to the cart.",
+         "tags": [
+          "carts"
+         ],
+         "responses": {
+          "200": {
+           "description": "Successful response"
+          }
+         },
+         "parameters": [
+          {
+           "name": "cart_id",
+           "in": "path",
+           "required": true,
+           "schema": {
+            "type": "string"
+           }
+          }
+         ],
+         "x-source": "app/routers/carts.py:12"
+        }
+       },
+       "/v1/carts/{cart_id}/items/{item_id}": {
+        "delete": {
+         "operationId": "remove_item",
+         "summary": "Remove a line item.",
+         "tags": [
+          "carts"
+         ],
+         "responses": {
+          "200": {
+           "description": "Successful response"
+          }
+         },
+         "parameters": [
+          {
+           "name": "cart_id",
+           "in": "path",
+           "required": true,
+           "schema": {
+            "type": "string"
+           }
+          },
+          {
+           "name": "item_id",
+           "in": "path",
+           "required": true,
+           "schema": {
+            "type": "string"
+           }
+          }
+         ],
+         "x-source": "app/routers/carts.py:16"
+        }
+       },
+       "/v1/orders": {
+        "get": {
+         "operationId": "list_orders",
+         "summary": "Orders for a customer.",
+         "tags": [
+          "orders"
+         ],
+         "responses": {
+          "200": {
+           "description": "Successful response"
+          }
+         },
+         "x-source": "app/routers/orders.py:10"
+        },
+        "post": {
+         "operationId": "place_order",
+         "summary": "Turn a cart into an order and emit order.placed.",
+         "tags": [
+          "orders"
+         ],
+         "responses": {
+          "200": {
+           "description": "Successful response"
+          }
+         },
+         "x-source": "app/routers/orders.py:6"
+        }
+       },
+       "/v1/orders/{order_id}": {
+        "get": {
+         "operationId": "get_order",
+         "summary": "Read one order.",
+         "tags": [
+          "orders"
+         ],
+         "responses": {
+          "200": {
+           "description": "Successful response"
+          }
+         },
+         "parameters": [
+          {
+           "name": "order_id",
+           "in": "path",
+           "required": true,
+           "schema": {
+            "type": "string"
+           }
+          }
+         ],
+         "x-source": "app/routers/orders.py:14"
+        }
+       },
+       "/v1/orders/{order_id}/cancel": {
+        "post": {
+         "operationId": "cancel_order",
+         "summary": "Cancel before fulfilment.",
+         "tags": [
+          "orders"
+         ],
+         "responses": {
+          "200": {
+           "description": "Successful response"
+          }
+         },
+         "parameters": [
+          {
+           "name": "order_id",
+           "in": "path",
+           "required": true,
+           "schema": {
+            "type": "string"
+           }
+          }
+         ],
+         "x-source": "app/routers/orders.py:18"
+        }
+       },
+       "/v1/payments/intents": {
+        "post": {
+         "operationId": "create_intent",
+         "summary": "Create a Stripe payment intent for an order.",
+         "tags": [
+          "payments"
+         ],
+         "responses": {
+          "200": {
+           "description": "Successful response"
+          }
+         },
+         "x-source": "app/routers/payments.py:6"
+        }
+       },
+       "/v1/payments/webhooks/stripe": {
+        "post": {
+         "operationId": "stripe_webhook",
+         "summary": "Payment status from Stripe.",
+         "tags": [
+          "payments"
+         ],
+         "responses": {
+          "200": {
+           "description": "Successful response"
+          }
+         },
+         "x-source": "app/routers/payments.py:10"
+        }
+       },
+       "/v1/payments/{payment_id}/refund": {
+        "post": {
+         "operationId": "refund",
+         "summary": "Refund a captured payment.",
+         "tags": [
+          "payments"
+         ],
+         "responses": {
+          "200": {
+           "description": "Successful response"
+          }
+         },
+         "parameters": [
+          {
+           "name": "payment_id",
+           "in": "path",
+           "required": true,
+           "schema": {
+            "type": "string"
+           }
+          }
+         ],
+         "x-source": "app/routers/payments.py:14"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "conventions": [
+   "checkout-api: run tests with `make test`.",
+   "checkout-api: lint/format config is pyproject.toml [tool.ruff].",
+   "checkout-api is a backend, api repo using FastAPI.",
+   "checkout-api depends on Kafka, PostgreSQL, Redis."
+  ],
+  "openapi_yaml": "openapi: 3.1.0\ninfo:\n  title: checkout-api\n  version: inferred\n  description: Generated by Filament from the code. Review request and response schemas\n    before publishing.\npaths:\n  /health:\n    get:\n      operationId: health\n      summary: Liveness probe.\n      tags:\n      - health\n      responses:\n        '200':\n          description: Successful response\n      x-source: app/main.py:12\n  /v1/carts:\n    post:\n      operationId: create_cart\n      summary: Start a cart for a shopper.\n      tags:\n      - carts\n      responses:\n        '200':\n          description: Successful response\n      x-source: app/routers/carts.py:4\n  /v1/carts/{cart_id}:\n    get:\n      operationId: get_cart\n      summary: Read a cart with line items.\n      tags:\n      - carts\n      responses:\n        '200':\n          description: Successful response\n      parameters:\n      - name: cart_id\n        in: path\n        required: true\n        schema:\n          type: string\n      x-source: app/routers/carts.py:8\n  /v1/carts/{cart_id}/items:\n    post:\n      operationId: add_item\n      summary: Add a product to the cart.\n      tags:\n      - carts\n      responses:\n        '200':\n          description: Successful response\n      parameters:\n      - name: cart_id\n        in: path\n        required: true\n        schema:\n          type: string\n      x-source: app/routers/carts.py:12\n  /v1/carts/{cart_id}/items/{item_id}:\n    delete:\n      operationId: remove_item\n      summary: Remove a line item.\n      tags:\n      - carts\n      responses:\n        '200':\n          description: Successful response\n      parameters:\n      - name: cart_id\n        in: path\n        required: true\n        schema:\n          type: string\n      - name: item_id\n        in: path\n        required: true\n        schema:\n          type: string\n      x-source: app/routers/carts.py:16\n  /v1/orders:\n    get:\n      operationId: list_orders\n      summary: Orders for a customer.\n      tags:\n      - orders\n      responses:\n        '200':\n          description: Successful response\n      x-source: app/routers/orders.py:10\n    post:\n      operationId: place_order\n      summary: Turn a cart into an order and emit order.placed.\n      tags:\n      - orders\n      responses:\n        '200':\n          description: Successful response\n      x-source: app/routers/orders.py:6\n  /v1/orders/{order_id}:\n    get:\n      operationId: get_order\n      summary: Read one order.\n      tags:\n      - orders\n      responses:\n        '200':\n          description: Successful response\n      parameters:\n      - name: order_id\n        in: path\n        required: true\n        schema:\n          type: string\n      x-source: app/routers/orders.py:14\n  /v1/orders/{order_id}/cancel:\n    post:\n      operationId: cancel_order\n      summary: Cancel before fulfilment.\n      tags:\n      - orders\n      responses:\n        '200':\n          description: Successful response\n      parameters:\n      - name: order_id\n        in: path\n        required: true\n        schema:\n          type: string\n      x-source: app/routers/orders.py:18\n  /v1/payments/intents:\n    post:\n      operationId: create_intent\n      summary: Create a Stripe payment intent for an order.\n      tags:\n      - payments\n      responses:\n        '200':\n          description: Successful response\n      x-source: app/routers/payments.py:6\n  /v1/payments/webhooks/stripe:\n    post:\n      operationId: stripe_webhook\n      summary: Payment status from Stripe.\n      tags:\n      - payments\n      responses:\n        '200':\n          description: Successful response\n      x-source: app/routers/payments.py:10\n  /v1/payments/{payment_id}/refund:\n    post:\n      operationId: refund\n      summary: Refund a captured payment.\n      tags:\n      - payments\n      responses:\n        '200':\n          description: Successful response\n      parameters:\n      - name: payment_id\n        in: path\n        required: true\n        schema:\n          type: string\n      x-source: app/routers/payments.py:14\n"
+ },
+ {
+  "analysis": {
+   "repo": "github.com/acme/web-storefront",
+   "name": "web-storefront",
+   "profile": {
+    "kinds": [
+     {
+      "kind": "frontend",
+      "confidence": 0.9,
+      "evidence": [
+       "depends on react"
+      ]
+     }
+    ],
+    "frameworks": [
+     "React"
+    ],
+    "languages": [
+     "TypeScript",
+     "JavaScript"
+    ],
+    "packages": [],
+    "manifests": [
+     "package.json"
+    ],
+    "file_count": 15,
+    "kind_names": [
+     "frontend"
+    ]
+   },
+   "readiness": {
+    "score": 41.2,
+    "grade": "D",
+    "checks": [
+     {
+      "id": "readme",
+      "title": "README explains the project",
+      "weight": 10,
+      "passed": false,
+      "detail": "README missing or under 300 characters",
+      "fix": "Add a README covering purpose, setup, how to run and how to test.",
+      "kind": "common",
+      "status": "fail",
+      "generate": "overview"
+     },
+     {
+      "id": "agent_instructions",
+      "title": "Agent instructions file",
+      "weight": 15,
+      "passed": false,
+      "detail": "No AGENTS.md / CLAUDE.md / copilot-instructions.md",
+      "fix": "Add AGENTS.md with build/test commands, layout, conventions and do-not-touch areas.",
+      "kind": "common",
+      "status": "fail",
+      "generate": "agents_md"
+     },
+     {
+      "id": "codeowners",
+      "title": "Code owners defined",
+      "weight": 8,
+      "passed": false,
+      "detail": "No CODEOWNERS file with an active ownership rule",
+      "fix": "Add .github/CODEOWNERS so agents and reviewers know who owns what.",
+      "kind": "common",
+      "status": "fail",
+      "generate": "codeowners"
+     },
+     {
+      "id": "ci",
+      "title": "CI pipeline configured",
+      "weight": 10,
+      "passed": false,
+      "detail": "No CI configuration",
+      "fix": "Add a CI workflow that validates every pull request.",
+      "kind": "common",
+      "status": "fail",
+      "generate": null
+     },
+     {
+      "id": "docs",
+      "title": "Contributor and architecture docs",
+      "weight": 7,
+      "passed": false,
+      "detail": "No CONTRIBUTING.md, ARCHITECTURE.md or docs/",
+      "fix": "Add CONTRIBUTING.md and a short ARCHITECTURE.md.",
+      "kind": "common",
+      "status": "fail",
+      "generate": "architecture"
+     },
+     {
+      "id": "no_secrets_files",
+      "title": "No .env files committed",
+      "weight": 5,
+      "passed": true,
+      "detail": "None found",
+      "fix": "Remove committed .env files and rotate any secrets in them.",
+      "kind": "common",
+      "status": "pass",
+      "generate": null
+     },
+     {
+      "id": "tests",
+      "title": "Automated tests present",
+      "weight": 15,
+      "passed": true,
+      "detail": "1 test files",
+      "fix": "Add a test suite; agents need tests to verify their changes.",
+      "kind": "code",
+      "status": "pass",
+      "generate": null
+     },
+     {
+      "id": "one_command",
+      "title": "Build and test in one command",
+      "weight": 10,
+      "passed": true,
+      "detail": "Via package.json scripts (build, test)",
+      "fix": "Add a Makefile (or package.json scripts) with `build` and `test` targets.",
+      "kind": "code",
+      "status": "pass",
+      "generate": null
+     },
+     {
+      "id": "lint",
+      "title": "Lint and format config",
+      "weight": 7,
+      "passed": true,
+      "detail": "Found eslint.config.js",
+      "fix": "Add linter and formatter config so agent output matches team style.",
+      "kind": "common",
+      "status": "pass",
+      "generate": null
+     },
+     {
+      "id": "dev_env",
+      "title": "Reproducible dev environment",
+      "weight": 8,
+      "passed": false,
+      "detail": "No container, devcontainer or version pin files",
+      "fix": "Add a Dockerfile or .devcontainer, or pin tool versions.",
+      "kind": "code",
+      "status": "fail",
+      "generate": null
+     },
+     {
+      "id": "lockfile",
+      "title": "Dependencies pinned",
+      "weight": 5,
+      "passed": true,
+      "detail": "Found package-lock.json",
+      "fix": "Commit a lockfile (or .terraform.lock.hcl) so builds are reproducible.",
+      "kind": "common",
+      "status": "pass",
+      "generate": null
+     },
+     {
+      "id": "api_contract",
+      "title": "API contract checked in",
+      "weight": 10,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Check in an API contract; Filament can generate one from the code.",
+      "kind": "api",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "ui_component_tests",
+      "title": "Component tests or Storybook",
+      "weight": 7,
+      "passed": true,
+      "detail": "Found src/pages/home.test.tsx",
+      "fix": "Add component tests (Testing Library) or Storybook stories.",
+      "kind": "frontend",
+      "status": "pass",
+      "generate": null
+     },
+     {
+      "id": "e2e_tests",
+      "title": "End-to-end tests",
+      "weight": 7,
+      "passed": false,
+      "detail": "No Playwright or Cypress config",
+      "fix": "Add Playwright or Cypress end-to-end tests.",
+      "kind": "frontend",
+      "status": "fail",
+      "generate": null
+     },
+     {
+      "id": "a11y_lint",
+      "title": "Accessibility linting",
+      "weight": 5,
+      "passed": false,
+      "detail": "No accessibility linter or axe checks",
+      "fix": "Add eslint-plugin-jsx-a11y (or equivalent) and axe checks.",
+      "kind": "frontend",
+      "status": "fail",
+      "generate": null
+     },
+     {
+      "id": "iac_validate_ci",
+      "title": "Infrastructure validated in CI",
+      "weight": 10,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Run terraform fmt/validate, helm lint or kubeconform on every pull request.",
+      "kind": "infrastructure",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "iac_policy_scan",
+      "title": "Policy and security scanning",
+      "weight": 8,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Add a policy scanner (checkov, tfsec, trivy or conftest) to CI.",
+      "kind": "infrastructure",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "no_state_files",
+      "title": "No state files committed",
+      "weight": 8,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Remove *.tfstate from the repo (it can contain secrets) and use remote state.",
+      "kind": "infrastructure",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "config_schema",
+      "title": "Config schema defined",
+      "weight": 8,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Add a schema so changes are validated before they ship.",
+      "kind": "config",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "env_separation",
+      "title": "Environments separated",
+      "weight": 7,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Keep each environment's values in its own folder or file.",
+      "kind": "config",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "config_validation_ci",
+      "title": "Config validated in CI",
+      "weight": 8,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Validate every change against the schema in CI.",
+      "kind": "config",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "no_plaintext_secrets",
+      "title": "No plaintext secrets in config",
+      "weight": 10,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Move secrets to a secret manager and reference them.",
+      "kind": "config",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "changelog",
+      "title": "Changelog maintained",
+      "weight": 5,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Keep a CHANGELOG so consumers see what changed.",
+      "kind": "library",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "release_workflow",
+      "title": "Automated releases",
+      "weight": 5,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Automate versioned releases from CI.",
+      "kind": "library",
+      "status": "skip",
+      "generate": null
+     }
+    ]
+   },
+   "commands": {
+    "build": "npm run build",
+    "test": "npm test",
+    "lint": "npm run lint",
+    "dev": "npm run dev",
+    "install": "npm ci"
+   },
+   "layout": [
+    {
+     "path": "src",
+     "files": 11
+    }
+   ],
+   "api": {
+    "source": "none",
+    "specs": [],
+    "endpoints": [],
+    "openapi": null
+   },
+   "ui": {
+    "pages": [
+     {
+      "path": "/",
+      "component": "Home",
+      "file": "src/pages/Home.tsx",
+      "router": "React Router",
+      "elements": [
+       {
+        "type": "header",
+        "label": ""
+       },
+       {
+        "type": "heading",
+        "label": "New this week"
+       },
+       {
+        "type": "text",
+        "label": "Fresh picks from our makers."
+       },
+       {
+        "type": "button",
+        "label": "Shop all"
+       },
+       {
+        "type": "component",
+        "label": "ProductCard",
+        "children": [
+         {
+          "type": "image",
+          "label": "Product photo"
+         },
+         {
+          "type": "subheading",
+          "label": "Product name"
+         },
+         {
+          "type": "text",
+          "label": "Price"
+         },
+         {
+          "type": "button",
+          "label": "Add to cart"
+         }
+        ],
+        "repeated": true
+       }
+      ],
+      "mock_html": "<!DOCTYPE html><html><head><meta charset='utf-8'><style>body{font:13px system-ui,sans-serif;margin:0;padding:16px;color:#333;background:#fff}\nh2{font-size:18px;margin:8px 0}h3{font-size:14px;margin:8px 0;color:#555}\n.txt{margin:4px 0;color:#666}.bar{height:8px;background:#eee;border-radius:4px;width:60%;margin:8px 0}\n.btn{display:inline-block;border:1.5px solid #333;border-radius:6px;padding:4px 12px;margin:4px 6px 4px 0;font-weight:600}\n.lnk{display:inline-block;color:#2b6cb0;text-decoration:underline;margin:4px 8px 4px 0}\n.inp{border:1.5px solid #aaa;border-radius:6px;padding:7px 10px;margin:6px 0;color:#999;max-width:420px}\n.inp.tall{height:56px}.chk{margin:6px 0;color:#555}\n.img{background:repeating-linear-gradient(45deg,#f2f2f2,#f2f2f2 8px,#e6e6e6 8px,#e6e6e6 16px);height:80px;border-radius:6px;margin:6px 0;display:flex;align-items:center;justify-content:center;color:#888}\n.tbl{border:1px solid #ccc;border-radius:6px;margin:8px 0}.tbl div{height:22px;border-bottom:1px solid #eee}\n.itm{border-bottom:1px solid #eee;padding:6px 0}.zone{background:#f6f6f6;border:1px dashed #bbb;border-radius:6px;padding:6px 10px;margin:6px 0;color:#888;text-transform:uppercase;font-size:10px}\n.cmp{border:1px dashed #c9a24b;border-radius:8px;padding:8px 10px 6px;margin:8px 0;position:relative}\n.cmpname{font-size:10px;color:#a07a20;font-weight:600;display:block;margin-bottom:4px}.rep{font-size:10px;color:#a07a20}</style></head><body><div class=\"zone\">header</div><h2>New this week</h2><p class=\"txt\">Fresh picks from our makers.</p><span class=\"btn\">Shop all</span><div class=\"cmp\"><span class=\"cmpname\">ProductCard <span class=\"rep\">\u00d7 n</span></span><div class=\"img\">Product photo</div><h3>Product name</h3><p class=\"txt\">Price</p><span class=\"btn\">Add to cart</span></div></body></html>"
+     },
+     {
+      "path": "/products/:id",
+      "component": "Product",
+      "file": "src/pages/Product.tsx",
+      "router": "React Router",
+      "elements": [
+       {
+        "type": "header",
+        "label": ""
+       },
+       {
+        "type": "image",
+        "label": "Product gallery"
+       },
+       {
+        "type": "heading",
+        "label": "Product name"
+       },
+       {
+        "type": "text",
+        "label": "Description"
+       },
+       {
+        "type": "select",
+        "label": ""
+       },
+       {
+        "type": "option",
+        "label": "Size"
+       },
+       {
+        "type": "input",
+        "label": "Qty"
+       },
+       {
+        "type": "button",
+        "label": "Add to cart"
+       }
+      ],
+      "mock_html": "<!DOCTYPE html><html><head><meta charset='utf-8'><style>body{font:13px system-ui,sans-serif;margin:0;padding:16px;color:#333;background:#fff}\nh2{font-size:18px;margin:8px 0}h3{font-size:14px;margin:8px 0;color:#555}\n.txt{margin:4px 0;color:#666}.bar{height:8px;background:#eee;border-radius:4px;width:60%;margin:8px 0}\n.btn{display:inline-block;border:1.5px solid #333;border-radius:6px;padding:4px 12px;margin:4px 6px 4px 0;font-weight:600}\n.lnk{display:inline-block;color:#2b6cb0;text-decoration:underline;margin:4px 8px 4px 0}\n.inp{border:1.5px solid #aaa;border-radius:6px;padding:7px 10px;margin:6px 0;color:#999;max-width:420px}\n.inp.tall{height:56px}.chk{margin:6px 0;color:#555}\n.img{background:repeating-linear-gradient(45deg,#f2f2f2,#f2f2f2 8px,#e6e6e6 8px,#e6e6e6 16px);height:80px;border-radius:6px;margin:6px 0;display:flex;align-items:center;justify-content:center;color:#888}\n.tbl{border:1px solid #ccc;border-radius:6px;margin:8px 0}.tbl div{height:22px;border-bottom:1px solid #eee}\n.itm{border-bottom:1px solid #eee;padding:6px 0}.zone{background:#f6f6f6;border:1px dashed #bbb;border-radius:6px;padding:6px 10px;margin:6px 0;color:#888;text-transform:uppercase;font-size:10px}\n.cmp{border:1px dashed #c9a24b;border-radius:8px;padding:8px 10px 6px;margin:8px 0;position:relative}\n.cmpname{font-size:10px;color:#a07a20;font-weight:600;display:block;margin-bottom:4px}.rep{font-size:10px;color:#a07a20}</style></head><body><div class=\"zone\">header</div><div class=\"img\">Product gallery</div><h2>Product name</h2><p class=\"txt\">Description</p><div class=\"inp\">select \u25be</div><p class=\"txt\">Size</p><div class=\"inp\">Qty</div><span class=\"btn\">Add to cart</span></body></html>"
+     },
+     {
+      "path": "/cart",
+      "component": "Cart",
+      "file": "src/pages/Cart.tsx",
+      "router": "React Router",
+      "elements": [
+       {
+        "type": "header",
+        "label": ""
+       },
+       {
+        "type": "heading",
+        "label": "Your cart"
+       },
+       {
+        "type": "table",
+        "label": "",
+        "repeated": true
+       },
+       {
+        "type": "input",
+        "label": "Promo code",
+        "repeated": true
+       },
+       {
+        "type": "button",
+        "label": "Apply"
+       },
+       {
+        "type": "link",
+        "label": "/checkout"
+       },
+       {
+        "type": "link",
+        "label": "Go to checkout"
+       }
+      ],
+      "mock_html": "<!DOCTYPE html><html><head><meta charset='utf-8'><style>body{font:13px system-ui,sans-serif;margin:0;padding:16px;color:#333;background:#fff}\nh2{font-size:18px;margin:8px 0}h3{font-size:14px;margin:8px 0;color:#555}\n.txt{margin:4px 0;color:#666}.bar{height:8px;background:#eee;border-radius:4px;width:60%;margin:8px 0}\n.btn{display:inline-block;border:1.5px solid #333;border-radius:6px;padding:4px 12px;margin:4px 6px 4px 0;font-weight:600}\n.lnk{display:inline-block;color:#2b6cb0;text-decoration:underline;margin:4px 8px 4px 0}\n.inp{border:1.5px solid #aaa;border-radius:6px;padding:7px 10px;margin:6px 0;color:#999;max-width:420px}\n.inp.tall{height:56px}.chk{margin:6px 0;color:#555}\n.img{background:repeating-linear-gradient(45deg,#f2f2f2,#f2f2f2 8px,#e6e6e6 8px,#e6e6e6 16px);height:80px;border-radius:6px;margin:6px 0;display:flex;align-items:center;justify-content:center;color:#888}\n.tbl{border:1px solid #ccc;border-radius:6px;margin:8px 0}.tbl div{height:22px;border-bottom:1px solid #eee}\n.itm{border-bottom:1px solid #eee;padding:6px 0}.zone{background:#f6f6f6;border:1px dashed #bbb;border-radius:6px;padding:6px 10px;margin:6px 0;color:#888;text-transform:uppercase;font-size:10px}\n.cmp{border:1px dashed #c9a24b;border-radius:8px;padding:8px 10px 6px;margin:8px 0;position:relative}\n.cmpname{font-size:10px;color:#a07a20;font-weight:600;display:block;margin-bottom:4px}.rep{font-size:10px;color:#a07a20}</style></head><body><div class=\"zone\">header</div><h2>Your cart</h2><div class=\"tbl\"><div></div><div></div><div></div></div><div class=\"inp\">Promo code</div><span class=\"btn\">Apply</span><span class=\"lnk\">/checkout</span><span class=\"lnk\">Go to checkout</span></body></html>"
+     },
+     {
+      "path": "/checkout",
+      "component": "Checkout",
+      "file": "src/pages/Checkout.tsx",
+      "router": "React Router",
+      "elements": [
+       {
+        "type": "header",
+        "label": ""
+       },
+       {
+        "type": "heading",
+        "label": "Checkout"
+       },
+       {
+        "type": "form",
+        "label": ""
+       },
+       {
+        "type": "heading",
+        "label": "Shipping"
+       },
+       {
+        "type": "input",
+        "label": "Full name"
+       },
+       {
+        "type": "input",
+        "label": "Address"
+       },
+       {
+        "type": "input",
+        "label": "Postcode"
+       },
+       {
+        "type": "heading",
+        "label": "Payment"
+       },
+       {
+        "type": "input",
+        "label": "Card number"
+       },
+       {
+        "type": "checkbox",
+        "label": "Save card for next time"
+       },
+       {
+        "type": "button",
+        "label": "Place order"
+       }
+      ],
+      "mock_html": "<!DOCTYPE html><html><head><meta charset='utf-8'><style>body{font:13px system-ui,sans-serif;margin:0;padding:16px;color:#333;background:#fff}\nh2{font-size:18px;margin:8px 0}h3{font-size:14px;margin:8px 0;color:#555}\n.txt{margin:4px 0;color:#666}.bar{height:8px;background:#eee;border-radius:4px;width:60%;margin:8px 0}\n.btn{display:inline-block;border:1.5px solid #333;border-radius:6px;padding:4px 12px;margin:4px 6px 4px 0;font-weight:600}\n.lnk{display:inline-block;color:#2b6cb0;text-decoration:underline;margin:4px 8px 4px 0}\n.inp{border:1.5px solid #aaa;border-radius:6px;padding:7px 10px;margin:6px 0;color:#999;max-width:420px}\n.inp.tall{height:56px}.chk{margin:6px 0;color:#555}\n.img{background:repeating-linear-gradient(45deg,#f2f2f2,#f2f2f2 8px,#e6e6e6 8px,#e6e6e6 16px);height:80px;border-radius:6px;margin:6px 0;display:flex;align-items:center;justify-content:center;color:#888}\n.tbl{border:1px solid #ccc;border-radius:6px;margin:8px 0}.tbl div{height:22px;border-bottom:1px solid #eee}\n.itm{border-bottom:1px solid #eee;padding:6px 0}.zone{background:#f6f6f6;border:1px dashed #bbb;border-radius:6px;padding:6px 10px;margin:6px 0;color:#888;text-transform:uppercase;font-size:10px}\n.cmp{border:1px dashed #c9a24b;border-radius:8px;padding:8px 10px 6px;margin:8px 0;position:relative}\n.cmpname{font-size:10px;color:#a07a20;font-weight:600;display:block;margin-bottom:4px}.rep{font-size:10px;color:#a07a20}</style></head><body><div class=\"zone\">header</div><h2>Checkout</h2><div class=\"zone\">form</div><h2>Shipping</h2><div class=\"inp\">Full name</div><div class=\"inp\">Address</div><div class=\"inp\">Postcode</div><h2>Payment</h2><div class=\"inp\">Card number</div><div class=\"chk\">\u2610 Save card for next time</div><span class=\"btn\">Place order</span></body></html>"
+     },
+     {
+      "path": "/account",
+      "component": "Account",
+      "file": "src/pages/Account.tsx",
+      "router": "React Router",
+      "elements": [
+       {
+        "type": "header",
+        "label": ""
+       },
+       {
+        "type": "heading",
+        "label": "Your account"
+       },
+       {
+        "type": "heading",
+        "label": "Orders",
+        "repeated": true
+       },
+       {
+        "type": "heading",
+        "label": "Saved cards"
+       },
+       {
+        "type": "button",
+        "label": "Add card",
+        "repeated": true
+       },
+       {
+        "type": "button",
+        "label": "Sign out"
+       }
+      ],
+      "mock_html": "<!DOCTYPE html><html><head><meta charset='utf-8'><style>body{font:13px system-ui,sans-serif;margin:0;padding:16px;color:#333;background:#fff}\nh2{font-size:18px;margin:8px 0}h3{font-size:14px;margin:8px 0;color:#555}\n.txt{margin:4px 0;color:#666}.bar{height:8px;background:#eee;border-radius:4px;width:60%;margin:8px 0}\n.btn{display:inline-block;border:1.5px solid #333;border-radius:6px;padding:4px 12px;margin:4px 6px 4px 0;font-weight:600}\n.lnk{display:inline-block;color:#2b6cb0;text-decoration:underline;margin:4px 8px 4px 0}\n.inp{border:1.5px solid #aaa;border-radius:6px;padding:7px 10px;margin:6px 0;color:#999;max-width:420px}\n.inp.tall{height:56px}.chk{margin:6px 0;color:#555}\n.img{background:repeating-linear-gradient(45deg,#f2f2f2,#f2f2f2 8px,#e6e6e6 8px,#e6e6e6 16px);height:80px;border-radius:6px;margin:6px 0;display:flex;align-items:center;justify-content:center;color:#888}\n.tbl{border:1px solid #ccc;border-radius:6px;margin:8px 0}.tbl div{height:22px;border-bottom:1px solid #eee}\n.itm{border-bottom:1px solid #eee;padding:6px 0}.zone{background:#f6f6f6;border:1px dashed #bbb;border-radius:6px;padding:6px 10px;margin:6px 0;color:#888;text-transform:uppercase;font-size:10px}\n.cmp{border:1px dashed #c9a24b;border-radius:8px;padding:8px 10px 6px;margin:8px 0;position:relative}\n.cmpname{font-size:10px;color:#a07a20;font-weight:600;display:block;margin-bottom:4px}.rep{font-size:10px;color:#a07a20}</style></head><body><div class=\"zone\">header</div><h2>Your account</h2><h2>Orders</h2><h2>Saved cards</h2><span class=\"btn\">Add card</span> <span class=\"rep\">\u00d7 n</span><span class=\"btn\">Sign out</span></body></html>"
+     }
+    ],
+    "components": [
+     "Header",
+     "ProductCard"
+    ]
+   },
+   "components": {
+    "nodes": [
+     {
+      "id": "web-storefront",
+      "label": "web-storefront",
+      "category": "self",
+      "evidence": []
+     },
+     {
+      "id": "stripe",
+      "label": "Stripe",
+      "category": "external",
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": null,
+        "detail": "depends on @stripe/stripe-js"
+       }
+      ]
+     },
+     {
+      "id": "sentry",
+      "label": "Sentry",
+      "category": "observability",
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": null,
+        "detail": "depends on @sentry/react"
+       }
+      ]
+     },
+     {
+      "id": "checkout-api",
+      "label": "checkout-api",
+      "category": "service",
+      "evidence": [
+       {
+        "file": "src/api.ts",
+        "line": 1,
+        "detail": "reads REACT_APP_CHECKOUT_API_URL"
+       }
+      ]
+     }
+    ],
+    "edges": [
+     {
+      "from": "web-storefront",
+      "to": "stripe",
+      "label": "uses"
+     },
+     {
+      "from": "web-storefront",
+      "to": "sentry",
+      "label": "uses"
+     },
+     {
+      "from": "web-storefront",
+      "to": "checkout-api",
+      "label": "calls"
+     }
+    ],
+    "mermaid": "flowchart LR\n  n_web_storefront([\"web-storefront\"])\n  n_stripe[\"Stripe\"]\n  n_sentry[\"Sentry\"]\n  n_checkout_api[\"checkout-api\"]\n  n_web_storefront -->|uses| n_stripe\n  n_web_storefront -->|uses| n_sentry\n  n_web_storefront -->|calls| n_checkout_api\n  classDef self fill:#fbf1df,stroke:#c47f17,stroke-width:2px\n  class n_web_storefront self\n  classDef external fill:#f9ece7,stroke:#c4825b\n  class n_stripe external\n  classDef observability fill:#f0efec,stroke:#999\n  class n_sentry observability\n  classDef service fill:#fff,stroke:#666\n  class n_checkout_api service",
+    "summary": {
+     "self": 1,
+     "external": 1,
+     "observability": 1,
+     "service": 1
+    },
+    "name": "web-storefront"
+   },
+   "dependencies": [
+    {
+     "ecosystem": "npm",
+     "name": "react",
+     "file": "package.json",
+     "dev": false
+    },
+    {
+     "ecosystem": "npm",
+     "name": "react-dom",
+     "file": "package.json",
+     "dev": false
+    },
+    {
+     "ecosystem": "npm",
+     "name": "react-router-dom",
+     "file": "package.json",
+     "dev": false
+    },
+    {
+     "ecosystem": "npm",
+     "name": "@stripe/stripe-js",
+     "file": "package.json",
+     "dev": false
+    },
+    {
+     "ecosystem": "npm",
+     "name": "@sentry/react",
+     "file": "package.json",
+     "dev": false
+    },
+    {
+     "ecosystem": "npm",
+     "name": "vite",
+     "file": "package.json",
+     "dev": true
+    },
+    {
+     "ecosystem": "npm",
+     "name": "vitest",
+     "file": "package.json",
+     "dev": true
+    },
+    {
+     "ecosystem": "npm",
+     "name": "eslint",
+     "file": "package.json",
+     "dev": true
+    },
+    {
+     "ecosystem": "npm",
+     "name": "typescript",
+     "file": "package.json",
+     "dev": true
+    }
+   ]
+  },
+  "drafts": {
+   "overview": {
+    "title": "Overview: web-storefront",
+    "content": "# web-storefront\n\n_Purpose: TODO, one sentence on what this repo is for and who uses it._\n\n**Type:** frontend  \n**Frameworks:** React  \n**Languages:** TypeScript, JavaScript\n\n## Getting started\n- build: `npm run build`\n- test: `npm test`\n- lint: `npm run lint`\n- dev: `npm run dev`\n- install: `npm ci`\n\n## Connects to\n- Stripe (external)\n- Sentry (observability)\n- checkout-api (service)\n\n## Pages\n- `/` \u2014 Home\n- `/products/:id` \u2014 Product\n- `/cart` \u2014 Cart\n- `/checkout` \u2014 Checkout\n- `/account` \u2014 Account",
+    "data": {}
+   },
+   "agents_md": {
+    "title": "AGENTS.md draft: web-storefront",
+    "content": "# Agent instructions: web-storefront\n\nRepo type: frontend. Frameworks: React. Languages: TypeScript, JavaScript.\n\n## Commands\n- build: `npm run build`\n- test: `npm test`\n- lint: `npm run lint`\n- dev: `npm run dev`\n- install: `npm ci`\n\n## Layout\n- `src/` (11 files)\n\n## Conventions\n- Follow the lint and format config (Found eslint.config.js).\n- Reuse existing components before adding new ones; keep pages accessible.\n- Every change ships with tests or validation appropriate to this repo.\n\n## Do not touch\n- Lockfiles by hand, generated code, and secrets.\n\n_Drafted by Filament from the repository. Review before relying on it._",
+    "data": {}
+   },
+   "codeowners": {
+    "title": "CODEOWNERS suggestion: web-storefront",
+    "content": "```\n# Suggested CODEOWNERS (replace the placeholders with real teams)\n* @your-org/owners\n/src/ @your-org/src-owners\n```",
+    "data": {}
+   },
+   "architecture": {
+    "title": "Architecture: web-storefront",
+    "content": "# Architecture: web-storefront\n\n```mermaid\nflowchart LR\n  n_web_storefront([\"web-storefront\"])\n  n_stripe[\"Stripe\"]\n  n_sentry[\"Sentry\"]\n  n_checkout_api[\"checkout-api\"]\n  n_web_storefront -->|uses| n_stripe\n  n_web_storefront -->|uses| n_sentry\n  n_web_storefront -->|calls| n_checkout_api\n  classDef self fill:#fbf1df,stroke:#c47f17,stroke-width:2px\n  class n_web_storefront self\n  classDef external fill:#f9ece7,stroke:#c4825b\n  class n_stripe external\n  classDef observability fill:#f0efec,stroke:#999\n  class n_sentry observability\n  classDef service fill:#fff,stroke:#666\n  class n_checkout_api service\n```\n\n| Component | Type | Evidence |\n| --- | --- | --- |\n| Stripe | external | depends on @stripe/stripe-js (package.json) |\n| Sentry | observability | depends on @sentry/react (package.json) |\n| checkout-api | service | reads REACT_APP_CHECKOUT_API_URL (src/api.ts:1) |\n\n_Generated by Filament from dependencies, environment variables, URLs, docker-compose, Kubernetes and Terraform._",
+    "data": {
+     "components": {
+      "nodes": [
+       {
+        "id": "web-storefront",
+        "label": "web-storefront",
+        "category": "self",
+        "evidence": []
+       },
+       {
+        "id": "stripe",
+        "label": "Stripe",
+        "category": "external",
+        "evidence": [
+         {
+          "file": "package.json",
+          "line": null,
+          "detail": "depends on @stripe/stripe-js"
+         }
+        ]
+       },
+       {
+        "id": "sentry",
+        "label": "Sentry",
+        "category": "observability",
+        "evidence": [
+         {
+          "file": "package.json",
+          "line": null,
+          "detail": "depends on @sentry/react"
+         }
+        ]
+       },
+       {
+        "id": "checkout-api",
+        "label": "checkout-api",
+        "category": "service",
+        "evidence": [
+         {
+          "file": "src/api.ts",
+          "line": 1,
+          "detail": "reads REACT_APP_CHECKOUT_API_URL"
+         }
+        ]
+       }
+      ],
+      "edges": [
+       {
+        "from": "web-storefront",
+        "to": "stripe",
+        "label": "uses"
+       },
+       {
+        "from": "web-storefront",
+        "to": "sentry",
+        "label": "uses"
+       },
+       {
+        "from": "web-storefront",
+        "to": "checkout-api",
+        "label": "calls"
+       }
+      ],
+      "mermaid": "flowchart LR\n  n_web_storefront([\"web-storefront\"])\n  n_stripe[\"Stripe\"]\n  n_sentry[\"Sentry\"]\n  n_checkout_api[\"checkout-api\"]\n  n_web_storefront -->|uses| n_stripe\n  n_web_storefront -->|uses| n_sentry\n  n_web_storefront -->|calls| n_checkout_api\n  classDef self fill:#fbf1df,stroke:#c47f17,stroke-width:2px\n  class n_web_storefront self\n  classDef external fill:#f9ece7,stroke:#c4825b\n  class n_stripe external\n  classDef observability fill:#f0efec,stroke:#999\n  class n_sentry observability\n  classDef service fill:#fff,stroke:#666\n  class n_checkout_api service",
+      "summary": {
+       "self": 1,
+       "external": 1,
+       "observability": 1,
+       "service": 1
+      },
+      "name": "web-storefront"
+     }
+    }
+   }
+  },
+  "conventions": [
+   "web-storefront: run tests with `npm test`.",
+   "web-storefront: build with `npm run build`.",
+   "web-storefront: lint/format config is eslint.config.js.",
+   "web-storefront is a frontend repo using React."
+  ],
+  "openapi_yaml": null
+ },
+ {
+  "analysis": {
+   "repo": "github.com/acme/platform-infra",
+   "name": "platform-infra",
+   "profile": {
+    "kinds": [
+     {
+      "kind": "infrastructure",
+      "confidence": 0.95,
+      "evidence": [
+       "5 Terraform files"
+      ]
+     }
+    ],
+    "frameworks": [
+     "Terraform"
+    ],
+    "languages": [
+     "HCL"
+    ],
+    "packages": [],
+    "manifests": [],
+    "file_count": 7,
+    "kind_names": [
+     "infrastructure"
+    ]
+   },
+   "readiness": {
+    "score": 39.7,
+    "grade": "F",
+    "checks": [
+     {
+      "id": "readme",
+      "title": "README explains the project",
+      "weight": 10,
+      "passed": false,
+      "detail": "README missing or under 300 characters",
+      "fix": "Add a README covering purpose, setup, how to run and how to test.",
+      "kind": "common",
+      "status": "fail",
+      "generate": "overview"
+     },
+     {
+      "id": "agent_instructions",
+      "title": "Agent instructions file",
+      "weight": 15,
+      "passed": false,
+      "detail": "No AGENTS.md / CLAUDE.md / copilot-instructions.md",
+      "fix": "Add AGENTS.md with build/test commands, layout, conventions and do-not-touch areas.",
+      "kind": "common",
+      "status": "fail",
+      "generate": "agents_md"
+     },
+     {
+      "id": "codeowners",
+      "title": "Code owners defined",
+      "weight": 8,
+      "passed": false,
+      "detail": "No CODEOWNERS file with an active ownership rule",
+      "fix": "Add .github/CODEOWNERS so agents and reviewers know who owns what.",
+      "kind": "common",
+      "status": "fail",
+      "generate": "codeowners"
+     },
+     {
+      "id": "ci",
+      "title": "CI pipeline configured",
+      "weight": 10,
+      "passed": true,
+      "detail": "Found .github/workflows/plan.yml",
+      "fix": "Add a CI workflow that validates every pull request.",
+      "kind": "common",
+      "status": "pass",
+      "generate": null
+     },
+     {
+      "id": "docs",
+      "title": "Contributor and architecture docs",
+      "weight": 7,
+      "passed": false,
+      "detail": "No CONTRIBUTING.md, ARCHITECTURE.md or docs/",
+      "fix": "Add CONTRIBUTING.md and a short ARCHITECTURE.md.",
+      "kind": "common",
+      "status": "fail",
+      "generate": "architecture"
+     },
+     {
+      "id": "no_secrets_files",
+      "title": "No .env files committed",
+      "weight": 5,
+      "passed": true,
+      "detail": "None found",
+      "fix": "Remove committed .env files and rotate any secrets in them.",
+      "kind": "common",
+      "status": "pass",
+      "generate": null
+     },
+     {
+      "id": "tests",
+      "title": "Automated tests present",
+      "weight": 15,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Add a test suite; agents need tests to verify their changes.",
+      "kind": "code",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "one_command",
+      "title": "Build and test in one command",
+      "weight": 10,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Add a Makefile (or package.json scripts) with `build` and `test` targets.",
+      "kind": "code",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "lint",
+      "title": "Lint and format config",
+      "weight": 7,
+      "passed": false,
+      "detail": "No lint/format config",
+      "fix": "Add linter and formatter config so agent output matches team style.",
+      "kind": "common",
+      "status": "fail",
+      "generate": null
+     },
+     {
+      "id": "dev_env",
+      "title": "Reproducible dev environment",
+      "weight": 8,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Add a Dockerfile or .devcontainer, or pin tool versions.",
+      "kind": "code",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "lockfile",
+      "title": "Dependencies pinned",
+      "weight": 5,
+      "passed": false,
+      "detail": "No lockfile",
+      "fix": "Commit a lockfile (or .terraform.lock.hcl) so builds are reproducible.",
+      "kind": "common",
+      "status": "fail",
+      "generate": null
+     },
+     {
+      "id": "api_contract",
+      "title": "API contract checked in",
+      "weight": 10,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Check in an API contract; Filament can generate one from the code.",
+      "kind": "api",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "ui_component_tests",
+      "title": "Component tests or Storybook",
+      "weight": 7,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Add component tests (Testing Library) or Storybook stories.",
+      "kind": "frontend",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "e2e_tests",
+      "title": "End-to-end tests",
+      "weight": 7,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Add Playwright or Cypress end-to-end tests.",
+      "kind": "frontend",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "a11y_lint",
+      "title": "Accessibility linting",
+      "weight": 5,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Add eslint-plugin-jsx-a11y (or equivalent) and axe checks.",
+      "kind": "frontend",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "iac_validate_ci",
+      "title": "Infrastructure validated in CI",
+      "weight": 10,
+      "passed": true,
+      "detail": "CI runs `terraform fmt`",
+      "fix": "Run terraform fmt/validate, helm lint or kubeconform on every pull request.",
+      "kind": "infrastructure",
+      "status": "pass",
+      "generate": null
+     },
+     {
+      "id": "iac_policy_scan",
+      "title": "Policy and security scanning",
+      "weight": 8,
+      "passed": false,
+      "detail": "No tflint, checkov, tfsec, trivy or conftest",
+      "fix": "Add a policy scanner (checkov, tfsec, trivy or conftest) to CI.",
+      "kind": "infrastructure",
+      "status": "fail",
+      "generate": null
+     },
+     {
+      "id": "remote_state",
+      "title": "Remote Terraform state",
+      "weight": 8,
+      "passed": false,
+      "detail": "No backend block: state would live on someone's laptop",
+      "fix": "Configure a remote backend (S3 + DynamoDB lock, GCS, Terraform Cloud).",
+      "kind": "infrastructure",
+      "status": "fail",
+      "generate": null
+     },
+     {
+      "id": "provider_pins",
+      "title": "Provider versions pinned",
+      "weight": 5,
+      "passed": true,
+      "detail": "required_providers with versions",
+      "fix": "Pin providers in required_providers with version constraints.",
+      "kind": "infrastructure",
+      "status": "pass",
+      "generate": null
+     },
+     {
+      "id": "modules_documented",
+      "title": "Modules documented",
+      "weight": 5,
+      "passed": false,
+      "detail": "No README in modules/vpc",
+      "fix": "Add a README with inputs and outputs to every module.",
+      "kind": "infrastructure",
+      "status": "fail",
+      "generate": null
+     },
+     {
+      "id": "no_state_files",
+      "title": "No state files committed",
+      "weight": 8,
+      "passed": true,
+      "detail": "None found",
+      "fix": "Remove *.tfstate from the repo (it can contain secrets) and use remote state.",
+      "kind": "infrastructure",
+      "status": "pass",
+      "generate": null
+     },
+     {
+      "id": "config_schema",
+      "title": "Config schema defined",
+      "weight": 8,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Add a schema so changes are validated before they ship.",
+      "kind": "config",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "env_separation",
+      "title": "Environments separated",
+      "weight": 7,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Keep each environment's values in its own folder or file.",
+      "kind": "config",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "config_validation_ci",
+      "title": "Config validated in CI",
+      "weight": 8,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Validate every change against the schema in CI.",
+      "kind": "config",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "no_plaintext_secrets",
+      "title": "No plaintext secrets in config",
+      "weight": 10,
+      "passed": true,
+      "detail": "None found",
+      "fix": "Move secrets to a secret manager and reference them.",
+      "kind": "config",
+      "status": "pass",
+      "generate": null
+     },
+     {
+      "id": "changelog",
+      "title": "Changelog maintained",
+      "weight": 5,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Keep a CHANGELOG so consumers see what changed.",
+      "kind": "library",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "release_workflow",
+      "title": "Automated releases",
+      "weight": 5,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Automate versioned releases from CI.",
+      "kind": "library",
+      "status": "skip",
+      "generate": null
+     }
+    ]
+   },
+   "commands": {
+    "validate": "terraform init -backend=false && terraform validate",
+    "plan": "terraform plan"
+   },
+   "layout": [
+    {
+     "path": "modules",
+     "files": 2
+    }
+   ],
+   "api": {
+    "source": "none",
+    "specs": [],
+    "endpoints": [],
+    "openapi": null
+   },
+   "ui": {
+    "pages": [],
+    "components": []
+   },
+   "components": {
+    "nodes": [
+     {
+      "id": "platform-infra",
+      "label": "platform-infra",
+      "category": "self",
+      "evidence": []
+     },
+     {
+      "id": "module-vpc",
+      "label": "module vpc",
+      "category": "module",
+      "evidence": [
+       {
+        "file": "main.tf",
+        "line": 8,
+        "detail": "module"
+       }
+      ]
+     },
+     {
+      "id": "aws_eks_cluster-shop",
+      "label": "shop (aws_eks_cluster)",
+      "category": "compute",
+      "evidence": [
+       {
+        "file": "main.tf",
+        "line": 13,
+        "detail": "resource"
+       }
+      ]
+     },
+     {
+      "id": "aws_db_instance-checkout",
+      "label": "checkout (aws_db_instance)",
+      "category": "datastore",
+      "evidence": [
+       {
+        "file": "main.tf",
+        "line": 18,
+        "detail": "resource"
+       }
+      ]
+     },
+     {
+      "id": "aws_elasticache_cluster-sessions",
+      "label": "sessions (aws_elasticache_cluster)",
+      "category": "cache",
+      "evidence": [
+       {
+        "file": "main.tf",
+        "line": 23,
+        "detail": "resource"
+       }
+      ]
+     },
+     {
+      "id": "aws_s3_bucket-assets",
+      "label": "assets (aws_s3_bucket)",
+      "category": "cloud",
+      "evidence": [
+       {
+        "file": "main.tf",
+        "line": 28,
+        "detail": "resource"
+       }
+      ]
+     },
+     {
+      "id": "aws_cloudfront_distribution-cdn",
+      "label": "cdn (aws_cloudfront_distribution)",
+      "category": "network",
+      "evidence": [
+       {
+        "file": "main.tf",
+        "line": 32,
+        "detail": "resource"
+       }
+      ]
+     },
+     {
+      "id": "aws_sqs_queue-orders",
+      "label": "orders (aws_sqs_queue)",
+      "category": "queue",
+      "evidence": [
+       {
+        "file": "main.tf",
+        "line": 36,
+        "detail": "resource"
+       }
+      ]
+     },
+     {
+      "id": "aws_vpc-this",
+      "label": "this (aws_vpc)",
+      "category": "network",
+      "evidence": [
+       {
+        "file": "modules/vpc/main.tf",
+        "line": 1,
+        "detail": "resource"
+       }
+      ]
+     },
+     {
+      "id": "aws_subnet-private",
+      "label": "private (aws_subnet)",
+      "category": "network",
+      "evidence": [
+       {
+        "file": "modules/vpc/main.tf",
+        "line": 4,
+        "detail": "resource"
+       }
+      ]
+     }
+    ],
+    "edges": [
+     {
+      "from": "platform-infra",
+      "to": "module-vpc",
+      "label": "provisions"
+     },
+     {
+      "from": "platform-infra",
+      "to": "aws_eks_cluster-shop",
+      "label": "provisions"
+     },
+     {
+      "from": "platform-infra",
+      "to": "aws_db_instance-checkout",
+      "label": "provisions"
+     },
+     {
+      "from": "platform-infra",
+      "to": "aws_elasticache_cluster-sessions",
+      "label": "provisions"
+     },
+     {
+      "from": "platform-infra",
+      "to": "aws_s3_bucket-assets",
+      "label": "provisions"
+     },
+     {
+      "from": "platform-infra",
+      "to": "aws_cloudfront_distribution-cdn",
+      "label": "provisions"
+     },
+     {
+      "from": "platform-infra",
+      "to": "aws_sqs_queue-orders",
+      "label": "provisions"
+     },
+     {
+      "from": "platform-infra",
+      "to": "aws_vpc-this",
+      "label": "provisions"
+     },
+     {
+      "from": "platform-infra",
+      "to": "aws_subnet-private",
+      "label": "provisions"
+     },
+     {
+      "from": "aws_eks_cluster-shop",
+      "to": "module-vpc",
+      "label": "references"
+     },
+     {
+      "from": "aws_db_instance-checkout",
+      "to": "module-vpc",
+      "label": "references"
+     },
+     {
+      "from": "aws_elasticache_cluster-sessions",
+      "to": "module-vpc",
+      "label": "references"
+     },
+     {
+      "from": "aws_cloudfront_distribution-cdn",
+      "to": "aws_s3_bucket-assets",
+      "label": "references"
+     },
+     {
+      "from": "aws_subnet-private",
+      "to": "aws_vpc-this",
+      "label": "references"
+     }
+    ],
+    "mermaid": "flowchart LR\n  n_platform_infra([\"platform-infra\"])\n  n_module_vpc[\"module vpc\"]\n  n_aws_eks_cluster_shop[\"shop  aws_eks_cluster \"]\n  n_aws_db_instance_checkout[(\"checkout  aws_db_instance \")]\n  n_aws_elasticache_cluster_sessions[(\"sessions  aws_elasticache_cluster \")]\n  n_aws_s3_bucket_assets[\"assets  aws_s3_bucket \"]\n  n_aws_cloudfront_distribution_cdn[\"cdn  aws_cloudfront_distribution \"]\n  n_aws_sqs_queue_orders[[\"orders  aws_sqs_queue \"]]\n  n_aws_vpc_this[\"this  aws_vpc \"]\n  n_aws_subnet_private[\"private  aws_subnet \"]\n  n_platform_infra -->|provisions| n_module_vpc\n  n_platform_infra -->|provisions| n_aws_eks_cluster_shop\n  n_platform_infra -->|provisions| n_aws_db_instance_checkout\n  n_platform_infra -->|provisions| n_aws_elasticache_cluster_sessions\n  n_platform_infra -->|provisions| n_aws_s3_bucket_assets\n  n_platform_infra -->|provisions| n_aws_cloudfront_distribution_cdn\n  n_platform_infra -->|provisions| n_aws_sqs_queue_orders\n  n_platform_infra -->|provisions| n_aws_vpc_this\n  n_platform_infra -->|provisions| n_aws_subnet_private\n  n_aws_eks_cluster_shop -->|references| n_module_vpc\n  n_aws_db_instance_checkout -->|references| n_module_vpc\n  n_aws_elasticache_cluster_sessions -->|references| n_module_vpc\n  n_aws_cloudfront_distribution_cdn -->|references| n_aws_s3_bucket_assets\n  n_aws_subnet_private -->|references| n_aws_vpc_this\n  classDef self fill:#fbf1df,stroke:#c47f17,stroke-width:2px\n  class n_platform_infra self\n  classDef datastore fill:#e7f1fb,stroke:#5b8cc4\n  class n_aws_db_instance_checkout datastore\n  classDef cache fill:#e7f1fb,stroke:#5b8cc4\n  class n_aws_elasticache_cluster_sessions cache\n  classDef queue fill:#efedff,stroke:#7b6fd0\n  class n_aws_sqs_queue_orders queue\n  classDef cloud fill:#e5f4e4,stroke:#5ba35b\n  class n_aws_s3_bucket_assets cloud\n  classDef compute fill:#fff,stroke:#666\n  class n_aws_eks_cluster_shop compute",
+    "summary": {
+     "self": 1,
+     "module": 1,
+     "compute": 1,
+     "datastore": 1,
+     "cache": 1,
+     "cloud": 1,
+     "network": 3,
+     "queue": 1
+    },
+    "name": "platform-infra"
+   },
+   "dependencies": []
+  },
+  "drafts": {
+   "overview": {
+    "title": "Overview: platform-infra",
+    "content": "# platform-infra\n\n_Purpose: TODO, one sentence on what this repo is for and who uses it._\n\n**Type:** infrastructure  \n**Frameworks:** Terraform  \n**Languages:** HCL\n\n## Getting started\n- validate: `terraform init -backend=false && terraform validate`\n- plan: `terraform plan`\n\n## Connects to\n- module vpc (module)\n- shop (aws_eks_cluster) (compute)\n- checkout (aws_db_instance) (datastore)\n- sessions (aws_elasticache_cluster) (cache)\n- assets (aws_s3_bucket) (cloud)\n- cdn (aws_cloudfront_distribution) (network)\n- orders (aws_sqs_queue) (queue)\n- this (aws_vpc) (network)\n- private (aws_subnet) (network)",
+    "data": {}
+   },
+   "agents_md": {
+    "title": "AGENTS.md draft: platform-infra",
+    "content": "# Agent instructions: platform-infra\n\nRepo type: infrastructure. Frameworks: Terraform. Languages: HCL.\n\n## Commands\n- validate: `terraform init -backend=false && terraform validate`\n- plan: `terraform plan`\n\n## Layout\n- `modules/` (2 files)\n\n## Conventions\n- Never run `terraform apply` or change live infrastructure from an agent; open a pull request with the plan output instead.\n- Keep provider versions pinned and run validate before every commit.\n- Every change ships with tests or validation appropriate to this repo.\n\n## Do not touch\n- Lockfiles by hand, generated code, and secrets.\n- State files and production workspaces.\n\n_Drafted by Filament from the repository. Review before relying on it._",
+    "data": {}
+   },
+   "codeowners": {
+    "title": "CODEOWNERS suggestion: platform-infra",
+    "content": "```\n# Suggested CODEOWNERS (replace the placeholders with real teams)\n* @your-org/owners\n/modules/ @your-org/modules-owners\n```",
+    "data": {}
+   },
+   "architecture": {
+    "title": "Architecture: platform-infra",
+    "content": "# Architecture: platform-infra\n\n```mermaid\nflowchart LR\n  n_platform_infra([\"platform-infra\"])\n  n_module_vpc[\"module vpc\"]\n  n_aws_eks_cluster_shop[\"shop  aws_eks_cluster \"]\n  n_aws_db_instance_checkout[(\"checkout  aws_db_instance \")]\n  n_aws_elasticache_cluster_sessions[(\"sessions  aws_elasticache_cluster \")]\n  n_aws_s3_bucket_assets[\"assets  aws_s3_bucket \"]\n  n_aws_cloudfront_distribution_cdn[\"cdn  aws_cloudfront_distribution \"]\n  n_aws_sqs_queue_orders[[\"orders  aws_sqs_queue \"]]\n  n_aws_vpc_this[\"this  aws_vpc \"]\n  n_aws_subnet_private[\"private  aws_subnet \"]\n  n_platform_infra -->|provisions| n_module_vpc\n  n_platform_infra -->|provisions| n_aws_eks_cluster_shop\n  n_platform_infra -->|provisions| n_aws_db_instance_checkout\n  n_platform_infra -->|provisions| n_aws_elasticache_cluster_sessions\n  n_platform_infra -->|provisions| n_aws_s3_bucket_assets\n  n_platform_infra -->|provisions| n_aws_cloudfront_distribution_cdn\n  n_platform_infra -->|provisions| n_aws_sqs_queue_orders\n  n_platform_infra -->|provisions| n_aws_vpc_this\n  n_platform_infra -->|provisions| n_aws_subnet_private\n  n_aws_eks_cluster_shop -->|references| n_module_vpc\n  n_aws_db_instance_checkout -->|references| n_module_vpc\n  n_aws_elasticache_cluster_sessions -->|references| n_module_vpc\n  n_aws_cloudfront_distribution_cdn -->|references| n_aws_s3_bucket_assets\n  n_aws_subnet_private -->|references| n_aws_vpc_this\n  classDef self fill:#fbf1df,stroke:#c47f17,stroke-width:2px\n  class n_platform_infra self\n  classDef datastore fill:#e7f1fb,stroke:#5b8cc4\n  class n_aws_db_instance_checkout datastore\n  classDef cache fill:#e7f1fb,stroke:#5b8cc4\n  class n_aws_elasticache_cluster_sessions cache\n  classDef queue fill:#efedff,stroke:#7b6fd0\n  class n_aws_sqs_queue_orders queue\n  classDef cloud fill:#e5f4e4,stroke:#5ba35b\n  class n_aws_s3_bucket_assets cloud\n  classDef compute fill:#fff,stroke:#666\n  class n_aws_eks_cluster_shop compute\n```\n\n| Component | Type | Evidence |\n| --- | --- | --- |\n| module vpc | module | module (main.tf:8) |\n| shop (aws_eks_cluster) | compute | resource (main.tf:13) |\n| checkout (aws_db_instance) | datastore | resource (main.tf:18) |\n| sessions (aws_elasticache_cluster) | cache | resource (main.tf:23) |\n| assets (aws_s3_bucket) | cloud | resource (main.tf:28) |\n| cdn (aws_cloudfront_distribution) | network | resource (main.tf:32) |\n| orders (aws_sqs_queue) | queue | resource (main.tf:36) |\n| this (aws_vpc) | network | resource (modules/vpc/main.tf:1) |\n| private (aws_subnet) | network | resource (modules/vpc/main.tf:4) |\n\n_Generated by Filament from dependencies, environment variables, URLs, docker-compose, Kubernetes and Terraform._",
+    "data": {
+     "components": {
+      "nodes": [
+       {
+        "id": "platform-infra",
+        "label": "platform-infra",
+        "category": "self",
+        "evidence": []
+       },
+       {
+        "id": "module-vpc",
+        "label": "module vpc",
+        "category": "module",
+        "evidence": [
+         {
+          "file": "main.tf",
+          "line": 8,
+          "detail": "module"
+         }
+        ]
+       },
+       {
+        "id": "aws_eks_cluster-shop",
+        "label": "shop (aws_eks_cluster)",
+        "category": "compute",
+        "evidence": [
+         {
+          "file": "main.tf",
+          "line": 13,
+          "detail": "resource"
+         }
+        ]
+       },
+       {
+        "id": "aws_db_instance-checkout",
+        "label": "checkout (aws_db_instance)",
+        "category": "datastore",
+        "evidence": [
+         {
+          "file": "main.tf",
+          "line": 18,
+          "detail": "resource"
+         }
+        ]
+       },
+       {
+        "id": "aws_elasticache_cluster-sessions",
+        "label": "sessions (aws_elasticache_cluster)",
+        "category": "cache",
+        "evidence": [
+         {
+          "file": "main.tf",
+          "line": 23,
+          "detail": "resource"
+         }
+        ]
+       },
+       {
+        "id": "aws_s3_bucket-assets",
+        "label": "assets (aws_s3_bucket)",
+        "category": "cloud",
+        "evidence": [
+         {
+          "file": "main.tf",
+          "line": 28,
+          "detail": "resource"
+         }
+        ]
+       },
+       {
+        "id": "aws_cloudfront_distribution-cdn",
+        "label": "cdn (aws_cloudfront_distribution)",
+        "category": "network",
+        "evidence": [
+         {
+          "file": "main.tf",
+          "line": 32,
+          "detail": "resource"
+         }
+        ]
+       },
+       {
+        "id": "aws_sqs_queue-orders",
+        "label": "orders (aws_sqs_queue)",
+        "category": "queue",
+        "evidence": [
+         {
+          "file": "main.tf",
+          "line": 36,
+          "detail": "resource"
+         }
+        ]
+       },
+       {
+        "id": "aws_vpc-this",
+        "label": "this (aws_vpc)",
+        "category": "network",
+        "evidence": [
+         {
+          "file": "modules/vpc/main.tf",
+          "line": 1,
+          "detail": "resource"
+         }
+        ]
+       },
+       {
+        "id": "aws_subnet-private",
+        "label": "private (aws_subnet)",
+        "category": "network",
+        "evidence": [
+         {
+          "file": "modules/vpc/main.tf",
+          "line": 4,
+          "detail": "resource"
+         }
+        ]
+       }
+      ],
+      "edges": [
+       {
+        "from": "platform-infra",
+        "to": "module-vpc",
+        "label": "provisions"
+       },
+       {
+        "from": "platform-infra",
+        "to": "aws_eks_cluster-shop",
+        "label": "provisions"
+       },
+       {
+        "from": "platform-infra",
+        "to": "aws_db_instance-checkout",
+        "label": "provisions"
+       },
+       {
+        "from": "platform-infra",
+        "to": "aws_elasticache_cluster-sessions",
+        "label": "provisions"
+       },
+       {
+        "from": "platform-infra",
+        "to": "aws_s3_bucket-assets",
+        "label": "provisions"
+       },
+       {
+        "from": "platform-infra",
+        "to": "aws_cloudfront_distribution-cdn",
+        "label": "provisions"
+       },
+       {
+        "from": "platform-infra",
+        "to": "aws_sqs_queue-orders",
+        "label": "provisions"
+       },
+       {
+        "from": "platform-infra",
+        "to": "aws_vpc-this",
+        "label": "provisions"
+       },
+       {
+        "from": "platform-infra",
+        "to": "aws_subnet-private",
+        "label": "provisions"
+       },
+       {
+        "from": "aws_eks_cluster-shop",
+        "to": "module-vpc",
+        "label": "references"
+       },
+       {
+        "from": "aws_db_instance-checkout",
+        "to": "module-vpc",
+        "label": "references"
+       },
+       {
+        "from": "aws_elasticache_cluster-sessions",
+        "to": "module-vpc",
+        "label": "references"
+       },
+       {
+        "from": "aws_cloudfront_distribution-cdn",
+        "to": "aws_s3_bucket-assets",
+        "label": "references"
+       },
+       {
+        "from": "aws_subnet-private",
+        "to": "aws_vpc-this",
+        "label": "references"
+       }
+      ],
+      "mermaid": "flowchart LR\n  n_platform_infra([\"platform-infra\"])\n  n_module_vpc[\"module vpc\"]\n  n_aws_eks_cluster_shop[\"shop  aws_eks_cluster \"]\n  n_aws_db_instance_checkout[(\"checkout  aws_db_instance \")]\n  n_aws_elasticache_cluster_sessions[(\"sessions  aws_elasticache_cluster \")]\n  n_aws_s3_bucket_assets[\"assets  aws_s3_bucket \"]\n  n_aws_cloudfront_distribution_cdn[\"cdn  aws_cloudfront_distribution \"]\n  n_aws_sqs_queue_orders[[\"orders  aws_sqs_queue \"]]\n  n_aws_vpc_this[\"this  aws_vpc \"]\n  n_aws_subnet_private[\"private  aws_subnet \"]\n  n_platform_infra -->|provisions| n_module_vpc\n  n_platform_infra -->|provisions| n_aws_eks_cluster_shop\n  n_platform_infra -->|provisions| n_aws_db_instance_checkout\n  n_platform_infra -->|provisions| n_aws_elasticache_cluster_sessions\n  n_platform_infra -->|provisions| n_aws_s3_bucket_assets\n  n_platform_infra -->|provisions| n_aws_cloudfront_distribution_cdn\n  n_platform_infra -->|provisions| n_aws_sqs_queue_orders\n  n_platform_infra -->|provisions| n_aws_vpc_this\n  n_platform_infra -->|provisions| n_aws_subnet_private\n  n_aws_eks_cluster_shop -->|references| n_module_vpc\n  n_aws_db_instance_checkout -->|references| n_module_vpc\n  n_aws_elasticache_cluster_sessions -->|references| n_module_vpc\n  n_aws_cloudfront_distribution_cdn -->|references| n_aws_s3_bucket_assets\n  n_aws_subnet_private -->|references| n_aws_vpc_this\n  classDef self fill:#fbf1df,stroke:#c47f17,stroke-width:2px\n  class n_platform_infra self\n  classDef datastore fill:#e7f1fb,stroke:#5b8cc4\n  class n_aws_db_instance_checkout datastore\n  classDef cache fill:#e7f1fb,stroke:#5b8cc4\n  class n_aws_elasticache_cluster_sessions cache\n  classDef queue fill:#efedff,stroke:#7b6fd0\n  class n_aws_sqs_queue_orders queue\n  classDef cloud fill:#e5f4e4,stroke:#5ba35b\n  class n_aws_s3_bucket_assets cloud\n  classDef compute fill:#fff,stroke:#666\n  class n_aws_eks_cluster_shop compute",
+      "summary": {
+       "self": 1,
+       "module": 1,
+       "compute": 1,
+       "datastore": 1,
+       "cache": 1,
+       "cloud": 1,
+       "network": 3,
+       "queue": 1
+      },
+      "name": "platform-infra"
+     }
+    }
+   }
+  },
+  "conventions": [
+   "platform-infra is a infrastructure repo using Terraform.",
+   "platform-infra depends on checkout (aws_db_instance), orders (aws_sqs_queue), sessions (aws_elasticache_cluster)."
+  ],
+  "openapi_yaml": null
+ },
+ {
+  "analysis": {
+   "repo": "github.com/acme/service-config",
+   "name": "service-config",
+   "profile": {
+    "kinds": [
+     {
+      "kind": "config",
+      "confidence": 0.8,
+      "evidence": [
+       "5 config files, 0 code files",
+       "environment folders: dev, envs, prod, staging"
+      ]
+     }
+    ],
+    "frameworks": [],
+    "languages": [],
+    "packages": [],
+    "manifests": [],
+    "file_count": 7,
+    "kind_names": [
+     "config"
+    ]
+   },
+   "readiness": {
+    "score": 21.1,
+    "grade": "F",
+    "checks": [
+     {
+      "id": "readme",
+      "title": "README explains the project",
+      "weight": 10,
+      "passed": false,
+      "detail": "README missing or under 300 characters",
+      "fix": "Add a README covering purpose, setup, how to run and how to test.",
+      "kind": "common",
+      "status": "fail",
+      "generate": "overview"
+     },
+     {
+      "id": "agent_instructions",
+      "title": "Agent instructions file",
+      "weight": 15,
+      "passed": false,
+      "detail": "No AGENTS.md / CLAUDE.md / copilot-instructions.md",
+      "fix": "Add AGENTS.md with build/test commands, layout, conventions and do-not-touch areas.",
+      "kind": "common",
+      "status": "fail",
+      "generate": "agents_md"
+     },
+     {
+      "id": "codeowners",
+      "title": "Code owners defined",
+      "weight": 8,
+      "passed": true,
+      "detail": "Found CODEOWNERS",
+      "fix": "Add .github/CODEOWNERS so agents and reviewers know who owns what.",
+      "kind": "common",
+      "status": "pass",
+      "generate": null
+     },
+     {
+      "id": "ci",
+      "title": "CI pipeline configured",
+      "weight": 10,
+      "passed": false,
+      "detail": "No CI configuration",
+      "fix": "Add a CI workflow that validates every pull request.",
+      "kind": "common",
+      "status": "fail",
+      "generate": null
+     },
+     {
+      "id": "docs",
+      "title": "Contributor and architecture docs",
+      "weight": 7,
+      "passed": false,
+      "detail": "No CONTRIBUTING.md, ARCHITECTURE.md or docs/",
+      "fix": "Add CONTRIBUTING.md and a short ARCHITECTURE.md.",
+      "kind": "common",
+      "status": "fail",
+      "generate": "architecture"
+     },
+     {
+      "id": "no_secrets_files",
+      "title": "No .env files committed",
+      "weight": 5,
+      "passed": true,
+      "detail": "None found",
+      "fix": "Remove committed .env files and rotate any secrets in them.",
+      "kind": "common",
+      "status": "pass",
+      "generate": null
+     },
+     {
+      "id": "tests",
+      "title": "Automated tests present",
+      "weight": 15,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Add a test suite; agents need tests to verify their changes.",
+      "kind": "code",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "one_command",
+      "title": "Build and test in one command",
+      "weight": 10,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Add a Makefile (or package.json scripts) with `build` and `test` targets.",
+      "kind": "code",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "lint",
+      "title": "Lint and format config",
+      "weight": 7,
+      "passed": false,
+      "detail": "No lint/format config",
+      "fix": "Add linter and formatter config so agent output matches team style.",
+      "kind": "common",
+      "status": "fail",
+      "generate": null
+     },
+     {
+      "id": "dev_env",
+      "title": "Reproducible dev environment",
+      "weight": 8,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Add a Dockerfile or .devcontainer, or pin tool versions.",
+      "kind": "code",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "lockfile",
+      "title": "Dependencies pinned",
+      "weight": 5,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Commit a lockfile (or .terraform.lock.hcl) so builds are reproducible.",
+      "kind": "common",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "api_contract",
+      "title": "API contract checked in",
+      "weight": 10,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Check in an API contract; Filament can generate one from the code.",
+      "kind": "api",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "ui_component_tests",
+      "title": "Component tests or Storybook",
+      "weight": 7,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Add component tests (Testing Library) or Storybook stories.",
+      "kind": "frontend",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "e2e_tests",
+      "title": "End-to-end tests",
+      "weight": 7,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Add Playwright or Cypress end-to-end tests.",
+      "kind": "frontend",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "a11y_lint",
+      "title": "Accessibility linting",
+      "weight": 5,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Add eslint-plugin-jsx-a11y (or equivalent) and axe checks.",
+      "kind": "frontend",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "iac_validate_ci",
+      "title": "Infrastructure validated in CI",
+      "weight": 10,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Run terraform fmt/validate, helm lint or kubeconform on every pull request.",
+      "kind": "infrastructure",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "iac_policy_scan",
+      "title": "Policy and security scanning",
+      "weight": 8,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Add a policy scanner (checkov, tfsec, trivy or conftest) to CI.",
+      "kind": "infrastructure",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "no_state_files",
+      "title": "No state files committed",
+      "weight": 8,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Remove *.tfstate from the repo (it can contain secrets) and use remote state.",
+      "kind": "infrastructure",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "config_schema",
+      "title": "Config schema defined",
+      "weight": 8,
+      "passed": false,
+      "detail": "No JSON Schema / CUE schema for the config",
+      "fix": "Add a schema so changes are validated before they ship.",
+      "kind": "config",
+      "status": "fail",
+      "generate": null
+     },
+     {
+      "id": "env_separation",
+      "title": "Environments separated",
+      "weight": 7,
+      "passed": true,
+      "detail": "Environments: dev, prod, staging",
+      "fix": "Keep each environment's values in its own folder or file.",
+      "kind": "config",
+      "status": "pass",
+      "generate": null
+     },
+     {
+      "id": "config_validation_ci",
+      "title": "Config validated in CI",
+      "weight": 8,
+      "passed": false,
+      "detail": "CI does not validate the config",
+      "fix": "Validate every change against the schema in CI.",
+      "kind": "config",
+      "status": "fail",
+      "generate": null
+     },
+     {
+      "id": "no_plaintext_secrets",
+      "title": "No plaintext secrets in config",
+      "weight": 10,
+      "passed": false,
+      "detail": "Possible secrets at envs/prod/checkout-api.yaml:4",
+      "fix": "Move secrets to a secret manager and reference them.",
+      "kind": "config",
+      "status": "fail",
+      "generate": null
+     },
+     {
+      "id": "changelog",
+      "title": "Changelog maintained",
+      "weight": 5,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Keep a CHANGELOG so consumers see what changed.",
+      "kind": "library",
+      "status": "skip",
+      "generate": null
+     },
+     {
+      "id": "release_workflow",
+      "title": "Automated releases",
+      "weight": 5,
+      "passed": false,
+      "detail": "Not applicable to this repo type",
+      "fix": "Automate versioned releases from CI.",
+      "kind": "library",
+      "status": "skip",
+      "generate": null
+     }
+    ]
+   },
+   "commands": {},
+   "layout": [
+    {
+     "path": "envs",
+     "files": 5
+    }
+   ],
+   "api": {
+    "source": "none",
+    "specs": [],
+    "endpoints": [],
+    "openapi": null
+   },
+   "ui": {
+    "pages": [],
+    "components": []
+   },
+   "components": {
+    "nodes": [
+     {
+      "id": "service-config",
+      "label": "service-config",
+      "category": "self",
+      "evidence": []
+     },
+     {
+      "id": "postgres",
+      "label": "PostgreSQL",
+      "category": "datastore",
+      "evidence": [
+       {
+        "file": "envs/dev/checkout-api.yaml",
+        "line": 3,
+        "detail": "connects to db.dev.internal (dev)"
+       },
+       {
+        "file": "envs/staging/checkout-api.yaml",
+        "line": 3,
+        "detail": "connects to db.staging.internal (staging)"
+       },
+       {
+        "file": "envs/prod/checkout-api.yaml",
+        "line": 3,
+        "detail": "connects to db.prod.internal (prod)"
+       }
+      ]
+     }
+    ],
+    "edges": [
+     {
+      "from": "service-config",
+      "to": "postgres",
+      "label": "uses"
+     }
+    ],
+    "mermaid": "flowchart LR\n  n_service_config([\"service-config\"])\n  n_postgres[(\"PostgreSQL\")]\n  n_service_config -->|uses| n_postgres\n  classDef self fill:#fbf1df,stroke:#c47f17,stroke-width:2px\n  class n_service_config self\n  classDef datastore fill:#e7f1fb,stroke:#5b8cc4\n  class n_postgres datastore",
+    "summary": {
+     "self": 1,
+     "datastore": 1
+    },
+    "name": "service-config"
+   },
+   "dependencies": []
+  },
+  "drafts": {
+   "overview": {
+    "title": "Overview: service-config",
+    "content": "# service-config\n\n_Purpose: TODO, one sentence on what this repo is for and who uses it._\n\n**Type:** config  \n**Frameworks:** \u2014  \n**Languages:** \u2014\n\n## Getting started\n- TODO\n\n## Connects to\n- PostgreSQL (datastore)",
+    "data": {}
+   },
+   "agents_md": {
+    "title": "AGENTS.md draft: service-config",
+    "content": "# Agent instructions: service-config\n\nRepo type: config. Frameworks: \u2014. Languages: \u2014.\n\n## Commands\n- TODO: add build and test commands\n\n## Layout\n- `envs/` (5 files)\n\n## Conventions\n- Change one environment at a time and validate against the schema.\n- Every change ships with tests or validation appropriate to this repo.\n\n## Do not touch\n- Lockfiles by hand, generated code, and secrets.\n\n_Drafted by Filament from the repository. Review before relying on it._",
+    "data": {}
+   },
+   "architecture": {
+    "title": "Architecture: service-config",
+    "content": "# Architecture: service-config\n\n```mermaid\nflowchart LR\n  n_service_config([\"service-config\"])\n  n_postgres[(\"PostgreSQL\")]\n  n_service_config -->|uses| n_postgres\n  classDef self fill:#fbf1df,stroke:#c47f17,stroke-width:2px\n  class n_service_config self\n  classDef datastore fill:#e7f1fb,stroke:#5b8cc4\n  class n_postgres datastore\n```\n\n| Component | Type | Evidence |\n| --- | --- | --- |\n| PostgreSQL | datastore | connects to db.dev.internal (dev) (envs/dev/checkout-api.yaml:3) |\n\n_Generated by Filament from dependencies, environment variables, URLs, docker-compose, Kubernetes and Terraform._",
+    "data": {
+     "components": {
+      "nodes": [
+       {
+        "id": "service-config",
+        "label": "service-config",
+        "category": "self",
+        "evidence": []
+       },
+       {
+        "id": "postgres",
+        "label": "PostgreSQL",
+        "category": "datastore",
+        "evidence": [
+         {
+          "file": "envs/dev/checkout-api.yaml",
+          "line": 3,
+          "detail": "connects to db.dev.internal (dev)"
+         },
+         {
+          "file": "envs/staging/checkout-api.yaml",
+          "line": 3,
+          "detail": "connects to db.staging.internal (staging)"
+         },
+         {
+          "file": "envs/prod/checkout-api.yaml",
+          "line": 3,
+          "detail": "connects to db.prod.internal (prod)"
+         }
+        ]
+       }
+      ],
+      "edges": [
+       {
+        "from": "service-config",
+        "to": "postgres",
+        "label": "uses"
+       }
+      ],
+      "mermaid": "flowchart LR\n  n_service_config([\"service-config\"])\n  n_postgres[(\"PostgreSQL\")]\n  n_service_config -->|uses| n_postgres\n  classDef self fill:#fbf1df,stroke:#c47f17,stroke-width:2px\n  class n_service_config self\n  classDef datastore fill:#e7f1fb,stroke:#5b8cc4\n  class n_postgres datastore",
+      "summary": {
+       "self": 1,
+       "datastore": 1
+      },
+      "name": "service-config"
+     }
+    }
+   }
+  },
+  "conventions": [
+   "service-config depends on PostgreSQL."
+  ],
+  "openapi_yaml": null
+ }
+]

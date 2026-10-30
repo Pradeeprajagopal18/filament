@@ -19,7 +19,9 @@ Guidance for AI coding agents (and humans) working in this repo.
 - `backend/filament/runtime.py` — config resolution (run > agent setting > default), queue, worker
 - `backend/filament/api/config.py` — MCP servers, runners, agent settings, YAML config
 - `backend/filament/llm.py` — the only place that calls the Anthropic API
-- `backend/filament/readiness/` — Launchpad readiness checks (deterministic, no model)
+- `backend/filament/readiness/` — readiness scan entry point (checkout, scoring, CLI fixes)
+- `backend/filament/repos/` — repo intelligence, deterministic, no model: `profile.py` (repo kinds), `checks.py` (kind-aware checks), `api_extract.py`, `ui_extract.py`, `deps.py` (component view), `generate.py` (drafts kept in Filament), `analyze.py`
+- `backend/scripts/demo_repos.py` — regenerates `frontend/src/demo-repos.json` for the preview after analyzer changes
 - `frontend/src/` — `api.ts` client, `pages.tsx` views, `App.tsx` shell
 
 ## Conventions

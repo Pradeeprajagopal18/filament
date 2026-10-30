@@ -43,3 +43,8 @@ target-version = "py311"
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
 ignore = ["B008"]  # FastAPI Depends / typer Option defaults are idiomatic
+
+[tool.ruff.lint.per-file-ignores]
+# Pattern tables (regexes, framework/vendor maps, wireframe CSS) read better unwrapped.
+"filament/repos/*" = ["E501"]
+"scripts/demo_repos.py" = ["E501"]  # embedded sample source files

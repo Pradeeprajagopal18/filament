@@ -39,3 +39,8 @@ def project(client):
     p = client.post(f"/api/workspaces/{ws['id']}/projects",
                     json={"name": "Checkout v2", "description": "Payments checkout"}).json()
     return ws, p
+
+
+@pytest.fixture
+def ws(client):
+    return client.post("/api/workspaces", json={"name": "Acme"}).json()

@@ -2,8 +2,16 @@
 // simulated agents. Used only when the UI is built with VITE_DEMO=1 (the interactive preview).
 import type {
   AgentSetting, Artifact, Check, Gap, Health, Link, McpServer, McpServerInput, Memory, Project, Readiness, Run,
-  Runner, TraceEvent, UsageRow, Workspace,
+  RepoAnalysis, RepoDetail, Runner, TraceEvent, UsageRow, Workspace,
 } from './api'
+import demoRepos from './demo-repos.json'
+
+// Real analyzer output for four sample repos (backend/scripts/demo_repos.py).
+interface RepoSample {
+  analysis: RepoAnalysis; conventions: string[]; openapi_yaml: string | null
+  drafts: Record<string, { title: string; content: string; data: Record<string, unknown> }>
+}
+const SAMPLES = demoRepos as unknown as RepoSample[]
 
 let seq = 1000
 const id = () => (seq++).toString(36).padStart(6, 'x') + Math.random().toString(36).slice(2, 8)
@@ -27,6 +35,44 @@ const db = {
   mcp: [] as McpServer[],
   runners: [] as Runner[],
   agentSettings: {} as Record<string, Partial<AgentSetting> & { runner?: string }>,
+  repos: [] as (RepoDetail & { sample: number })[],
+}
+
+function pickSample(ref: string): number {
+  const r = ref.toLowerCase()
+  const exact = SAMPLES.findIndex(s => s.analysis.repo === r || r.endsWith(s.analysis.name))
+  if (exact >= 0) return exact
+  if (/infra|terraform|platform|iac|k8s|helm/.test(r)) return SAMPLES.findIndex(s => s.analysis.profile.kind_names.includes('infrastructure'))
+  if (/config|flags|settings|env/.test(r)) return SAMPLES.findIndex(s => s.analysis.profile.kind_names.includes('config'))
+  if (/web|ui|app|front|site|store|portal/.test(r)) return SAMPLES.findIndex(s => s.analysis.profile.kind_names.includes('frontend'))
+  return 0
+}
+
+function onboard(ws: string, ref: string): RepoDetail & { sample: number } {
+  const existing = db.repos.find(r => r.workspace_id === ws && r.ref === ref)
+  if (existing) { existing.scanned_at = now(); return existing }
+  const sample = pickSample(ref)
+  const analysis: RepoAnalysis = JSON.parse(JSON.stringify(SAMPLES[sample].analysis))
+  const name = ref.replace(/\.git$/, '').split('/').filter(Boolean).pop() ?? analysis.name
+  analysis.repo = ref
+  if (name !== analysis.name) {
+    analysis.components.mermaid = analysis.components.mermaid.replaceAll(analysis.name, name)
+    analysis.name = name
+  }
+  const project: Project = { id: id(), workspace_id: ws, name, description: `Repository ${ref} (${analysis.profile.kind_names.join(', ')})` }
+  db.projects.push(project)
+  const r = {
+    id: id(), workspace_id: ws, project_id: project.id, ref, name, kinds: analysis.profile.kind_names,
+    score: analysis.readiness.score, grade: analysis.readiness.grade, generated: {}, scanned_at: now(), analysis, sample,
+  }
+  db.repos.unshift(r)
+  return r
+}
+
+function stripSample(r: RepoDetail & { sample: number }): RepoDetail {
+  const { sample: _sample, ...rest } = r
+  void _sample
+  return clone(rest)
 }
 
 const AGENTS: Record<string, string> = {
@@ -102,6 +148,7 @@ function seed() {
 
   db.runners.push({ id: id(), name: 'k8s-agents', kind: 'kubernetes', description: 'Agent pods in the platform cluster', labels: ['prod'], config: { namespace: 'agents' }, is_default: false, max_concurrency: 8, timeout_s: 900, last_seen_at: now(), queued: 0 })
   db.agentSettings.requirements = { model: 'claude-opus-5-5', max_turns: 10 }
+  for (const s of [...SAMPLES].reverse()) onboard(ws.id, s.analysis.repo)
   db.agentSettings.flow = { runner: 'k8s-agents' }
   const mk = (x: Partial<McpServer> & { name: string }): McpServer => {
     const s: McpServer = { id: id(), description: '', scope: 'workspace', scope_ref: null, transport: 'http', command: null, args: [], url: null, env: {}, headers: {}, enabled: true, allowed_tools: [], write_tools: [], min_autonomy_for_writes: 'L2', timeout_s: 30, tools_cache: [], last_test_ok: null, last_test_error: null, last_tested_at: null, ...x }
@@ -438,6 +485,51 @@ export const demoApi = {
   },
   scan: async (repo: string) => { await sleep(900); const r = simulateScan(repo); db.readiness.unshift(r); return clone(r) },
   readiness: async () => clone(db.readiness),
+  repos: async (ws: string) => db.repos.filter(r => r.workspace_id === ws).map(stripSample),
+  onboardRepo: async (ws: string, ref: string) => { await sleep(1200); return stripSample(onboard(ws, ref)) },
+  repo: async (rid: string) => {
+    const r = db.repos.find(x => x.id === rid); if (!r) throw new Error('404: Repo not found')
+    return stripSample(r)
+  },
+  rescanRepo: async (rid: string) => {
+    await sleep(800)
+    const r = db.repos.find(x => x.id === rid); if (!r) throw new Error('404: Repo not found')
+    r.scanned_at = now(); return stripSample(r)
+  },
+  generateRepo: async (rid: string, items: string[]) => {
+    await sleep(900)
+    const r = db.repos.find(x => x.id === rid); if (!r) throw new Error('404: Repo not found')
+    const sample = SAMPLES[r.sample]
+    const failing = r.analysis.readiness.checks.filter(c => c.status === 'fail' && c.generate).map(c => c.generate!)
+    for (const item of (items.length ? items : [...new Set(failing)])) {
+      const draft = sample.drafts[item]
+      if (!draft) continue
+      const content = draft.content.replaceAll(sample.analysis.name, r.name)
+      const data = { ...draft.data, repo: r.ref, generator: item, in_repo: false }
+      const prev = r.generated[item] ? db.artifacts.find(a => a.id === r.generated[item]) : undefined
+      if (prev) { prev.content = content; prev.data = data; prev.version += 1; prev.status = 'draft'; continue }
+      const a = art(r.project_id, item === 'api_contract' ? 'api_contract' : 'doc', draft.title.replaceAll(sample.analysis.name, r.name), content, 'draft', 'agent:repo-onboarding')
+      a.data = data
+      r.generated[item] = a.id
+    }
+    for (const fact of sample.conventions) {
+      const content = fact.replaceAll(sample.analysis.name, r.name)
+      if (!db.memory.some(m => m.content === content)) {
+        db.memory.push({ id: id(), ws: r.workspace_id, scope: 'project', kind: 'fact', content, status: 'proposed', author: 'agent:repo-onboarding' })
+      }
+    }
+    return stripSample(r)
+  },
+  repoOpenapi: async (rid: string) => {
+    const r = db.repos.find(x => x.id === rid)
+    const y = r && SAMPLES[r.sample].openapi_yaml
+    if (!y) throw new Error('404: No API endpoints found in this repo')
+    return y
+  },
+  artifact: async (aid: string) => {
+    const a = db.artifacts.find(x => x.id === aid); if (!a) throw new Error('404: Artifact not found')
+    return clone(a)
+  },
   mcpServers: async () => clone(db.mcp),
   addMcpServer: async (_ws: string, body: McpServerInput) => {
     await sleep(700)
