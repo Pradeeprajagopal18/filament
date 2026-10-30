@@ -83,3 +83,7 @@ docs/       Architecture notes and the OpenAPI contract
 ```
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+MIT — see [LICENSE](LICENSE).
