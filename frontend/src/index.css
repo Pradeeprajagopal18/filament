@@ -105,3 +105,28 @@ td.pass { color: var(--good); } td.fail { color: var(--bad); }
 .trace li.trace-stop { color: var(--muted); }
 .tag { display: inline-block; min-width: 44px; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
 .trace em { color: var(--muted); }
+
+.demo-banner { background: var(--accent-soft); border: 1px solid #f0d9ae; color: #6b4708; border-radius: 8px; padding: 8px 12px; margin-bottom: 16px; font-size: 13px; }
+
+.topbar { display: none; }
+.table-wrap, .card { overflow-x: auto; }
+
+@media (max-width: 820px) {
+  .app { grid-template-columns: 1fr; }
+  .topbar { display: flex; align-items: center; gap: 8px; background: #1f1e1b; color: #fff; height: 48px; padding: 0 12px; position: sticky; top: 0; z-index: 20; }
+  .topbar .brand { padding: 0; }
+  .menu-btn { background: none; font-size: 20px; padding: 2px 8px; }
+  aside { display: none; position: fixed; top: 48px; left: 0; right: 0; bottom: 0; z-index: 21; overflow-y: auto; }
+  aside.open { display: flex; }
+  aside .brand { display: none; }
+  main { padding: 16px 14px; }
+  .split { grid-template-columns: 1fr; }
+  .stats { grid-template-columns: repeat(3, 1fr); }
+  .push { margin-left: 0; }
+  h1 { font-size: 20px; }
+  .card { padding: 14px; }
+  .row input { min-width: 0; }
+  table { font-size: 12px; }
+  th, td { padding: 6px; }
+  .bar { width: 60px; }
+}

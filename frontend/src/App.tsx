@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
-import { api, type Health, type Project, type Workspace } from './api'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { api, DEMO, type Health, type Project, type Workspace } from './api'
 import { AskPage, GapsPage, LaunchpadPage, MemoryPage, ProjectPage, UsagePage } from './pages'
 
 type View = { kind: 'project'; project: Project } | { kind: 'memory' | 'ask' | 'usage' | 'launchpad' | 'gaps' }
@@ -18,6 +18,7 @@ export default function App() {
   const [ws, setWs] = useState<string>(() => localStorageGet('filament.ws'))
   const [projects, setProjects] = useState<Project[]>([])
   const [view, setView] = useState<View>({ kind: 'ask' })
+  const [menuOpen, setMenuOpen] = useState(false)
   const [newProject, setNewProject] = useState('')
   const [error, setError] = useState('')
 
@@ -30,33 +31,46 @@ export default function App() {
     }).catch(() => {})
   }, [])
 
-  const loadProjects = useCallback(() => { if (ws) api.projects(ws).then(setProjects) }, [ws])
+  const opened = useRef(false)
+  const loadProjects = useCallback(() => {
+    if (!ws) return
+    api.projects(ws).then(list => {
+      setProjects(list)
+      // The preview opens straight onto the sample project.
+      if (DEMO && !opened.current && list.length) { opened.current = true; setView({ kind: 'project', project: list[0] }) }
+    })
+  }, [ws])
+  const go = (v: View) => { setView(v); setMenuOpen(false) }
   useEffect(() => { loadProjects(); localStorageSet('filament.ws', ws) }, [ws, loadProjects])
 
   async function addProject() {
     const p = await api.createProject(ws, newProject, '')
     setNewProject('')
     loadProjects()
-    setView({ kind: 'project', project: p })
+    go({ kind: 'project', project: p })
   }
 
   return (
     <div className="app">
-      <aside>
+      <div className="topbar">
+        <button className="menu-btn" aria-label="Menu" onClick={() => setMenuOpen(o => !o)}>☰</button>
+        <div className="brand"><span className="bulb" />Filament</div>
+      </div>
+      <aside className={menuOpen ? 'open' : ''}>
         <div className="brand"><span className="bulb" />Filament</div>
         <select value={ws} onChange={e => setWs(e.target.value)}>
           {workspaces.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
         </select>
         <nav>
           {NAV.map(n => (
-            <button key={n.kind} className={view.kind === n.kind ? 'active' : ''} onClick={() => setView({ kind: n.kind })}>{n.label}</button>
+            <button key={n.kind} className={view.kind === n.kind ? 'active' : ''} onClick={() => go({ kind: n.kind })}>{n.label}</button>
           ))}
         </nav>
         <h4>Projects</h4>
         <nav>
           {projects.map(p => (
             <button key={p.id} className={view.kind === 'project' && view.project.id === p.id ? 'active' : ''}
-              onClick={() => setView({ kind: 'project', project: p })}>{p.name}</button>
+              onClick={() => go({ kind: 'project', project: p })}>{p.name}</button>
           ))}
         </nav>
         <div className="new-project">
@@ -70,6 +84,7 @@ export default function App() {
         )}
       </aside>
       <main>
+        {DEMO && <div className="demo-banner">Interactive preview · sample data · agents are simulated in your browser. Try “Take idea to design” on a new project.</div>}
         {error && <p className="error">{error}</p>}
         {ws && view.kind === 'project' && <ProjectPage key={view.project.id} project={view.project} />}
         {ws && view.kind === 'memory' && <MemoryPage ws={ws} />}

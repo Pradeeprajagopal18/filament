@@ -44,7 +44,7 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   return res.json() as Promise<T>
 }
 
-export const api = {
+const httpApi = {
   health: () => call<Health>('GET', '/health'),
   workspaces: () => call<Workspace[]>('GET', '/workspaces'),
   createWorkspace: (name: string) => call<Workspace>('POST', '/workspaces', { name }),
@@ -70,3 +70,8 @@ export const api = {
   scan: (repo: string) => call<Readiness>('POST', '/readiness/scan', { repo }),
   readiness: () => call<Readiness[]>('GET', '/readiness'),
 }
+
+// The interactive preview (VITE_DEMO=1) swaps in an in-browser backend with sample data.
+import { demoApi } from './demo'
+export const DEMO = import.meta.env.VITE_DEMO === '1'
+export const api: typeof httpApi = DEMO ? demoApi : httpApi
