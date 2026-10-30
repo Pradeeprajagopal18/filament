@@ -7,6 +7,7 @@ apply no matter what the model asks for.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -24,6 +25,20 @@ ARTIFACT_TYPES = ["idea", "opportunity", "prd", "story", "flow", "adr", "api_con
 LINK_KINDS = ["implements", "derives_from", "visualizes", "depends_on", "verifies", "relates_to",
               "supersedes"]
 EDITABLE = {"draft", "in_review"}
+
+
+CITATION = re.compile(r"\b(artifact|memory|run):([0-9a-f]{12})\b")
+
+
+def check_grounding(agent: Agent, text: str, sources: list[str] | None) -> list[str]:
+    """Reject citations or sources the agent has not actually seen (anti-hallucination)."""
+    cited = {m.group(2) for m in CITATION.finditer(text or "")}
+    unknown = sorted((cited | set(sources or [])) - agent.seen_ids)
+    if unknown:
+        raise ToolError(
+            f"Unknown or unread references: {', '.join(unknown)}. Only cite ids returned by "
+            "your tools or present in the context; read an artifact before citing it.")
+    return sorted(cited | set(sources or []))
 
 
 class ToolError(Exception):
@@ -94,14 +109,16 @@ def _not_saved() -> dict:
 def create_artifact(agent: Agent, inp: dict) -> dict:
     if inp["type"] not in ARTIFACT_TYPES:
         raise ToolError(f"type must be one of {ARTIFACT_TYPES}")
+    sources = check_grounding(agent, inp.get("content", ""), inp.get("sources"))
     targets = []  # validate links before writing anything
     for link in inp.get("link_to", []) or []:
         target = agent.session.get(Artifact, link.get("target_id", ""))
         if target is None or target.project_id != agent.project.id:
             raise ToolError(f"link target {link.get('target_id')} not found")
         targets.append((target, link.get("kind", "relates_to")))
+    data = {**(inp.get("data") or {}), **({"sources": sources} if sources else {})}
     art = agent.save_artifact(inp["type"], inp["title"], inp.get("content", ""),
-                              data=inp.get("data") or {}, gate=True)
+                              data=data, gate=True)
     if art is None:
         return _not_saved()
     for target, kind in targets:
@@ -116,6 +133,7 @@ def update_artifact(agent: Agent, inp: dict) -> dict:
     if a.status not in EDITABLE:
         raise ToolError(f"Artifact is {a.status}; only draft or in-review artifacts can be "
                         "edited. Create a new artifact that supersedes it instead.")
+    check_grounding(agent, inp.get("content", ""), inp.get("sources"))
     if not agent.persists:
         return _not_saved()
     for field in ("title", "content"):
@@ -138,6 +156,10 @@ def link_artifacts(agent: Agent, inp: dict) -> dict:
 
 
 def propose_memory(agent: Agent, inp: dict) -> dict:
+    if not inp.get("source_artifact_ids"):
+        raise ToolError("Memory must be grounded: pass source_artifact_ids for the artifacts "
+                        "this fact comes from.")
+    check_grounding(agent, inp["content"], inp["source_artifact_ids"])
     if not agent.persists:
         return _not_saved()
     agent.remember(inp["content"], kind=inp.get("kind", "fact"),
@@ -176,6 +198,10 @@ def delegate(agent: Agent, inp: dict) -> dict:
                                          ("artifact_ids", inp.get("artifact_ids"))) if v},
                 autonomy=agent.autonomy, requested_by=f"agent:{agent.name}",
                 parent_run_id=agent.run_record.id)
+    from filament.runtime import resolve_config
+
+    child.config = {**resolve_config(agent.session, agent.project, name), "runner": "inline",
+                    "runner_kind": "inline", "runner_id": None}  # children run with the parent
     agent.session.flush()
     child = execute_run(agent.session, agent.project, child, commit=False)
     agent.children.append(child.id)
@@ -189,6 +215,8 @@ _ARTIFACT_INPUT = {
     "content": {"type": "string",
                 "description": "Markdown body. Diagrams go in ```mermaid blocks."},
     "data": {"type": "object", "description": "Optional structured fields"},
+    "sources": {"type": "array", "items": {"type": "string"},
+                "description": "Ids of the artifacts and memory entries this is based on"},
     "link_to": {"type": "array", "items": _obj(
         {"target_id": {"type": "string"}, "kind": {"type": "string", "enum": LINK_KINDS}},
         ["target_id", "kind"])},
@@ -209,7 +237,8 @@ TOOLS: dict[str, Tool] = {t.name: t for t in [
          _obj(_ARTIFACT_INPUT, ["type", "title", "content"]), create_artifact, writes=True),
     Tool("update_artifact", "Revise a draft or in-review artifact (bumps its version).",
          _obj({"id": {"type": "string"}, "title": {"type": "string"},
-               "content": {"type": "string"}, "reason": {"type": "string"}}, ["id", "reason"]),
+               "content": {"type": "string"}, "reason": {"type": "string"},
+               "sources": {"type": "array", "items": {"type": "string"}}}, ["id", "reason"]),
          update_artifact, writes=True),
     Tool("link_artifacts", "Add a typed link between two artifacts.",
          _obj({"source_id": {"type": "string"}, "target_id": {"type": "string"},
@@ -220,7 +249,7 @@ TOOLS: dict[str, Tool] = {t.name: t for t in [
          _obj({"content": {"type": "string"},
                "kind": {"type": "string", "enum": ["fact", "decision", "procedure"]},
                "source_artifact_ids": {"type": "array", "items": {"type": "string"}}},
-              ["content"]), propose_memory, writes=True),
+              ["content", "source_artifact_ids"]), propose_memory, writes=True),
     Tool("ask_human", "Queue a question for a human when something important is ambiguous.",
          _obj({"question": {"type": "string"}}, ["question"]), ask_human),
     Tool("finish", "Call when the goal is complete, with a short summary of what you did.",

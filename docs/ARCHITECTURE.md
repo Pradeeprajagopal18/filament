@@ -62,6 +62,30 @@ flowchart TB
 6. Every model turn and tool call is stored in `runs.trace`, with tokens and cost. A failed run
    rolls back its writes but keeps its audit trail.
 
+## Configuration
+
+- **MCP servers** (`mcp_servers`) are scoped to a workspace, team or project; the narrowest scope
+  wins on name clashes. A server's tools are discovered on test and cached; agents with
+  `uses_mcp = True` see the cached, allow-listed tools as `mcp__<server>__<tool>`. Write tools
+  need the server's minimum autonomy (default L2); L0 never executes them. Secrets are
+  `${env:NAME}` references resolved in the runner's environment at call time.
+- **Runners** decide where a run executes. Resolution: the run's own override, then the agent's
+  workspace setting, then the workspace default runner, then `inline`. The resolved config is
+  stored on the run (`runs.config`). Non-inline runs are `queued`; `fil runner start <name>`
+  claims them atomically (safe with several workers) and runs the agent on that machine.
+- **Config as code**: `GET/POST /api/workspaces/{id}/config` exports/applies YAML, upserting by
+  name in one transaction.
+
+## Context control and grounding
+
+- Context packs are budgeted per agent (`context_budget`).
+- Tool results are capped (`tool_result_max_chars`) and stay valid JSON when truncated.
+- Above `compaction_threshold_tokens`, older tool results are replaced with pointers; the most
+  recent results stay verbatim. Compactions and peak context size are recorded on the run.
+- Agents track `seen_ids` (context pack, tool results, own writes). Citations
+  (`artifact:<id>`, `memory:<id>`) and `sources` outside that set are rejected; memory proposals
+  must cite their sources.
+
 ## Extending
 
 - **New agent:** subclass `Agent`, set `system` (how it should work) and `tools`, implement

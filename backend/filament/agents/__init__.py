@@ -19,7 +19,7 @@ REGISTRY: dict[str, type[Agent]] = {
 
 
 AUDIT_FIELDS = ("trace", "turns", "model", "input_tokens", "output_tokens", "cost_usd",
-                "context_pack")
+                "context_pack", "peak_context_tokens")
 
 
 def list_agents() -> list[dict]:
@@ -45,7 +45,8 @@ def execute_run(session: Session, project: Project, run: Run, commit: bool = Tru
     run.status = "running"
     savepoint = session.begin_nested()
     try:
-        pack = build_context_pack(session, project, run.goal, agent.target_artifact_ids())
+        pack = build_context_pack(session, project, run.goal, agent.target_artifact_ids(),
+                                  budget=(run.config or {}).get("context_budget"))
         run.context_pack = pack
         if not pack["items"]:
             # No prior context at all is worth knowing about: feed gap detection.

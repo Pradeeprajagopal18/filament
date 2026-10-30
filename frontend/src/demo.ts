@@ -1,7 +1,8 @@
 // In-browser demo backend: the same API surface as the FastAPI service, with sample data and
 // simulated agents. Used only when the UI is built with VITE_DEMO=1 (the interactive preview).
 import type {
-  Artifact, Check, Gap, Health, Link, Memory, Project, Readiness, Run, TraceEvent, UsageRow, Workspace,
+  AgentSetting, Artifact, Check, Gap, Health, Link, McpServer, McpServerInput, Memory, Project, Readiness, Run,
+  Runner, TraceEvent, UsageRow, Workspace,
 } from './api'
 
 let seq = 1000
@@ -23,6 +24,63 @@ const db = {
   memory: [] as (Memory & { ws: string })[],
   signals: [] as Signal[],
   readiness: [] as Readiness[],
+  mcp: [] as McpServer[],
+  runners: [] as Runner[],
+  agentSettings: {} as Record<string, Partial<AgentSetting> & { runner?: string }>,
+}
+
+const AGENTS: Record<string, string> = {
+  requirements: 'Turns an idea or opportunity into a PRD and user stories with acceptance criteria.',
+  flow: 'Draws user flows and sequence diagrams (Mermaid) from PRDs and stories.',
+  orchestrator: 'Plans a goal across specialist agents, delegates, reviews and iterates.',
+}
+const DEFAULTS = { model: 'claude-sonnet-5-5', max_turns: 12, token_budget: 200000, context_budget: 12000 }
+
+// Simulated tool catalogues for well-known MCP servers (the real server lists tools on connect).
+const KNOWN_TOOLS: Record<string, [string, string][]> = {
+  github: [['search_issues', 'Search issues and pull requests'], ['get_file_contents', 'Read a file from a repository'], ['list_commits', 'List recent commits'], ['create_pull_request', 'Open a pull request'], ['create_issue', 'Open an issue']],
+  jira: [['search_issues', 'Search Jira with JQL'], ['get_issue', 'Read an issue'], ['create_issue', 'Create a Jira issue'], ['transition_issue', 'Move an issue to another status']],
+  slack: [['search_messages', 'Search Slack messages'], ['post_message', 'Post a message to a channel']],
+  sentry: [['list_issues', 'List recent errors'], ['get_issue_events', 'Read events for an error']],
+}
+
+function agentSetting(agent: string): AgentSetting {
+  const s = db.agentSettings[agent] ?? {}
+  const def = db.runners.find(r => r.is_default)
+  const overridden = Object.keys(s).filter(k => (s as Record<string, unknown>)[k] != null)
+  return {
+    agent, description: AGENTS[agent] ?? '', runner: s.runner ?? def?.name ?? 'inline',
+    model: s.model ?? DEFAULTS.model, max_turns: s.max_turns ?? DEFAULTS.max_turns,
+    token_budget: s.token_budget ?? DEFAULTS.token_budget, context_budget: s.context_budget ?? DEFAULTS.context_budget, overridden,
+  }
+}
+
+function runConfig(agent: string) {
+  const a = agentSetting(agent)
+  const r = db.runners.find(x => x.name === a.runner)
+  return { runner: a.runner, runner_kind: r?.kind ?? 'inline', model: a.model, max_turns: a.max_turns, token_budget: a.token_budget, context_budget: a.context_budget }
+}
+
+function mcpTest(s: McpServer) {
+  s.last_tested_at = now()
+  const key = Object.keys(KNOWN_TOOLS).find(k => s.name.includes(k) || (s.url ?? '').includes(k) || s.args.join(' ').includes(k))
+  if (!key) {
+    s.last_test_ok = false
+    s.last_test_error = 'Preview: only github, jira, slack and sentry servers are simulated here. The real server connects to any MCP server.'
+    s.tools_cache = []
+    return
+  }
+  s.last_test_ok = true; s.last_test_error = null
+  s.tools_cache = KNOWN_TOOLS[key].map(([name, description]) => ({ name, description }))
+}
+
+const SECRET_KEY = /token|secret|password|passwd|api[_-]?key|authorization|credential/i
+function checkSecrets(values: Record<string, string>, kind: string) {
+  for (const [k, v] of Object.entries(values)) {
+    if (SECRET_KEY.test(k) && !/^\$\{env:[A-Za-z_][A-Za-z0-9_]*\}$/.test(v)) {
+      throw new Error(`422: ${kind}.${k} looks like a secret: store it as a reference such as \${env:${k.toUpperCase().replace(/[^A-Z0-9_]/g, '_')}}, not the value`)
+    }
+  }
 }
 
 // -- seed data ------------------------------------------------------------------------------
@@ -41,6 +99,20 @@ function seed() {
   const p: Project = { id: 'checkout', workspace_id: ws.id, name: 'Checkout v2', description: 'Faster, safer checkout for returning shoppers' }
   const p2: Project = { id: 'onboarding', workspace_id: ws.id, name: 'Merchant onboarding', description: 'Self-serve onboarding for new merchants' }
   db.projects.push(p, p2)
+
+  db.runners.push({ id: id(), name: 'k8s-agents', kind: 'kubernetes', description: 'Agent pods in the platform cluster', labels: ['prod'], config: { namespace: 'agents' }, is_default: false, max_concurrency: 8, timeout_s: 900, last_seen_at: now(), queued: 0 })
+  db.agentSettings.requirements = { model: 'claude-opus-5-5', max_turns: 10 }
+  db.agentSettings.flow = { runner: 'k8s-agents' }
+  const mk = (x: Partial<McpServer> & { name: string }): McpServer => {
+    const s: McpServer = { id: id(), description: '', scope: 'workspace', scope_ref: null, transport: 'http', command: null, args: [], url: null, env: {}, headers: {}, enabled: true, allowed_tools: [], write_tools: [], min_autonomy_for_writes: 'L2', timeout_s: 30, tools_cache: [], last_test_ok: null, last_test_error: null, last_tested_at: null, ...x }
+    mcpTest(s)
+    return s
+  }
+  db.mcp.push(
+    mk({ name: 'github', description: 'Code, issues and pull requests', url: 'https://api.githubcopilot.com/mcp/', headers: { Authorization: '${env:GITHUB_TOKEN}' }, write_tools: ['create_pull_request', 'create_issue'], min_autonomy_for_writes: 'L3' }),
+    mk({ name: 'jira', description: 'Tickets for the payments team', transport: 'stdio', command: 'npx', args: ['-y', 'mcp-atlassian-jira'], env: { JIRA_API_TOKEN: '${env:JIRA_API_TOKEN}' }, allowed_tools: ['search_issues', 'get_issue', 'create_issue'], write_tools: ['create_issue'] }),
+    mk({ name: 'sentry', description: 'Production errors', url: 'https://mcp.sentry.dev/mcp', headers: { Authorization: '${env:SENTRY_TOKEN}' }, enabled: false }),
+  )
 
   const mem: [string, string, string, string][] = [
     ['org', 'standard', 'Card data is tokenized; services never store raw card numbers (PCI DSS).', 'confirmed'],
@@ -99,20 +171,22 @@ function seed() {
   const fl = runRecord(p.id, 'flow', 'Draw the user flow and sequence', 'L2', parent.id)
   req.trace = [
     m(['search_memory', 'search_graph']), t('search_memory', { query: 'saved card one-click checkout' }), t('search_graph', { types: ['prd', 'story'] }),
-    m(['create_artifact'], 'Two org standards apply: tokenization and idempotency keys. No existing PRD.'), t('create_artifact', { type: 'prd', title: prd.title }),
+    m(['mcp__jira__search_issues'], 'Check Jira for related tickets before writing.'), t('mcp__jira__search_issues', { jql: 'project = PAY AND text ~ "saved card"' }),
+    { type: 'compact', results: 3, before: 31420, after: 9860 },
+    m(['create_artifact'], 'Two org standards apply: tokenization and idempotency keys. PAY-212 already asks for saved cards; no existing PRD.'), t('create_artifact', { type: 'prd', title: prd.title }),
     m(['ask_human'], 'CVV policy for saved cards is not defined anywhere.'), t('ask_human', { question: 'Do we require CVV for saved cards under 18 months old?' }),
     m(['create_artifact', 'create_artifact', 'create_artifact', 'create_artifact']), ...storyArts.map(s => t('create_artifact', { type: 'story', title: s.title })),
     m(['propose_memory']), t('propose_memory', { content: 'One-click checkout is limited to cards saved in the last 18 months.' }),
     m(['finish']), t('finish', { summary: 'PRD and 4 stories drafted; 1 question for the PM; 1 decision proposed.' }), { type: 'stop', reason: 'finished' },
   ]
-  Object.assign(req, { turns: 6, input_tokens: 18240, output_tokens: 3920, output: { summary: 'PRD and 4 stories drafted; 1 question for the PM; 1 decision proposed.', created: [prd, ...storyArts].map(brief), questions: ['Do we require CVV for saved cards under 18 months old?'] } })
+  Object.assign(req, { peak_context_tokens: 31420, turns: 7, input_tokens: 18240, output_tokens: 3920, output: { summary: 'PRD and 4 stories drafted; 1 question for the PM; 1 decision proposed.', created: [prd, ...storyArts].map(brief), questions: ['Do we require CVV for saved cards under 18 months old?'] } })
   fl.trace = [
     m(['search_graph']), t('search_graph', { types: ['prd', 'story'] }), m(['read_artifact', 'read_artifact']), t('read_artifact', { id: prd.id }), t('read_artifact', { id: storyArts[1].id }),
     m(['create_artifact', 'create_artifact'], 'Flow exposes a gap: vault outage during save.'), t('create_artifact', { type: 'flow', title: flow.title }), t('create_artifact', { type: 'flow', title: seqd.title }),
     m(['ask_human']), t('ask_human', { question: 'What should happen if the vault is down while saving a card?' }),
     m(['finish']), t('finish', { summary: 'User flow and sequence drawn; flagged one gap.' }), { type: 'stop', reason: 'finished' },
   ]
-  Object.assign(fl, { turns: 5, input_tokens: 14310, output_tokens: 2680, output: { summary: 'User flow and sequence drawn; flagged one gap.', created: [flow, seqd].map(brief), questions: ['What should happen if the vault is down while saving a card?'] } })
+  Object.assign(fl, { peak_context_tokens: 12800, turns: 5, input_tokens: 14310, output_tokens: 2680, output: { summary: 'User flow and sequence drawn; flagged one gap.', created: [flow, seqd].map(brief), questions: ['What should happen if the vault is down while saving a card?'] } })
   parent.trace = [
     m(['search_graph', 'search_memory'], 'Nothing exists yet for this idea. Plan: requirements, then flow.'), t('search_graph', { types: ['prd', 'story', 'flow'] }), t('search_memory', { query: 'saved cards checkout' }),
     m(['delegate']), t('delegate', { agent: 'requirements', goal: 'Draft PRD and stories' }),
@@ -120,7 +194,7 @@ function seed() {
     m(['delegate']), t('delegate', { agent: 'flow', goal: 'Draw the user flow and sequence' }),
     m(['finish']), t('finish', { summary: 'Idea taken to design: PRD, 4 stories, 2 diagrams. Waiting on 2 human answers and review.' }), { type: 'stop', reason: 'finished' },
   ]
-  Object.assign(parent, { turns: 5, input_tokens: 9120, output_tokens: 1310, output: { summary: 'Idea taken to design: PRD, 4 stories, 2 diagrams. Waiting on 2 human answers and review.', created: [], questions: [], child_run_ids: [req.id, fl.id] } })
+  Object.assign(parent, { peak_context_tokens: 6100, turns: 5, input_tokens: 9120, output_tokens: 1310, output: { summary: 'Idea taken to design: PRD, 4 stories, 2 diagrams. Waiting on 2 human answers and review.', created: [], questions: [], child_run_ids: [req.id, fl.id] } })
 
   db.signals.push(
     { kind: 'no_answer', text: 'How do we rotate the Kafka credentials for payments?' },
@@ -145,7 +219,9 @@ function runRecord(project_id: string, agent: string, goal: string, autonomy: st
     id: id(), project_id, parent_run_id: parent, agent, goal, status: 'succeeded', autonomy, trace: [], turns: 0,
     output: {}, context_pack: { items: [], approx_tokens: 0 }, model: 'claude-sonnet-5-5', input_tokens: 0,
     output_tokens: 0, cost_usd: null, error: null, started_at: now(),
+    config: runConfig(agent), peak_context_tokens: 0, claimed_by: null,
   }
+  if (r.config.runner_kind !== 'inline') r.claimed_by = `${r.config.runner}-1`
   db.runs.unshift(r)
   return r
 }
@@ -188,7 +264,7 @@ function simulateRequirements(p: Project, ideaText: string, autonomy: string, pa
   if (!save) r.trace.splice(4, 0, { type: 'tool', tool: 'note', input: 'L0: write tools saved nothing', result: {}, error: false })
   db.signals.push({ kind: 'question', text: question })
   Object.assign(r, {
-    turns: 5, input_tokens: 9000 + Math.round(Math.random() * 6000), output_tokens: 2400 + Math.round(Math.random() * 1500),
+    peak_context_tokens: 8000 + Math.round(Math.random() * 4000), turns: 5, input_tokens: 9000 + Math.round(Math.random() * 6000), output_tokens: 2400 + Math.round(Math.random() * 1500),
     context_pack: { items: mem.map(e => ({ kind: 'memory', id: e.id, title: e.kind })), approx_tokens: 900 },
     output: { summary: save ? `PRD and 3 stories drafted using ${mem.length} memory entries.` : 'Suggested a PRD and 3 stories (L0: nothing saved).', created: created.map(brief), questions: [question], prd_id: created[0]?.id ?? null },
   })
@@ -219,7 +295,7 @@ function simulateFlow(p: Project, autonomy: string, parent: string | null) {
     m(['create_artifact', 'create_artifact']), t('create_artifact', { type: 'flow', title: 'User flow' }), t('create_artifact', { type: 'flow', title: 'Sequence' }),
     m(['finish']), t('finish', { summary: `Drew a user flow and a sequence from ${stories.length} stories.` }), { type: 'stop', reason: 'finished' },
   ]
-  Object.assign(r, { turns: 4, input_tokens: 7000 + Math.round(Math.random() * 4000), output_tokens: 1800 + Math.round(Math.random() * 900), output: { summary: `Drew a user flow and a sequence from ${stories.length} stories.`, created: created.map(brief), questions: [] } })
+  Object.assign(r, { peak_context_tokens: 6000 + Math.round(Math.random() * 3000), turns: 4, input_tokens: 7000 + Math.round(Math.random() * 4000), output_tokens: 1800 + Math.round(Math.random() * 900), output: { summary: `Drew a user flow and a sequence from ${stories.length} stories.`, created: created.map(brief), questions: [] } })
   return r
 }
 
@@ -235,7 +311,7 @@ function simulateOrchestrator(p: Project, ideaText: string, autonomy: string) {
     m(['delegate'], 'Stories cover the core flow and errors; ready to draw.'), t('delegate', { agent: 'flow', goal: 'Draw the user flow and sequence' }),
     m(['finish']), t('finish', { summary: 'Idea taken to design. Outputs are waiting for human review.' }), { type: 'stop', reason: 'finished' },
   ]
-  Object.assign(parent, { turns: 4, input_tokens: 5200, output_tokens: 900, output: { summary: 'Idea taken to design: PRD, stories and two diagrams are waiting for your review.', created: [], questions: [], child_run_ids: [req.id, fl.id] } })
+  Object.assign(parent, { peak_context_tokens: 4200, turns: 4, input_tokens: 5200, output_tokens: 900, output: { summary: 'Idea taken to design: PRD, stories and two diagrams are waiting for your review.', created: [], questions: [], child_run_ids: [req.id, fl.id] } })
   return parent
 }
 
@@ -362,6 +438,66 @@ export const demoApi = {
   },
   scan: async (repo: string) => { await sleep(900); const r = simulateScan(repo); db.readiness.unshift(r); return clone(r) },
   readiness: async () => clone(db.readiness),
+  mcpServers: async () => clone(db.mcp),
+  addMcpServer: async (_ws: string, body: McpServerInput) => {
+    await sleep(700)
+    if (!/^[a-z0-9][a-z0-9_-]{0,39}$/.test(body.name)) throw new Error('422: name must be lowercase letters, digits, - or _')
+    if (db.mcp.some(s => s.name === body.name && s.scope === (body.scope ?? 'workspace'))) throw new Error(`409: An MCP server named '${body.name}' already exists in this scope`)
+    checkSecrets(body.env ?? {}, 'env'); checkSecrets(body.headers ?? {}, 'headers')
+    const s: McpServer = { id: id(), description: '', scope: 'workspace', scope_ref: null, transport: 'stdio', command: null, args: [], url: null, env: {}, headers: {}, enabled: true, allowed_tools: [], write_tools: [], min_autonomy_for_writes: 'L2', timeout_s: 30, tools_cache: [], last_test_ok: null, last_test_error: null, last_tested_at: null, ...body } as McpServer
+    mcpTest(s); db.mcp.push(s); return clone(s)
+  },
+  updateMcpServer: async (sid: string, body: Partial<McpServerInput>) => {
+    const s = db.mcp.find(x => x.id === sid)!
+    checkSecrets(body.env ?? {}, 'env'); checkSecrets(body.headers ?? {}, 'headers')
+    Object.assign(s, Object.fromEntries(Object.entries(body).filter(([, v]) => v !== undefined))); return clone(s)
+  },
+  testMcpServer: async (sid: string) => { await sleep(600); const s = db.mcp.find(x => x.id === sid)!; mcpTest(s); return clone(s) },
+  deleteMcpServer: async (sid: string) => { db.mcp = db.mcp.filter(x => x.id !== sid) },
+  runners: async () => clone(db.runners),
+  addRunner: async (_ws: string, body: Partial<Runner> & { name: string }) => {
+    if (db.runners.some(r => r.name === body.name)) throw new Error(`409: A runner named '${body.name}' already exists`)
+    const r: Runner = { id: id(), kind: 'worker', description: '', labels: [], config: {}, is_default: false, max_concurrency: 4, timeout_s: 900, last_seen_at: null, queued: 0, ...body }
+    db.runners.push(r); return clone(r)
+  },
+  updateRunner: async (rid: string, body: Partial<Runner>) => {
+    if (body.is_default) db.runners.forEach(r => { r.is_default = false })
+    const r = db.runners.find(x => x.id === rid)!; Object.assign(r, body); return clone(r)
+  },
+  deleteRunner: async (rid: string) => {
+    const r = db.runners.find(x => x.id === rid)
+    db.runners = db.runners.filter(x => x.id !== rid)
+    for (const s of Object.values(db.agentSettings)) if (s.runner === r?.name) delete s.runner
+  },
+  agentSettings: async () => Object.keys(AGENTS).map(agentSetting),
+  setAgentSetting: async (_ws: string, agent: string, body: { runner?: string | null; model?: string | null; max_turns?: number | null; token_budget?: number | null; context_budget?: number | null }) => {
+    db.agentSettings[agent] = Object.fromEntries(Object.entries({ ...body, runner: body.runner === 'inline' ? undefined : body.runner }).filter(([, v]) => v != null))
+    return agentSetting(agent)
+  },
+  exportConfig: async () => {
+    const lines = ['runners:']
+    for (const r of db.runners) lines.push(`  - name: ${r.name}`, `    kind: ${r.kind}`, ...(r.is_default ? ['    default: true'] : []))
+    lines.push('mcp_servers:')
+    for (const s of db.mcp) {
+      lines.push(`  - name: ${s.name}`, `    transport: ${s.transport}`, s.transport === 'http' ? `    url: ${s.url}` : `    command: ${s.command}`)
+      if (s.args.length) lines.push(`    args: [${s.args.join(', ')}]`)
+      for (const [label, values] of [['env', s.env], ['headers', s.headers]] as const) {
+        if (Object.keys(values).length) lines.push(`    ${label}:`, ...Object.entries(values).map(([k, v]) => `      ${k}: "${v}"`))
+      }
+      if (s.allowed_tools.length) lines.push(`    allowed_tools: [${s.allowed_tools.join(', ')}]`)
+      if (s.write_tools.length) lines.push(`    write_tools: [${s.write_tools.join(', ')}]`)
+      lines.push(`    min_autonomy_for_writes: ${s.min_autonomy_for_writes}`, `    enabled: ${s.enabled}`)
+    }
+    lines.push('agents:')
+    for (const [agent, s] of Object.entries(db.agentSettings)) {
+      const entries = Object.entries(s).filter(([, v]) => v != null)
+      if (entries.length) lines.push(`  ${agent}:`, ...entries.map(([k, v]) => `    ${k}: ${v}`))
+    }
+    return lines.join('\n') + '\n'
+  },
+  applyConfig: async () => {
+    throw new Error('Preview: applying YAML runs on the real Filament server (fil config apply -f filament.yaml). Edit settings in the tables below to try it here.')
+  },
 }
 
 seed()

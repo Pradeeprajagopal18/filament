@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     max_agent_turns: int = 12
     run_token_budget: int = 200_000
 
+    # Context control: keep each model call lean and grounded.
+    tool_result_max_chars: int = 6_000  # per tool result returned to the model
+    compaction_threshold_tokens: int = 30_000  # compact the conversation above this size
+    keep_recent_tool_turns: int = 2  # tool results kept verbatim during compaction
+
     # Context engine budget (approximate tokens) for each run's context pack.
     context_budget_tokens: int = 12_000
 

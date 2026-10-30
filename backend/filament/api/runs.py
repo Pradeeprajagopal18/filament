@@ -10,6 +10,7 @@ from filament.api.graph import get_or_404
 from filament.db import get_session
 from filament.models import Project, ReadinessReport, Run
 from filament.readiness import scan
+from filament.runtime import INLINE, resolve_config
 
 router = APIRouter()
 
@@ -24,7 +25,21 @@ def start_run(project_id: str, body: s.RunIn, session: Session = Depends(get_ses
     project = get_or_404(session, Project, project_id)
     if body.agent not in REGISTRY:
         raise HTTPException(400, f"Unknown agent '{body.agent}'. Known: {sorted(REGISTRY)}")
-    run = Run(project_id=project_id, **body.model_dump())
+    try:
+        cfg = resolve_config(session, project, body.agent, {
+            "runner": body.runner, "model": body.model, "max_turns": body.max_turns,
+            "token_budget": body.token_budget})
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    run = Run(project_id=project_id, agent=body.agent, goal=body.goal, input=body.input,
+              autonomy=body.autonomy, requested_by=body.requested_by, config=cfg,
+              runner_id=cfg["runner_id"])
+    if cfg["runner_kind"] != INLINE:
+        # Executes wherever `fil runner start <name>` is running for this runner.
+        run.status = "queued"
+        session.add(run)
+        session.commit()
+        return run
     return execute_run(session, project, run)
 
 

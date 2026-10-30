@@ -15,6 +15,7 @@ class RequirementsAgent(Agent):
         "Turns an idea or opportunity into a PRD and user stories with acceptance criteria."
     )
     tools = SPECIALIST_TOOLS
+    uses_mcp = True
     system = (
         "You are the Requirements Agent. You turn ideas into clear, testable requirements.\n"
         "Work like a strong product manager:\n"

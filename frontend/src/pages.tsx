@@ -177,17 +177,18 @@ export function RunLog({ run }: { run: Run }) {
       <div className="row spread">
         <div>
           <h2>{run.agent} run</h2>
-          <p className="muted">{run.goal} · {run.autonomy} · {run.model ?? '—'}</p>
+          <p className="muted">{run.goal} · {run.autonomy} · {run.model ?? '—'} · runner {run.config?.runner ?? 'inline'}{run.claimed_by ? ` (${run.claimed_by})` : ''}</p>
         </div>
         <Badge value={run.status} />
       </div>
       {summary && <p className="summary">{summary}</p>}
       {run.error && <p className="error">{run.error}</p>}
+      {run.status === 'queued' && <p className="muted">Waiting for a worker on runner <code>{run.config?.runner}</code>. Start one with <code>fil runner start {run.config?.runner}</code>.</p>}
       <div className="stats">
         <div><b>{run.turns}</b><span>turns</span></div>
         <div><b><Tokens n={run.input_tokens} /></b><span>input tokens</span></div>
         <div><b><Tokens n={run.output_tokens} /></b><span>output tokens</span></div>
-        <div><b>{run.context_pack?.items?.length ?? 0}</b><span>context items</span></div>
+        <div><b><Tokens n={run.peak_context_tokens ?? 0} /></b><span>peak context</span></div>
         <div><b>{run.cost_usd == null ? '—' : `$${run.cost_usd.toFixed(4)}`}</b><span>cost</span></div>
       </div>
       <h3>Run log</h3>
@@ -197,6 +198,7 @@ export function RunLog({ run }: { run: Run }) {
             {e.type === 'model' && <><span className="tag">model</span> decided: {e.tool_calls?.length ? e.tool_calls.join(', ') : 'answer and stop'}{e.text ? <em> — {e.text.slice(0, 160)}</em> : null}</>}
             {e.type === 'tool' && <><span className="tag">{e.error ? 'error' : 'tool'}</span> <code>{e.tool}</code> <span className="muted small">{brief(e.input)}</span>{e.error ? <div className="error small">{brief(e.result)}</div> : null}</>}
             {e.type === 'stop' && <><span className="tag">stop</span> {e.reason}</>}
+            {e.type === 'compact' && <><span className="tag">compact</span> {e.results} old results compacted · {e.before?.toLocaleString()} → {e.after?.toLocaleString()} tokens</>}
           </li>
         ))}
       </ol>

@@ -140,6 +140,11 @@ class RunIn(BaseModel):
     input: dict = Field(default_factory=dict)
     autonomy: Autonomy = "L1"
     requested_by: str = "human"
+    # Optional per-run overrides of the agent's configured defaults.
+    runner: str | None = None
+    model: str | None = None
+    max_turns: int | None = Field(default=None, ge=1, le=100)
+    token_budget: int | None = Field(default=None, ge=1_000)
 
 
 class RunOut(ORM):
@@ -155,6 +160,10 @@ class RunOut(ORM):
     context_pack: dict
     trace: list
     turns: int
+    config: dict
+    runner_id: str | None
+    claimed_by: str | None
+    peak_context_tokens: int
     model: str | None
     input_tokens: int
     output_tokens: int
@@ -228,3 +237,122 @@ class GapOut(BaseModel):
     topic: str
     count: int
     examples: list[str]
+
+
+# -- MCP servers ------------------------------------------------------------------------------
+McpScope = Literal["workspace", "team", "project"]
+
+
+class McpServerIn(BaseModel):
+    name: str
+    description: str = ""
+    scope: McpScope = "workspace"
+    scope_ref: str | None = None
+    transport: Literal["stdio", "http"] = "stdio"
+    command: str | None = None
+    args: list[str] = Field(default_factory=list)
+    url: str | None = None
+    env: dict[str, str] = Field(default_factory=dict)
+    headers: dict[str, str] = Field(default_factory=dict)
+    enabled: bool = True
+    allowed_tools: list[str] = Field(default_factory=list)
+    write_tools: list[str] = Field(default_factory=list)
+    min_autonomy_for_writes: Autonomy = "L2"
+    timeout_s: int = Field(default=30, ge=1, le=600)
+
+
+class McpServerPatch(BaseModel):
+    description: str | None = None
+    command: str | None = None
+    args: list[str] | None = None
+    url: str | None = None
+    env: dict[str, str] | None = None
+    headers: dict[str, str] | None = None
+    enabled: bool | None = None
+    allowed_tools: list[str] | None = None
+    write_tools: list[str] | None = None
+    min_autonomy_for_writes: Autonomy | None = None
+    timeout_s: int | None = Field(default=None, ge=1, le=600)
+
+
+class McpServerOut(ORM):
+    id: str
+    workspace_id: str
+    name: str
+    description: str
+    scope: str
+    scope_ref: str | None
+    transport: str
+    command: str | None
+    args: list
+    url: str | None
+    env: dict
+    headers: dict
+    enabled: bool
+    allowed_tools: list
+    write_tools: list
+    min_autonomy_for_writes: str
+    timeout_s: int
+    tools_cache: list
+    last_test_ok: bool | None
+    last_test_error: str | None
+    last_tested_at: datetime | None
+
+
+# -- runners and agent settings ----------------------------------------------------------------
+RunnerKind = Literal["inline", "worker", "container", "kubernetes"]
+
+
+class RunnerIn(BaseModel):
+    name: str
+    kind: RunnerKind = "worker"
+    description: str = ""
+    labels: list[str] = Field(default_factory=list)
+    config: dict = Field(default_factory=dict)
+    is_default: bool = False
+    max_concurrency: int = Field(default=4, ge=1, le=256)
+    timeout_s: int = Field(default=900, ge=10, le=86_400)
+
+
+class RunnerPatch(BaseModel):
+    kind: RunnerKind | None = None
+    description: str | None = None
+    labels: list[str] | None = None
+    config: dict | None = None
+    is_default: bool | None = None
+    max_concurrency: int | None = Field(default=None, ge=1, le=256)
+    timeout_s: int | None = Field(default=None, ge=10, le=86_400)
+
+
+class RunnerOut(ORM):
+    id: str
+    workspace_id: str
+    name: str
+    kind: str
+    description: str
+    labels: list
+    config: dict
+    is_default: bool
+    max_concurrency: int
+    timeout_s: int
+    last_seen_at: datetime | None
+    queued: int = 0
+
+
+class AgentSettingIn(BaseModel):
+    runner: str | None = Field(default=None, description="Runner name or id; empty = default")
+    model: str | None = None
+    max_turns: int | None = Field(default=None, ge=1, le=100)
+    token_budget: int | None = Field(default=None, ge=1_000)
+    context_budget: int | None = Field(default=None, ge=500)
+
+
+class AgentSettingOut(BaseModel):
+    agent: str
+    description: str
+    runner: str
+    model: str
+    max_turns: int
+    token_budget: int
+    context_budget: int
+    overridden: list[str]

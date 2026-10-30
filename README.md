@@ -20,7 +20,13 @@ work in the same place, and every agent output is linked, cited and reviewable.
 | Orchestrator Agent | Takes a goal ("take this idea to a reviewed design"), inspects the project, delegates to specialists as child runs, skips work that already exists |
 | Requirements Agent | Idea → PRD + user stories with Given/When/Then acceptance criteria, linked into the graph |
 | Flow Agent | PRD/stories → user flow and sequence diagrams (Mermaid), rendered in the UI |
-| Run log | Every model turn and tool call, tokens, context items and child runs, in the UI and via `fil trace` |
+| Run log | Every model turn and tool call, tokens, context size, compactions and child runs, in the UI and via `fil trace` |
+| MCP connectors | Add, edit, test, enable/disable MCP servers (stdio or HTTP) per workspace, team or project; allow-list tools; mark write tools and the autonomy they need; secrets only as `${env:NAME}` references |
+| Runners | Choose where agents run: `inline` (API process, default), `worker`, `container`, `kubernetes`. Non-inline runs queue until `fil runner start <name>` picks them up wherever it runs |
+| Agent defaults | Per workspace: runner, model, max turns, token and context budgets per agent; any run can override |
+| Config as code | Export/apply runners, MCP servers and agent defaults as YAML (`fil config export / apply -f`), all-or-nothing |
+| Context control | Old tool results are compacted, results are size-capped (valid JSON), and peak context per run is tracked |
+| Grounding | Agents may only cite ids they have seen; unknown citations and unsourced memory proposals are rejected |
 | Autonomy levels | L0 suggest · L1 draft · L2 send to review with an approval gate · L3/L4 act and report |
 | Ask Filament | Answers from memory and the graph with citations; unanswered questions are logged |
 | What we're missing | Unanswered questions and agent context misses clustered into gaps |
@@ -72,6 +78,14 @@ fil approve <artifact-id>
 fil ask "Do checkout payments use idempotency keys?"
 fil gaps
 fil usage --by agent
+
+fil mcp add github --url https://api.githubcopilot.com/mcp/ \
+  --header 'Authorization=${env:GITHUB_TOKEN}' --write create_pull_request --min-autonomy L3
+fil mcp list && fil mcp test github
+fil runner add build-box --kind worker
+fil agent set requirements --runner build-box --model claude-opus-5-5 --max-turns 10
+fil runner start build-box            # on the machine where runs should execute
+fil config export > filament.yaml && fil config apply -f filament.yaml
 ```
 
 ## Repository layout

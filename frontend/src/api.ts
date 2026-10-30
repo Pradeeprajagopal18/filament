@@ -9,14 +9,17 @@ export interface Artifact {
 }
 export interface Link { id: string; source_id: string; target_id: string; kind: string }
 export interface TraceEvent {
-  type: 'model' | 'tool' | 'stop'
-  text?: string; tool_calls?: string[]; tokens?: [number, number]
+  type: 'model' | 'tool' | 'stop' | 'compact'
+  text?: string; tool_calls?: string[]; tokens?: [number, number]; context_tokens?: number
+  results?: number; before?: number; after?: number
   tool?: string; input?: unknown; result?: unknown; error?: boolean
   reason?: string
 }
 export interface Run {
   id: string; parent_run_id: string | null; agent: string; goal: string; status: string; autonomy: string
   trace: TraceEvent[]; turns: number
+  config: { runner?: string; runner_kind?: string; model?: string; max_turns?: number; token_budget?: number; context_budget?: number }
+  peak_context_tokens: number; claimed_by: string | null
   output: Record<string, unknown>; context_pack: { items: { kind: string; id: string; title: string }[]; approx_tokens: number }
   model: string | null; input_tokens: number; output_tokens: number; cost_usd: number | null
   error: string | null; started_at: string
@@ -28,7 +31,34 @@ export interface UsageRow { key: string; runs: number; input_tokens: number; out
 export interface Gap { topic: string; count: number; examples: string[] }
 export interface Check { id: string; title: string; passed: boolean; weight: number; detail: string; fix: string }
 export interface Readiness { id: string; repo: string; score: number; grade: string; checks: Check[]; created_at: string }
+export interface McpTool { name: string; description: string; input_schema?: unknown }
+export interface McpServer {
+  id: string; name: string; description: string; scope: string; scope_ref: string | null
+  transport: 'stdio' | 'http'; command: string | null; args: string[]; url: string | null
+  env: Record<string, string>; headers: Record<string, string>; enabled: boolean
+  allowed_tools: string[]; write_tools: string[]; min_autonomy_for_writes: string; timeout_s: number
+  tools_cache: McpTool[]; last_test_ok: boolean | null; last_test_error: string | null; last_tested_at: string | null
+}
+export type McpServerInput = Partial<Omit<McpServer, 'id' | 'tools_cache' | 'last_test_ok' | 'last_test_error' | 'last_tested_at'>> & { name: string }
+export interface Runner {
+  id: string; name: string; kind: string; description: string; labels: string[]; config: Record<string, unknown>
+  is_default: boolean; max_concurrency: number; timeout_s: number; last_seen_at: string | null; queued: number
+}
+export interface AgentSetting {
+  agent: string; description: string; runner: string; model: string; max_turns: number
+  token_budget: number; context_budget: number; overridden: string[]
+}
 export interface Health { status: string; offline: boolean; model: string; version: string }
+
+async function callText(method: string, path: string, body?: string): Promise<string> {
+  const res = await fetch(`/api${path}`, { method, headers: body ? { 'Content-Type': 'text/plain' } : undefined, body })
+  if (!res.ok) {
+    let detail = res.statusText
+    try { detail = (await res.json()).detail ?? detail } catch { /* not JSON */ }
+    throw new Error(`${res.status}: ${detail}`)
+  }
+  return res.text()
+}
 
 async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api${path}`, {
@@ -69,6 +99,20 @@ const httpApi = {
   gaps: (ws: string) => call<Gap[]>('GET', `/workspaces/${ws}/gaps`),
   scan: (repo: string) => call<Readiness>('POST', '/readiness/scan', { repo }),
   readiness: () => call<Readiness[]>('GET', '/readiness'),
+  mcpServers: (ws: string) => call<McpServer[]>('GET', `/workspaces/${ws}/mcp`),
+  addMcpServer: (ws: string, body: McpServerInput) => call<McpServer>('POST', `/workspaces/${ws}/mcp?test=true`, body),
+  updateMcpServer: (id: string, body: Partial<McpServerInput>) => call<McpServer>('PATCH', `/mcp/${id}`, body),
+  testMcpServer: (id: string) => call<McpServer>('POST', `/mcp/${id}/test`),
+  deleteMcpServer: async (id: string) => { await fetch(`/api/mcp/${id}`, { method: 'DELETE' }) },
+  runners: (ws: string) => call<Runner[]>('GET', `/workspaces/${ws}/runners`),
+  addRunner: (ws: string, body: Partial<Runner> & { name: string }) => call<Runner>('POST', `/workspaces/${ws}/runners`, body),
+  updateRunner: (id: string, body: Partial<Runner>) => call<Runner>('PATCH', `/runners/${id}`, body),
+  deleteRunner: async (id: string) => { await fetch(`/api/runners/${id}`, { method: 'DELETE' }) },
+  agentSettings: (ws: string) => call<AgentSetting[]>('GET', `/workspaces/${ws}/agent-settings`),
+  setAgentSetting: (ws: string, agent: string, body: { runner?: string | null; model?: string | null; max_turns?: number | null; token_budget?: number | null; context_budget?: number | null }) =>
+    call<AgentSetting>('PUT', `/workspaces/${ws}/agent-settings/${agent}`, body),
+  exportConfig: (ws: string) => callText('GET', `/workspaces/${ws}/config`),
+  applyConfig: (ws: string, yaml: string) => callText('POST', `/workspaces/${ws}/config`, yaml),
 }
 
 // The interactive preview (VITE_DEMO=1) swaps in an in-browser backend with sample data.

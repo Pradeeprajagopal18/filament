@@ -13,6 +13,7 @@ class FlowAgent(Agent):
     name = "flow"
     description = "Draws user flows and sequence diagrams (Mermaid) from PRDs and stories."
     tools = SPECIALIST_TOOLS
+    uses_mcp = True
     system = (
         "You are the Flow & Design Agent. You turn requirements into diagrams a product team "
         "can review.\n"

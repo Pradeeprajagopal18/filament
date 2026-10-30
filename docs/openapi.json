@@ -1335,6 +1335,620 @@
         }
       }
     },
+    "/api/workspaces/{ws_id}/mcp": {
+      "get": {
+        "summary": "List Mcp",
+        "operationId": "list_mcp_api_workspaces__ws_id__mcp_get",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ws Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/McpServerOut"
+                  },
+                  "title": "Response List Mcp Api Workspaces  Ws Id  Mcp Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Add Mcp",
+        "operationId": "add_mcp_api_workspaces__ws_id__mcp_post",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ws Id"
+            }
+          },
+          {
+            "name": "test",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Test"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/McpServerIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpServerOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/mcp/{server_id}": {
+      "patch": {
+        "summary": "Update Mcp",
+        "operationId": "update_mcp_api_mcp__server_id__patch",
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Server Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/McpServerPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpServerOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Mcp",
+        "operationId": "delete_mcp_api_mcp__server_id__delete",
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Server Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/mcp/{server_id}/test": {
+      "post": {
+        "summary": "Test Mcp",
+        "description": "Connect to the server, list its tools and cache them (agents only see cached tools).",
+        "operationId": "test_mcp_api_mcp__server_id__test_post",
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Server Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpServerOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{project_id}/mcp-tools": {
+      "get": {
+        "summary": "Project Mcp Tools",
+        "description": "The MCP tools an agent working in this project will be offered.",
+        "operationId": "project_mcp_tools_api_projects__project_id__mcp_tools_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/workspaces/{ws_id}/runners": {
+      "get": {
+        "summary": "List Runners",
+        "operationId": "list_runners_api_workspaces__ws_id__runners_get",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ws Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RunnerOut"
+                  },
+                  "title": "Response List Runners Api Workspaces  Ws Id  Runners Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Add Runner",
+        "operationId": "add_runner_api_workspaces__ws_id__runners_post",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ws Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunnerIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunnerOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runners/{runner_id}": {
+      "patch": {
+        "summary": "Update Runner",
+        "operationId": "update_runner_api_runners__runner_id__patch",
+        "parameters": [
+          {
+            "name": "runner_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Runner Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunnerPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunnerOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Runner",
+        "operationId": "delete_runner_api_runners__runner_id__delete",
+        "parameters": [
+          {
+            "name": "runner_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Runner Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/workspaces/{ws_id}/agent-settings": {
+      "get": {
+        "summary": "List Agent Settings",
+        "operationId": "list_agent_settings_api_workspaces__ws_id__agent_settings_get",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ws Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AgentSettingOut"
+                  },
+                  "title": "Response List Agent Settings Api Workspaces  Ws Id  Agent Settings Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/workspaces/{ws_id}/agent-settings/{agent}": {
+      "put": {
+        "summary": "Set Agent Setting",
+        "operationId": "set_agent_setting_api_workspaces__ws_id__agent_settings__agent__put",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ws Id"
+            }
+          },
+          {
+            "name": "agent",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Agent"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentSettingIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSettingOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/workspaces/{ws_id}/config": {
+      "get": {
+        "summary": "Export Config",
+        "description": "Export MCP servers, runners and agent settings as YAML (secrets stay as references).",
+        "operationId": "export_config_api_workspaces__ws_id__config_get",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ws Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Apply Config",
+        "description": "Apply a YAML config: create or update runners, MCP servers and agent settings by name.\n\nAll-or-nothing: if any entry is invalid, nothing is changed.",
+        "operationId": "apply_config_api_workspaces__ws_id__config_post",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ws Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "text/plain": {
+              "schema": {
+                "type": "string",
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "summary": "Health",
@@ -1354,6 +1968,123 @@
   },
   "components": {
     "schemas": {
+      "AgentSettingIn": {
+        "properties": {
+          "runner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runner",
+            "description": "Runner name or id; empty = default"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "max_turns": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 100.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Turns"
+          },
+          "token_budget": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1000.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token Budget"
+          },
+          "context_budget": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 500.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context Budget"
+          }
+        },
+        "type": "object",
+        "title": "AgentSettingIn"
+      },
+      "AgentSettingOut": {
+        "properties": {
+          "agent": {
+            "type": "string",
+            "title": "Agent"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "runner": {
+            "type": "string",
+            "title": "Runner"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "max_turns": {
+            "type": "integer",
+            "title": "Max Turns"
+          },
+          "token_budget": {
+            "type": "integer",
+            "title": "Token Budget"
+          },
+          "context_budget": {
+            "type": "integer",
+            "title": "Context Budget"
+          },
+          "overridden": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Overridden"
+          }
+        },
+        "type": "object",
+        "required": [
+          "agent",
+          "description",
+          "runner",
+          "model",
+          "max_turns",
+          "token_budget",
+          "context_budget",
+          "overridden"
+        ],
+        "title": "AgentSettingOut"
+      },
       "ApprovalDecision": {
         "properties": {
           "decision": {
@@ -1821,6 +2552,448 @@
         ],
         "title": "LinkOut"
       },
+      "McpServerIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "workspace",
+              "team",
+              "project"
+            ],
+            "title": "Scope",
+            "default": "workspace"
+          },
+          "scope_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope Ref"
+          },
+          "transport": {
+            "type": "string",
+            "enum": [
+              "stdio",
+              "http"
+            ],
+            "title": "Transport",
+            "default": "stdio"
+          },
+          "command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Command"
+          },
+          "args": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Args"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "env": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Env"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Headers"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "default": true
+          },
+          "allowed_tools": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Allowed Tools"
+          },
+          "write_tools": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Write Tools"
+          },
+          "min_autonomy_for_writes": {
+            "type": "string",
+            "enum": [
+              "L0",
+              "L1",
+              "L2",
+              "L3",
+              "L4"
+            ],
+            "title": "Min Autonomy For Writes",
+            "default": "L2"
+          },
+          "timeout_s": {
+            "type": "integer",
+            "maximum": 600.0,
+            "minimum": 1.0,
+            "title": "Timeout S",
+            "default": 30
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "McpServerIn"
+      },
+      "McpServerOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "workspace_id": {
+            "type": "string",
+            "title": "Workspace Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "scope": {
+            "type": "string",
+            "title": "Scope"
+          },
+          "scope_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope Ref"
+          },
+          "transport": {
+            "type": "string",
+            "title": "Transport"
+          },
+          "command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Command"
+          },
+          "args": {
+            "items": {},
+            "type": "array",
+            "title": "Args"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "env": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Env"
+          },
+          "headers": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Headers"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "allowed_tools": {
+            "items": {},
+            "type": "array",
+            "title": "Allowed Tools"
+          },
+          "write_tools": {
+            "items": {},
+            "type": "array",
+            "title": "Write Tools"
+          },
+          "min_autonomy_for_writes": {
+            "type": "string",
+            "title": "Min Autonomy For Writes"
+          },
+          "timeout_s": {
+            "type": "integer",
+            "title": "Timeout S"
+          },
+          "tools_cache": {
+            "items": {},
+            "type": "array",
+            "title": "Tools Cache"
+          },
+          "last_test_ok": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Test Ok"
+          },
+          "last_test_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Test Error"
+          },
+          "last_tested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Tested At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "workspace_id",
+          "name",
+          "description",
+          "scope",
+          "scope_ref",
+          "transport",
+          "command",
+          "args",
+          "url",
+          "env",
+          "headers",
+          "enabled",
+          "allowed_tools",
+          "write_tools",
+          "min_autonomy_for_writes",
+          "timeout_s",
+          "tools_cache",
+          "last_test_ok",
+          "last_test_error",
+          "last_tested_at"
+        ],
+        "title": "McpServerOut"
+      },
+      "McpServerPatch": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Command"
+          },
+          "args": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Args"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "env": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Env"
+          },
+          "headers": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Headers"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "allowed_tools": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Tools"
+          },
+          "write_tools": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Write Tools"
+          },
+          "min_autonomy_for_writes": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "L0",
+                  "L1",
+                  "L2",
+                  "L3",
+                  "L4"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Autonomy For Writes"
+          },
+          "timeout_s": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 600.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout S"
+          }
+        },
+        "type": "object",
+        "title": "McpServerPatch"
+      },
       "MemoryIn": {
         "properties": {
           "scope": {
@@ -2191,6 +3364,53 @@
             "type": "string",
             "title": "Requested By",
             "default": "human"
+          },
+          "runner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runner"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "max_turns": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 100.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Turns"
+          },
+          "token_budget": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1000.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token Budget"
           }
         },
         "type": "object",
@@ -2260,6 +3480,37 @@
           "turns": {
             "type": "integer",
             "title": "Turns"
+          },
+          "config": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Config"
+          },
+          "runner_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runner Id"
+          },
+          "claimed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claimed By"
+          },
+          "peak_context_tokens": {
+            "type": "integer",
+            "title": "Peak Context Tokens"
           },
           "model": {
             "anyOf": [
@@ -2338,6 +3589,10 @@
           "context_pack",
           "trace",
           "turns",
+          "config",
+          "runner_id",
+          "claimed_by",
+          "peak_context_tokens",
           "model",
           "input_tokens",
           "output_tokens",
@@ -2348,6 +3603,241 @@
           "finished_at"
         ],
         "title": "RunOut"
+      },
+      "RunnerIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "inline",
+              "worker",
+              "container",
+              "kubernetes"
+            ],
+            "title": "Kind",
+            "default": "worker"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "labels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Labels"
+          },
+          "config": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Config"
+          },
+          "is_default": {
+            "type": "boolean",
+            "title": "Is Default",
+            "default": false
+          },
+          "max_concurrency": {
+            "type": "integer",
+            "maximum": 256.0,
+            "minimum": 1.0,
+            "title": "Max Concurrency",
+            "default": 4
+          },
+          "timeout_s": {
+            "type": "integer",
+            "maximum": 86400.0,
+            "minimum": 10.0,
+            "title": "Timeout S",
+            "default": 900
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "RunnerIn"
+      },
+      "RunnerOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "workspace_id": {
+            "type": "string",
+            "title": "Workspace Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "labels": {
+            "items": {},
+            "type": "array",
+            "title": "Labels"
+          },
+          "config": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Config"
+          },
+          "is_default": {
+            "type": "boolean",
+            "title": "Is Default"
+          },
+          "max_concurrency": {
+            "type": "integer",
+            "title": "Max Concurrency"
+          },
+          "timeout_s": {
+            "type": "integer",
+            "title": "Timeout S"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "queued": {
+            "type": "integer",
+            "title": "Queued",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "workspace_id",
+          "name",
+          "kind",
+          "description",
+          "labels",
+          "config",
+          "is_default",
+          "max_concurrency",
+          "timeout_s",
+          "last_seen_at"
+        ],
+        "title": "RunnerOut"
+      },
+      "RunnerPatch": {
+        "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "inline",
+                  "worker",
+                  "container",
+                  "kubernetes"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "labels": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Labels"
+          },
+          "config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config"
+          },
+          "is_default": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Default"
+          },
+          "max_concurrency": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 256.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Concurrency"
+          },
+          "timeout_s": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 86400.0,
+                "minimum": 10.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout S"
+          }
+        },
+        "type": "object",
+        "title": "RunnerPatch"
       },
       "TeamIn": {
         "properties": {

@@ -65,9 +65,10 @@ def relevant_memory(session: Session, project: Project, query: str, limit: int =
 
 
 def build_context_pack(
-    session: Session, project: Project, goal: str, artifact_ids: list[str] | None = None
+    session: Session, project: Project, goal: str, artifact_ids: list[str] | None = None,
+    budget: int | None = None,
 ) -> dict:
-    budget = get_settings().context_budget_tokens
+    budget = budget or get_settings().context_budget_tokens
     artifact_ids = artifact_ids or []
     items: list[dict] = []
     used = 0
