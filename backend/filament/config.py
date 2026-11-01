@@ -38,6 +38,14 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = ["http://localhost:5173"]
 
+    # Launchpad: keep repo references current. Repos are rescanned on this interval (hours,
+    # 0 disables) by the in-process scheduler, which checks for due repos every tick.
+    repo_scan_interval_hours: int = 24
+    repo_scheduler_enabled: bool = True
+    repo_scheduler_tick_seconds: int = 300
+    # Verifies GitHub push webhooks (X-Hub-Signature-256) when set.
+    github_webhook_secret: str | None = None
+
     @property
     def offline(self) -> bool:
         """True when no API key is configured: agents use a deterministic local stub."""

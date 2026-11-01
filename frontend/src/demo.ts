@@ -2,7 +2,7 @@
 // simulated agents. Used only when the UI is built with VITE_DEMO=1 (the interactive preview).
 import type {
   AgentSetting, Artifact, Check, Gap, Health, Link, McpServer, McpServerInput, Memory, Project, Readiness, Run,
-  RepoAnalysis, RepoDetail, Runner, TraceEvent, UsageRow, Workspace,
+  Impact, RepoAnalysis, RepoDetail, RepoScan, Runner, ScanChanges, SystemMap, TraceEvent, UsageRow, Workspace,
 } from './api'
 import demoRepos from './demo-repos.json'
 
@@ -10,8 +10,12 @@ import demoRepos from './demo-repos.json'
 interface RepoSample {
   analysis: RepoAnalysis; conventions: string[]; openapi_yaml: string | null
   drafts: Record<string, { title: string; content: string; data: Record<string, unknown> }>
+  scans: { trigger: string; status: string; grade: string; score: number; hours_ago: number; changes: ScanChanges }[]
 }
-const SAMPLES = demoRepos as unknown as RepoSample[]
+type DemoSystem = SystemMap & { consumers: Record<string, Record<string, { repo_id: string; repo: string; file: string; line: number }[]>> }
+const DEMO_DATA = demoRepos as unknown as { repos: RepoSample[]; system: DemoSystem }
+const SAMPLES = DEMO_DATA.repos
+type DemoRepo = RepoDetail & { sample: number; scans: RepoScan[] }
 
 let seq = 1000
 const id = () => (seq++).toString(36).padStart(6, 'x') + Math.random().toString(36).slice(2, 8)
@@ -35,7 +39,7 @@ const db = {
   mcp: [] as McpServer[],
   runners: [] as Runner[],
   agentSettings: {} as Record<string, Partial<AgentSetting> & { runner?: string }>,
-  repos: [] as (RepoDetail & { sample: number })[],
+  repos: [] as DemoRepo[],
 }
 
 function pickSample(ref: string): number {
@@ -48,7 +52,7 @@ function pickSample(ref: string): number {
   return 0
 }
 
-function onboard(ws: string, ref: string): RepoDetail & { sample: number } {
+function onboard(ws: string, ref: string): DemoRepo {
   const existing = db.repos.find(r => r.workspace_id === ws && r.ref === ref)
   if (existing) { existing.scanned_at = now(); return existing }
   const sample = pickSample(ref)
@@ -61,18 +65,71 @@ function onboard(ws: string, ref: string): RepoDetail & { sample: number } {
   }
   const project: Project = { id: id(), workspace_id: ws, name, description: `Repository ${ref} (${analysis.profile.kind_names.join(', ')})` }
   db.projects.push(project)
-  const r = {
-    id: id(), workspace_id: ws, project_id: project.id, ref, name, kinds: analysis.profile.kind_names,
-    score: analysis.readiness.score, grade: analysis.readiness.grade, generated: {}, scanned_at: now(), analysis, sample,
+  const seeded = ref === SAMPLES[sample].analysis.repo
+  const rid = id()
+  const hoursAgo = (h: number) => new Date(Date.now() - h * 3600_000).toISOString()
+  const scans: RepoScan[] = seeded
+    ? SAMPLES[sample].scans.map(s => ({ id: id(), repo_id: rid, commit: null, error: null, ...s, scanned_at: hoursAgo(s.hours_ago) }))
+    : [{ id: id(), repo_id: rid, trigger: 'onboard', status: 'ok', grade: analysis.readiness.grade, score: analysis.readiness.score, commit: null, error: null, scanned_at: now(), changes: { first_scan: true, summary: 'First scan', breaking: [], counts: {} } }]
+  const r: DemoRepo = {
+    id: rid, workspace_id: ws, project_id: project.id, ref, name, kinds: analysis.profile.kind_names,
+    score: analysis.readiness.score, grade: analysis.readiness.grade, generated: {}, scanned_at: scans[0].scanned_at, analysis, sample,
+    scan_interval_hours: 24, next_scan_at: new Date(new Date(scans[0].scanned_at).getTime() + 24 * 3600_000).toISOString(),
+    last_error: null, commit: null, scans,
   }
   db.repos.unshift(r)
   return r
 }
 
-function stripSample(r: RepoDetail & { sample: number }): RepoDetail {
-  const { sample: _sample, ...rest } = r
-  void _sample
+function stripSample(r: DemoRepo): RepoDetail {
+  const { sample: _sample, scans: _scans, ...rest } = r
+  void _sample; void _scans
   return clone(rest)
+}
+
+// The precomputed system map uses repo names as ids; map them onto this workspace's repos.
+function demoSystem(ws: string): DemoSystem {
+  const byName = new Map(db.repos.filter(r => r.workspace_id === ws).map(r => [r.name, r.id]))
+  const sid = (x: string) => (x.startsWith('x:') ? x : byName.get(x) ?? '')
+  const s = DEMO_DATA.system
+  const nodes = s.nodes.filter(n => n.kind !== 'repo' || byName.has(n.id)).map(n => ({ ...n, id: sid(n.id) }))
+  const keep = new Set(nodes.map(n => n.id))
+  const edges = s.edges.map(e => ({ ...e, source: sid(e.source), target: sid(e.target) })).filter(e => keep.has(e.source) && keep.has(e.target))
+  const consumers: DemoSystem['consumers'] = {}
+  for (const [name, eps] of Object.entries(s.consumers)) {
+    if (!byName.has(name)) continue
+    consumers[byName.get(name)!] = Object.fromEntries(Object.entries(eps).map(([k, us]) => [k, us.map(u => ({ ...u, repo_id: sid(u.repo_id) }))]))
+  }
+  const unresolved = s.unresolved.filter(u => byName.has(u.repo) && byName.has(u.target)).map(u => ({ ...u, repo_id: sid(u.repo_id), target_id: sid(u.target_id) }))
+  return { nodes, edges, mermaid: s.mermaid, unresolved, consumers }
+}
+
+function demoImpact(rid: string): Impact {
+  const r = db.repos.find(x => x.id === rid)
+  if (!r) throw new Error('404: Repo not found')
+  const s = demoSystem(r.workspace_id)
+  const names = Object.fromEntries(s.nodes.map(n => [n.id, n.label]))
+  return {
+    dependents: s.edges.filter(e => e.target === rid && !e.source.startsWith('x:')).map(e => ({ repo_id: e.source, repo: names[e.source], kind: e.kind, endpoints: e.endpoints, evidence: e.evidence })),
+    dependencies: s.edges.filter(e => e.source === rid).map(e => ({ id: e.target, name: names[e.target], kind: e.kind, endpoints: e.endpoints })),
+    endpoint_consumers: s.consumers[rid] ?? {},
+    unresolved_calls: s.unresolved.filter(u => u.repo_id === rid || u.target_id === rid),
+  }
+}
+
+function matchEndpoint(r: DemoRepo, method: string, path: string) {
+  return r.analysis.api.endpoints.find(e => (e.method === method || e.method === 'ANY') &&
+    new RegExp('^' + e.path.replace(/[.*+?^$()|[\]\\]/g, '\\$&').replace(/\{[^}]+\}/g, '[^/]+') + '/?$').test(path))
+}
+
+// Repos relevant to an idea, for the simulated agents' context (same idea as the server).
+function relevantRepos(text: string) {
+  const q = words(text)
+  return db.repos.map(r => {
+    const a = r.analysis
+    const hay = words([r.name, ...a.api.endpoints.map(e => `${e.path} ${e.summary}`), ...a.ui.pages.map(p => `${p.path} ${p.component}`)].join(' ').replace(/[/{}_-]/g, ' '))
+    return { r, score: overlap(q, hay) }
+  }).filter(x => x.score >= 2).sort((a, b) => b.score - a.score).slice(0, 2).map(x => x.r)
 }
 
 const AGENTS: Record<string, string> = {
@@ -290,8 +347,19 @@ function simulateRequirements(p: Project, ideaText: string, autonomy: string, pa
   let idea: Artifact | null = null
   if (save) idea = art(p.id, 'idea', first, ideaText, 'approved', 'you')
   const nfr = mem.filter(e => e.kind === 'standard').map(e => `- ${e.content}`).join('\n') || '- Meets the team\'s adopted standards'
+  const repos = relevantRepos(ideaText)
+  const q = words(ideaText)
+  const affected = repos.map(rp => {
+    const eps = rp.analysis.api.endpoints.filter(e => overlap(q, words(`${e.path.replace(/[/{}_-]/g, ' ')} ${e.summary}`)) > 0).slice(0, 5)
+    const pages = rp.analysis.ui.pages.filter(pg => overlap(q, words(`${pg.path} ${pg.component}`)) > 0).slice(0, 4)
+    const users = demoImpact(rp.id).dependents.map(d => `${d.repo} (${d.kind})`)
+    return [`- **${rp.name}** (${rp.kinds.join(', ')})`,
+      eps.length ? `  - Endpoints: ${eps.map(e => `\`${e.method} ${e.path}\``).join(', ')}` : '',
+      pages.length ? `  - Screens: ${pages.map(pg => `\`${pg.path}\``).join(', ')}` : '',
+      users.length ? `  - Used by: ${users.join('; ')}` : ''].filter(Boolean).join('\n')
+  }).join('\n') || '- None of the onboarded repos match this idea (to confirm)'
   if (save) {
-    const prd = art(p.id, 'prd', `PRD: ${first}`, `# PRD: ${first}\n\n## Problem\n${ideaText}\n\n## Goals\n- ${first}\n- Measurable improvement for the target users\n\n## Non-goals\n- Anything outside the idea as described\n\n## Users\n- Primary users of ${p.name} (to confirm)\n\n## Requirements\n- Core flow for: ${first.toLowerCase()}\n- Clear errors and recovery paths\n- Settings to manage the feature\n\n## Non-functional requirements\n${nfr}\n\n## Open questions\n- Which users or markets go first?\n- What success metric and target do we commit to?`, statusFor(autonomy), 'agent:requirements')
+    const prd = art(p.id, 'prd', `PRD: ${first}`, `# PRD: ${first}\n\n## Problem\n${ideaText}\n\n## Goals\n- ${first}\n- Measurable improvement for the target users\n\n## Non-goals\n- Anything outside the idea as described\n\n## Users\n- Primary users of ${p.name} (to confirm)\n\n## Requirements\n- Core flow for: ${first.toLowerCase()}\n- Clear errors and recovery paths\n- Settings to manage the feature\n\n## Affected systems\n${affected}\n\n## Non-functional requirements\n${nfr}\n\n## Open questions\n- Which users or markets go first?\n- What success metric and target do we commit to?`, statusFor(autonomy), 'agent:requirements')
     if (idea) link(p.id, prd, idea, 'derives_from')
     created.push(prd)
     for (const [title, want] of [[`Core flow: ${first}`, first.toLowerCase()], ['Errors and recovery', 'clear errors and a way to recover'], ['Manage settings', 'to manage this feature in settings']]) {
@@ -302,7 +370,8 @@ function simulateRequirements(p: Project, ideaText: string, autonomy: string, pa
   }
   const question = 'Which success metric and target should this commit to?'
   r.trace = [
-    m(['search_memory', 'search_graph']), t('search_memory', { query: first }), t('search_graph', { types: ['prd', 'story'] }),
+    m(['search_memory', 'search_graph', 'search_repos']), t('search_memory', { query: first }), t('search_graph', { types: ['prd', 'story'] }), t('search_repos', { query: first }),
+    ...(repos.length ? [m(repos.map(() => 'get_repo'), `${repos.length} onboarded repo${repos.length > 1 ? 's' : ''} look relevant.`), ...repos.map(rp => t('get_repo', { repo: rp.name, detail: 'endpoints' }))] : []),
     m(['create_artifact'], `${mem.length} memory entries apply; no existing PRD.`), t('create_artifact', { type: 'prd', title: `PRD: ${first}` }),
     m(['create_artifact', 'create_artifact', 'create_artifact']), ...['Core flow', 'Errors and recovery', 'Manage settings'].map(x => t('create_artifact', { type: 'story', title: x })),
     m(['ask_human'], 'No success metric is defined.'), t('ask_human', { question }),
@@ -312,7 +381,7 @@ function simulateRequirements(p: Project, ideaText: string, autonomy: string, pa
   db.signals.push({ kind: 'question', text: question })
   Object.assign(r, {
     peak_context_tokens: 8000 + Math.round(Math.random() * 4000), turns: 5, input_tokens: 9000 + Math.round(Math.random() * 6000), output_tokens: 2400 + Math.round(Math.random() * 1500),
-    context_pack: { items: mem.map(e => ({ kind: 'memory', id: e.id, title: e.kind })), approx_tokens: 900 },
+    context_pack: { items: [...repos.map(rp => ({ kind: 'repo', id: rp.id, title: `repo ${rp.name}` })), ...mem.map(e => ({ kind: 'memory', id: e.id, title: e.kind }))], approx_tokens: 900 + repos.length * 500 },
     output: { summary: save ? `PRD and 3 stories drafted using ${mem.length} memory entries.` : 'Suggested a PRD and 3 stories (L0: nothing saved).', created: created.map(brief), questions: [question], prd_id: created[0]?.id ?? null },
   })
   return r
@@ -494,7 +563,35 @@ export const demoApi = {
   rescanRepo: async (rid: string) => {
     await sleep(800)
     const r = db.repos.find(x => x.id === rid); if (!r) throw new Error('404: Repo not found')
-    r.scanned_at = now(); return stripSample(r)
+    r.scanned_at = now()
+    r.next_scan_at = r.scan_interval_hours ? new Date(Date.now() + r.scan_interval_hours * 3600_000).toISOString() : null
+    const refs = Object.keys(r.generated)
+    r.scans.unshift({ id: id(), repo_id: rid, trigger: 'manual', status: 'ok', grade: r.grade, score: r.score, commit: null, error: null, scanned_at: r.scanned_at,
+      changes: { summary: 'No changes', breaking: [], counts: {}, references: { unchanged: refs } } })
+    return stripSample(r)
+  },
+  repoScans: async (rid: string) => clone(db.repos.find(x => x.id === rid)?.scans ?? []),
+  setRepoSchedule: async (rid: string, hours: number) => {
+    const r = db.repos.find(x => x.id === rid); if (!r) throw new Error('404: Repo not found')
+    r.scan_interval_hours = hours
+    r.next_scan_at = hours ? new Date(new Date(r.scanned_at).getTime() + hours * 3600_000).toISOString() : null
+    return stripSample(r)
+  },
+  systemMap: async (ws: string): Promise<SystemMap> => {
+    const { consumers: _c, ...rest } = demoSystem(ws)
+    void _c
+    return clone(rest)
+  },
+  repoImpact: async (rid: string) => clone(demoImpact(rid)),
+  acceptReference: async (): Promise<Artifact> => { throw new Error('409: No pending update for this reference') },
+  enrichApi: async (): Promise<RepoDetail> => { throw new Error('The AI description pass runs on the server with an API key') },
+  mockCall: async (rid: string, method: string, path: string) => {
+    await sleep(250)
+    const r = db.repos.find(x => x.id === rid)
+    const ep = r && matchEndpoint(r, method, path)
+    if (!ep) return { status: 404, body: { detail: `No ${method} ${path} in the contract` } }
+    const ok = Object.keys(ep.responses ?? {}).sort().find(c => c.startsWith('2')) ?? '200'
+    return { status: Number(ok), body: ok === '204' ? null : ep.example_response ?? { ok: true } }
   },
   generateRepo: async (rid: string, items: string[]) => {
     await sleep(900)

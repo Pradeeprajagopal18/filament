@@ -279,3 +279,26 @@ class RepoRecord(Base):
     analysis: Mapped[dict] = mapped_column(JSON, default=dict)
     generated: Mapped[dict] = mapped_column(JSON, default=dict)
     scanned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    # Periodic rescans keep Filament's references current (0 = manual only; None = default).
+    scan_interval_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    next_scan_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    commit: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+
+class RepoScan(Base):
+    """One scan of a repo and what changed since the previous one."""
+
+    __tablename__ = "repo_scans"
+
+    id: Mapped[str] = mapped_column(String(12), primary_key=True, default=new_id)
+    repo_id: Mapped[str] = mapped_column(ForeignKey("repos.id", ondelete="CASCADE"), index=True)
+    # onboard | manual | schedule | webhook
+    trigger: Mapped[str] = mapped_column(String(20), default="manual")
+    status: Mapped[str] = mapped_column(String(20), default="ok")  # ok | failed
+    grade: Mapped[str] = mapped_column(String(2), default="F")
+    score: Mapped[float] = mapped_column(Float, default=0)
+    commit: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    changes: Mapped[dict] = mapped_column(JSON, default=dict)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    scanned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)

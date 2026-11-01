@@ -35,10 +35,16 @@ export interface Check {
 }
 export interface Readiness { id: string; repo: string; score: number; grade: string; checks: Check[]; created_at: string }
 export interface Evidence { file: string; line: number | null; detail: string }
+export type JsonSchema = Record<string, unknown>
 export interface Endpoint {
   method: string; path: string; file: string | null; line: number | null; handler: string
-  framework: string; summary: string; tag: string; params: { name: string; in: string }[]
+  framework: string; summary: string; tag: string; description?: string; enriched?: string
+  params: { name: string; in: string; schema?: JsonSchema; required?: boolean }[]
+  request?: { content_type: string; schema: JsonSchema }
+  responses?: Record<string, { description: string; schema?: JsonSchema }>
+  auth?: string; example_request?: unknown; example_response?: unknown
 }
+export interface ClientCall { method: string; path: string; base: string | null; file: string; line: number }
 export interface UiElement { type: string; label: string; repeated?: boolean; children?: UiElement[] }
 export interface UiPage { path: string; component: string; file: string | null; router: string; elements: UiElement[]; mock_html: string }
 export interface DepNode { id: string; label: string; category: string; evidence: Evidence[] }
@@ -47,13 +53,45 @@ export interface RepoAnalysis {
   profile: { kinds: { kind: string; confidence: number; evidence: string[] }[]; kind_names: string[]; frameworks: string[]; languages: Record<string, number>; packages: string[]; manifests: string[]; file_count: number }
   readiness: { score: number; grade: string; checks: Check[] }
   commands: Record<string, string>
-  api: { source: 'spec' | 'inferred' | 'none'; specs: string[]; endpoints: Endpoint[]; openapi: Record<string, unknown> | null }
+  api: {
+    source: 'spec' | 'inferred' | 'none'; specs: string[]; endpoints: Endpoint[]; openapi: Record<string, unknown> | null
+    schemas?: Record<string, JsonSchema>; auth?: string[]
+    drift?: { in_code_not_in_contract: DriftItem[]; in_contract_not_in_code: DriftItem[] } | null
+    enrichment?: { model: string; applied: number; at: string }
+  }
+  client_calls?: ClientCall[]
   ui: { pages: UiPage[]; components: string[] }
   components: { nodes: DepNode[]; edges: { source: string; target: string; label: string }[]; mermaid: string; summary: Record<string, number> }
 }
+export interface DriftItem { method: string; path: string; file: string | null; line: number | null }
 export interface RepoSummary {
   id: string; workspace_id: string; project_id: string; ref: string; name: string; kinds: string[]
   score: number; grade: string; generated: Record<string, string>; scanned_at: string
+  scan_interval_hours?: number | null; next_scan_at?: string | null; last_error?: string | null; commit?: string | null
+}
+export interface Breaking { endpoint: string; change: string; consumers?: string[] }
+export interface ScanChanges {
+  first_scan?: boolean; summary: string; breaking: Breaking[]; counts: Record<string, number>
+  endpoints_added?: string[]; endpoints_removed?: string[]; endpoints_changed?: { endpoint: string; changes: string[] }[]
+  checks_fixed?: string[]; checks_regressed?: string[]; connections_added?: string[]; connections_removed?: string[]
+  pages_added?: string[]; pages_removed?: string[]; contract_drift?: number; score_delta?: number
+  references?: { refreshed?: string[]; pending_review?: string[]; unchanged?: string[] }
+}
+export interface RepoScan {
+  id: string; repo_id: string; trigger: string; status: string; grade: string; score: number
+  commit: string | null; changes: ScanChanges; error: string | null; scanned_at: string
+}
+export interface MapEdge { source: string; target: string; kind: string; evidence: Evidence[]; endpoints: string[] }
+export interface UnresolvedCall { repo_id: string; repo: string; target_id: string; target: string; method: string; path: string; file: string; line: number }
+export interface SystemMap {
+  nodes: { id: string; label: string; kind: string; kinds?: string[]; grade?: string; endpoints?: number; pages?: number; shared_by?: number }[]
+  edges: MapEdge[]; mermaid: string; unresolved: UnresolvedCall[]
+}
+export interface Impact {
+  dependents: { repo_id: string; repo: string; kind: string; endpoints: string[]; evidence: Evidence[] }[]
+  dependencies: { id: string; name: string; kind: string; endpoints: string[] }[]
+  endpoint_consumers: Record<string, { repo_id: string; repo: string; file: string; line: number }[]>
+  unresolved_calls: UnresolvedCall[]
 }
 export interface RepoDetail extends RepoSummary { analysis: RepoAnalysis }
 export interface McpTool { name: string; description: string; input_schema?: unknown }
@@ -131,6 +169,20 @@ const httpApi = {
   generateRepo: (id: string, items: string[]) => call<RepoDetail>('POST', `/repos/${id}/generate`, { items }),
   repoOpenapi: (id: string) => callText('GET', `/repos/${id}/openapi`),
   artifact: (id: string) => call<Artifact>('GET', `/artifacts/${id}`),
+  systemMap: (ws: string) => call<SystemMap>('GET', `/workspaces/${ws}/system-map`),
+  repoImpact: (id: string) => call<Impact>('GET', `/repos/${id}/impact`),
+  repoScans: (id: string) => call<RepoScan[]>('GET', `/repos/${id}/scans`),
+  setRepoSchedule: (id: string, hours: number) => call<RepoDetail>('PATCH', `/repos/${id}`, { scan_interval_hours: hours }),
+  acceptReference: (id: string, item: string) => call<Artifact>('POST', `/repos/${id}/references/${item}/accept`),
+  enrichApi: (id: string) => call<RepoDetail>('POST', `/repos/${id}/enrich-api`),
+  mockCall: async (id: string, method: string, path: string, body?: unknown) => {
+    const res = await fetch(`/api/repos/${id}/mock${path}`, {
+      method, headers: body ? { 'Content-Type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined,
+    })
+    let data: unknown = null
+    try { data = await res.json() } catch { /* empty body */ }
+    return { status: res.status, body: data }
+  },
   mcpServers: (ws: string) => call<McpServer[]>('GET', `/workspaces/${ws}/mcp`),
   addMcpServer: (ws: string, body: McpServerInput) => call<McpServer>('POST', `/workspaces/${ws}/mcp?test=true`, body),
   updateMcpServer: (id: string, body: Partial<McpServerInput>) => call<McpServer>('PATCH', `/mcp/${id}`, body),

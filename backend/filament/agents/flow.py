@@ -22,6 +22,8 @@ class FlowAgent(Agent):
         "2. Create a user flow (type 'flow', a ```mermaid flowchart TD block covering the happy "
         "path, decisions and error paths) and a sequence diagram (type 'flow', a ```mermaid "
         "sequenceDiagram block showing user, UI, services and data stores).\n"
+        "   Use the real services, endpoints and data stores from get_repo (or the repo "
+        "summaries in your context) as sequence-diagram participants and messages.\n"
         "3. Link each diagram to what it visualizes (kind 'visualizes').\n"
         "4. If the stories leave a gap the flow exposes (a missing error path, an undefined "
         "actor), say so with ask_human and note it under the diagram.\n"

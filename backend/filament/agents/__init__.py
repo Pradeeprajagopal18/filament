@@ -45,7 +45,9 @@ def execute_run(session: Session, project: Project, run: Run, commit: bool = Tru
     run.status = "running"
     savepoint = session.begin_nested()
     try:
-        pack = build_context_pack(session, project, run.goal, agent.target_artifact_ids(),
+        # The goal plus any idea text the requester gave: both say what context is relevant.
+        query = " ".join(filter(None, [run.goal, str((run.input or {}).get("idea") or "")[:2000]]))
+        pack = build_context_pack(session, project, query, agent.target_artifact_ids(),
                                   budget=(run.config or {}).get("context_budget"))
         run.context_pack = pack
         if not pack["items"]:

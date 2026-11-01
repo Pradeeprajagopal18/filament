@@ -1,6 +1,7 @@
 """Deterministic repo readiness checks (no model needed) plus generated fixes."""
 
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -144,13 +145,20 @@ def checkout(repo: str):
         yield path.resolve()
         return
     tmp = Path(tempfile.mkdtemp(prefix="filament-ready-"))
+    token = None
     try:
         url = repo if "://" in repo or repo.startswith("git@") else f"https://{repo}"
+        # Private repos: a token from the environment (never stored by Filament).
+        token = os.environ.get("FILAMENT_GIT_TOKEN") or os.environ.get("GITHUB_TOKEN")
+        if token and url.startswith("https://github.com/"):
+            url = url.replace("https://", f"https://x-access-token:{token}@", 1)
         subprocess.run(["git", "clone", "--depth", "1", "--quiet", url, str(tmp / "repo")],
                        check=True, capture_output=True, timeout=180)
         yield tmp / "repo"
     except subprocess.CalledProcessError as exc:
         stderr = exc.stderr.decode(errors="ignore")[:300]
+        if token:
+            stderr = stderr.replace(token, "***")
         raise ValueError(f"Could not clone {repo}: {stderr}") from exc
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

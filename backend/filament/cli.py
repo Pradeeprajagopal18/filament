@@ -541,5 +541,93 @@ def repo_openapi(repo_id: str, out: str | None = typer.Option(None, "-o")):
     else:
         print(resp.text)
 
+
+@repo_app.command("rescan")
+def repo_rescan(repo_id: str | None = typer.Argument(None),
+                due: bool = typer.Option(False, "--due", help="Rescan every repo that is due")):
+    """Rescan a repo (or all due repos) and show what changed."""
+    if due:
+        for x in _call("POST", "/repos/scan-due")["scanned"]:
+            console.print(f"{x['repo_id']}  {x['status']}  {x.get('summary') or ''}")
+        return
+    if not repo_id:
+        raise typer.BadParameter("Pass a repo id or --due")
+    r = _call("POST", f"/repos/{repo_id}/rescan")
+    scans = _call("GET", f"/repos/{repo_id}/scans?limit=1")
+    console.print(_repo_line(r))
+    if scans:
+        _print_changes(scans[0]["changes"])
+
+
+def _print_changes(ch: dict) -> None:
+    console.print(f"  {ch.get('summary', '')}")
+    for b in ch.get("breaking") or []:
+        users = f"  (used by {', '.join(b['consumers'])})" if b.get("consumers") else ""
+        console.print(f"  [red]breaking[/red] {b['endpoint']}: {b['change']}{users}")
+    for key, label in (("endpoints_added", "+"), ("endpoints_removed", "-")):
+        for ep in ch.get(key) or []:
+            console.print(f"  {label} {ep}")
+    refs = ch.get("references") or {}
+    if refs.get("refreshed"):
+        console.print(f"  References refreshed: {', '.join(refs['refreshed'])}")
+    if refs.get("pending_review"):
+        console.print(f"  [yellow]Approved references with updates to review:[/yellow] "
+                      f"{', '.join(refs['pending_review'])}")
+
+
+@repo_app.command("history")
+def repo_history(repo_id: str, limit: int = typer.Option(10)):
+    for x in _call("GET", f"/repos/{repo_id}/scans?limit={limit}"):
+        console.print(f"{x['scanned_at'][:16]}  {x['trigger']:<8} {x['status']:<6} "
+                      f"{x['grade']}  {(x['changes'] or {}).get('summary', x.get('error') or '')}")
+
+
+@repo_app.command("schedule")
+def repo_schedule(repo_id: str, hours: int = typer.Argument(..., help="0 = manual only")):
+    """How often Filament rescans this repo to keep its references current."""
+    r = _call("PATCH", f"/repos/{repo_id}", json={"scan_interval_hours": hours})
+    console.print(f"{r['name']}: every {hours}h, next scan {r.get('next_scan_at') or 'manual'}")
+
+
+@repo_app.command("impact")
+def repo_impact(repo_id: str):
+    """Who depends on this repo, and through which endpoints."""
+    imp = _call("GET", f"/repos/{repo_id}/impact")
+    if not imp["dependents"]:
+        console.print("No other onboarded repo depends on this one.")
+    for d in imp["dependents"]:
+        eps = f": {', '.join(d['endpoints'])}" if d["endpoints"] else ""
+        console.print(f"  {d['repo']} {d['kind']} it{eps}")
+    for d in imp["dependencies"]:
+        console.print(f"  → {d['name']} ({d['kind']})")
+
+
+@repo_app.command("map")
+def repo_map(ws: str | None = typer.Option(None),
+             mermaid: bool = typer.Option(False, help="Print the Mermaid diagram")):
+    """How the workspace's repos connect to each other."""
+    m = _call("GET", f"/workspaces/{_ws(ws)}/system-map")
+    if mermaid:
+        print(m["mermaid"])
+        return
+    names = {n["id"]: n["label"] for n in m["nodes"]}
+    for e in m["edges"]:
+        if e["kind"] == "uses":
+            continue
+        eps = f" ({len(e['endpoints'])} endpoints)" if e["endpoints"] else ""
+        console.print(f"  {names[e['source']]} —{e['kind']}→ {names[e['target']]}{eps}")
+    shared = [n for n in m["nodes"] if n["kind"] != "repo" and n.get("shared_by", 0) > 1]
+    if shared:
+        console.print("  Shared: " + ", ".join(f"{n['label']} ({n['shared_by']} repos)"
+                                               for n in shared))
+
+
+@repo_app.command("enrich")
+def repo_enrich(repo_id: str):
+    """Model pass over the API: summaries, descriptions and extra error codes."""
+    r = _call("POST", f"/repos/{repo_id}/enrich-api")
+    e = r["analysis"]["api"].get("enrichment", {})
+    console.print(f"Enriched {e.get('applied', 0)} endpoints with {e.get('model')}")
+
 if __name__ == "__main__":
     app()

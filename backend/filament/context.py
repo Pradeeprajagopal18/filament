@@ -64,6 +64,34 @@ def relevant_memory(session: Session, project: Project, query: str, limit: int =
     return [e for e in ranked if score(e) > 0][:limit]
 
 
+def relevant_repos(session: Session, project: Project, query: str, limit: int = 2) -> list[dict]:
+    """Repo summaries for the context pack: the project's own repo, then the best matches.
+
+    Summaries are compact (capped endpoint and screen lists); agents call get_repo for more.
+    """
+    from filament.models import RepoRecord
+    from filament.repos import context as rc
+    from filament.repos.service import system_for
+
+    repos = session.scalars(select(RepoRecord).where(
+        RepoRecord.workspace_id == project.workspace_id)).all()
+    if not repos:
+        return []
+    own = [r for r in repos if r.project_id == project.id]
+    scored = sorted(((rc.relevance(r, query), r) for r in repos if r not in own),
+                    key=lambda x: -x[0])
+    picked = own + [r for s, r in scored if s >= 2][: max(0, limit - len(own) + 1)]
+    if not picked:
+        return []
+    system = system_for(session, project.workspace_id)
+    items = []
+    for r in picked[:limit + 1]:
+        s = rc.summary(r, system, endpoints=15, pages=8, query=query)
+        items.append({"kind": "repo", "id": r.id, "type": ",".join(r.kinds or []),
+                      "title": f"repo {r.name}", "text": rc.render(s)[:2400]})
+    return items
+
+
 def build_context_pack(
     session: Session, project: Project, goal: str, artifact_ids: list[str] | None = None,
     budget: int | None = None,
@@ -93,6 +121,8 @@ def build_context_pack(
                  "text": a.content[:2000]})
 
     query = goal + " " + " ".join(a.title + " " + a.content[:500] for a in targets)
+    for item in relevant_repos(session, project, query):
+        add(item)
     for m in relevant_memory(session, project, query):
         add({"kind": "memory", "id": m.id, "type": m.kind, "title": f"{m.scope} {m.kind}",
              "text": m.content + (" (proposed)" if m.status == "proposed" else "")})

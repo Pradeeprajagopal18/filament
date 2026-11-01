@@ -13,8 +13,16 @@ from filament.db import init_db
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    import asyncio
+
+    from filament.repos.service import scheduler_loop
+
     init_db()
+    task = asyncio.create_task(scheduler_loop()) if get_settings().repo_scheduler_enabled \
+        else None
     yield
+    if task:
+        task.cancel()
 
 
 def create_app() -> FastAPI:

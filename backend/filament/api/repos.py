@@ -1,34 +1,29 @@
-"""Launchpad repos: onboard, analyze, browse API / UI / components, generate missing items."""
+"""Launchpad repos: onboard, analyze, browse API / UI / components, system map, references,
+scheduled rescans, webhooks and the API simulator."""
 
-from datetime import UTC, datetime
+import hashlib
+import hmac
+import json
+import re
 
 import yaml
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import PlainTextResponse
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse, PlainTextResponse
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from filament import schemas as s
 from filament.api.graph import get_or_404
+from filament.config import get_settings
 from filament.db import get_session
-from filament.models import Artifact, MemoryEntry, Project, ReadinessReport, RepoRecord, Workspace
+from filament.models import Artifact, Project, RepoRecord, RepoScan, Workspace
+from filament.repos import context as repo_context
 from filament.repos import generate as gen
+from filament.repos import service
 from filament.repos.analyze import analyze
+from filament.repos.system import impact
 
 router = APIRouter()
-AUTHOR = "agent:repo-onboarding"
-
-
-def _store(session: Session, record: RepoRecord, analysis: dict) -> None:
-    record.analysis = analysis
-    record.name = analysis["name"]
-    record.kinds = analysis["profile"]["kind_names"]
-    record.score = analysis["readiness"]["score"]
-    record.grade = analysis["readiness"]["grade"]
-    record.scanned_at = datetime.now(UTC)
-    session.add(ReadinessReport(repo=record.ref, project_id=record.project_id,
-                                score=record.score, grade=record.grade,
-                                checks=analysis["readiness"]["checks"]))
 
 
 def _run(ref: str) -> dict:
@@ -45,21 +40,20 @@ def onboard_repo(ws_id: str, body: s.RepoIn, session: Session = Depends(get_sess
     analysis = _run(body.repo)
     record = session.scalars(select(RepoRecord).where(RepoRecord.workspace_id == ws_id,
                                                       RepoRecord.ref == body.repo)).first()
+    trigger = "manual"
     if record is None:
+        trigger = "onboard"
         project_id = body.project_id
         if project_id:
             get_or_404(session, Project, project_id)
         else:
-            project = Project(workspace_id=ws_id, name=analysis["name"],
-                              description=f"Repository {body.repo} "
-                                          f"({', '.join(analysis['profile']['kind_names'])})")
-            session.add(project)
-            session.flush()
-            project_id = project.id
+            project_id = service.project_for(session, ws_id, analysis["name"], body.repo,
+                                             analysis["profile"]["kind_names"])
         record = RepoRecord(workspace_id=ws_id, project_id=project_id, ref=body.repo,
-                            name=analysis["name"])
+                            name=analysis["name"], scan_interval_hours=body.scan_interval_hours)
         session.add(record)
-    _store(session, record, analysis)
+        session.flush()
+    service.store(session, record, analysis, trigger)
     session.commit()
     return record
 
@@ -70,72 +64,122 @@ def list_repos(ws_id: str, session: Session = Depends(get_session)):
                            .order_by(RepoRecord.name)).all()
 
 
+@router.get("/workspaces/{ws_id}/system-map")
+def system_map(ws_id: str, session: Session = Depends(get_session)):
+    """How the workspace's repos connect: calls (matched to endpoints), configuration,
+    provisioning and shared external services."""
+    get_or_404(session, Workspace, ws_id)
+    m = service.system_for(session, ws_id)
+    return {k: v for k, v in m.items() if k != "consumers"}
+
+
 @router.get("/repos/{repo_id}", response_model=s.RepoDetail)
 def get_repo(repo_id: str, session: Session = Depends(get_session)):
     return get_or_404(session, RepoRecord, repo_id)
 
 
-@router.post("/repos/{repo_id}/rescan", response_model=s.RepoDetail)
-def rescan_repo(repo_id: str, session: Session = Depends(get_session)):
+@router.patch("/repos/{repo_id}", response_model=s.RepoDetail)
+def update_repo(repo_id: str, body: s.RepoPatch, session: Session = Depends(get_session)):
     record = get_or_404(session, RepoRecord, repo_id)
-    _store(session, record, _run(record.ref))
+    if body.scan_interval_hours is not None:
+        record.scan_interval_hours = max(0, body.scan_interval_hours)
+        service.schedule_next(record)
     session.commit()
     return record
 
 
+@router.post("/repos/{repo_id}/rescan", response_model=s.RepoDetail)
+def rescan_repo(repo_id: str, session: Session = Depends(get_session)):
+    record = get_or_404(session, RepoRecord, repo_id)
+    scan = service.scan_record(session, record, "manual")
+    session.commit()
+    if scan.status == "failed":
+        raise HTTPException(400, scan.error or "Scan failed")
+    return record
+
+
+@router.get("/repos/{repo_id}/scans", response_model=list[s.RepoScanOut])
+def repo_scans(repo_id: str, limit: int = 30, session: Session = Depends(get_session)):
+    get_or_404(session, RepoRecord, repo_id)
+    return session.scalars(select(RepoScan).where(RepoScan.repo_id == repo_id)
+                           .order_by(RepoScan.scanned_at.desc()).limit(min(limit, 200))).all()
+
+
+@router.post("/repos/scan-due")
+def scan_due(limit: int = 5, session: Session = Depends(get_session)):
+    """Rescan repos whose interval has elapsed (the scheduler does this; also for cron)."""
+    scans = service.scan_due(session, limit)
+    return {"scanned": [{"repo_id": x.repo_id, "status": x.status,
+                         "summary": (x.changes or {}).get("summary")} for x in scans]}
+
+
 @router.delete("/repos/{repo_id}", status_code=204)
 def remove_repo(repo_id: str, session: Session = Depends(get_session)):
-    session.delete(get_or_404(session, RepoRecord, repo_id))
+    record = get_or_404(session, RepoRecord, repo_id)
+    for scan in session.scalars(select(RepoScan).where(RepoScan.repo_id == repo_id)):
+        session.delete(scan)
+    session.delete(record)
     session.commit()
 
 
+@router.get("/repos/{repo_id}/impact")
+def repo_impact(repo_id: str, session: Session = Depends(get_session)):
+    """Who depends on this repo (and through which endpoints), and what it depends on."""
+    record = get_or_404(session, RepoRecord, repo_id)
+    return impact(service.system_for(session, record.workspace_id), repo_id)
+
+
+@router.get("/repos/{repo_id}/context")
+def repo_context_view(repo_id: str, query: str = "", session: Session = Depends(get_session)):
+    """The compact summary agents receive for this repo."""
+    record = get_or_404(session, RepoRecord, repo_id)
+    summary = repo_context.summary(record, service.system_for(session, record.workspace_id),
+                                   query=query)
+    return {"summary": summary, "text": repo_context.render(summary)}
+
+
+# -- references Filament keeps about the repo ----------------------------------------------------
 @router.post("/repos/{repo_id}/generate", response_model=s.RepoDetail)
 def generate_missing(repo_id: str, body: s.GenerateIn, session: Session = Depends(get_session)):
-    """Create missing readiness items as draft artifacts in Filament (not in the repo).
+    """Create missing readiness items as references in Filament (never written to the repo).
 
     With no items, every generator behind a failing check runs. Running a generator again
     replaces its draft with a new version instead of creating a duplicate.
     """
     record = get_or_404(session, RepoRecord, repo_id)
-    a = record.analysis
-    failing = [c["generate"] for c in a["readiness"]["checks"]
+    failing = [c["generate"] for c in record.analysis["readiness"]["checks"]
                if c["status"] == "fail" and c.get("generate")]
-    items = body.items or failing
+    items = body.items or list(dict.fromkeys(failing))
     unknown = [i for i in items if i not in gen.GENERATORS]
     if unknown:
         raise HTTPException(422, f"Unknown generators {unknown}; known: {sorted(gen.GENERATORS)}")
-    generated = dict(record.generated or {})
-    created_ids = []
-    for item in items:
-        built = gen.build(item, a)
-        if built is None:
-            continue
-        title, content, data = built
-        data = {**data, "repo": record.ref, "generator": item, "in_repo": False}
-        art_type = "api_contract" if item == "api_contract" else "doc"
-        existing = session.get(Artifact, generated[item]) if item in generated else None
-        if existing:
-            existing.title, existing.content, existing.data = title, content, data
-            existing.version += 1
-            existing.status = "draft"
-            created_ids.append(existing.id)
-        else:
-            art = Artifact(project_id=record.project_id, type=art_type, title=title,
-                           content=content, data=data, status="draft", author=AUTHOR)
-            session.add(art)
-            session.flush()
-            generated[item] = art.id
-            created_ids.append(art.id)
-    # Conventions become proposed project memory, citing the generated drafts.
-    known = {m.content for m in session.scalars(select(MemoryEntry).where(
-        MemoryEntry.scope == "project", MemoryEntry.scope_ref == record.project_id))}
-    for fact in gen.conventions(a):
-        if fact not in known:
-            session.add(MemoryEntry(workspace_id=record.workspace_id, scope="project",
-                                    scope_ref=record.project_id, kind="fact", content=fact,
-                                    status="proposed", author=AUTHOR,
-                                    source_artifact_ids=created_ids[:3], confidence=0.8))
-    record.generated = generated
+    service.generate(session, record, items)
+    session.commit()
+    return record
+
+
+@router.post("/repos/{repo_id}/references/{item}/accept", response_model=s.ArtifactOut)
+def accept_reference_update(repo_id: str, item: str, session: Session = Depends(get_session)):
+    """Apply the update a rescan prepared for an approved reference (it goes back to review)."""
+    record = get_or_404(session, RepoRecord, repo_id)
+    try:
+        art = service.accept_update(session, record, item)
+    except KeyError as exc:
+        raise HTTPException(404, f"No reference {item} for this repo") from exc
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    session.commit()
+    return art
+
+
+@router.post("/repos/{repo_id}/enrich-api", response_model=s.RepoDetail)
+def enrich_api(repo_id: str, session: Session = Depends(get_session)):
+    """Optional model pass: summaries, descriptions and extra error codes for each endpoint."""
+    record = get_or_404(session, RepoRecord, repo_id)
+    try:
+        service.enrich_api(session, record)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
     session.commit()
     return record
 
@@ -143,16 +187,79 @@ def generate_missing(repo_id: str, body: s.GenerateIn, session: Session = Depend
 @router.get("/repos/{repo_id}/openapi", response_class=PlainTextResponse)
 def repo_openapi(repo_id: str, session: Session = Depends(get_session)):
     record = get_or_404(session, RepoRecord, repo_id)
-    spec = record.analysis.get("api", {}).get("openapi")
+    spec = (record.analysis.get("api") or {}).get("openapi")
     if not spec:
         raise HTTPException(404, "No API endpoints found in this repo")
     return yaml.safe_dump(spec, sort_keys=False)
 
 
-@router.get("/repos/{repo_id}/export")
-def repo_export(repo_id: str, session: Session = Depends(get_session)):
-    """The files generated drafts would become in the repo (for a pull request or download)."""
+@router.get("/repos/{repo_id}/files")
+def repo_reference_files(repo_id: str, session: Session = Depends(get_session)):
+    """The references as files (for download or to hand to the repo's owners)."""
     record = get_or_404(session, RepoRecord, repo_id)
     arts = {g: session.get(Artifact, aid) for g, aid in (record.generated or {}).items()}
     return gen.export_files({g: {"content": a.content, "data": a.data}
                              for g, a in arts.items() if a})
+
+
+# -- API simulator --------------------------------------------------------------------------------
+@router.api_route("/repos/{repo_id}/mock/{path:path}",
+                  methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+def mock_endpoint(repo_id: str, path: str, request: Request,
+                  session: Session = Depends(get_session)):
+    """Answer like the repo's API would, using the contract's example responses."""
+    record = get_or_404(session, RepoRecord, repo_id)
+    target = "/" + path.strip("/")
+    for ep in (record.analysis.get("api") or {}).get("endpoints") or []:
+        if ep["method"] not in {request.method, "ANY"}:
+            continue
+        escaped = re.escape(ep["path"].rstrip("/") or "/")
+        pattern = "^" + re.sub(r"\\\{[^}]+\\\}", "[^/]+", escaped) + "/?$"
+        if re.match(pattern, target):
+            ok = next((c for c in sorted(ep.get("responses") or {}) if c.startswith("2")), "200")
+            body = ep.get("example_response")
+            if ok == "204":
+                return JSONResponse(None, status_code=204)
+            return JSONResponse(body if body is not None else {"ok": True}, status_code=int(ok),
+                                headers={"X-Filament-Mock": f"{ep['method']} {ep['path']}"})
+    raise HTTPException(404, f"No {request.method} {target} in {record.name}'s contract")
+
+
+# -- webhooks -------------------------------------------------------------------------------------
+@router.post("/webhooks/github", status_code=202)
+async def github_webhook(request: Request, background: BackgroundTasks,
+                         session: Session = Depends(get_session)):
+    """Rescan onboarded repos when GitHub reports a push to their default branch."""
+    raw = await request.body()
+    secret = get_settings().github_webhook_secret
+    if secret:
+        sig = request.headers.get("X-Hub-Signature-256", "")
+        expected = "sha256=" + hmac.new(secret.encode(), raw, hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(sig, expected):
+            raise HTTPException(401, "Bad signature")
+    event = request.headers.get("X-GitHub-Event", "push")
+    if event == "ping":
+        return {"ok": True}
+    if event != "push":
+        return {"ignored": event}
+    payload = json.loads(raw or b"{}")
+    repo = payload.get("repository") or {}
+    full = (repo.get("full_name") or "").lower()
+    default = repo.get("default_branch")
+    if default and payload.get("ref") and payload["ref"] != f"refs/heads/{default}":
+        return {"ignored": "not the default branch"}
+    ids = [r.id for r in session.scalars(select(RepoRecord)).all()
+           if full and full in r.ref.lower().removesuffix(".git")]
+    factory = sessionmaker(bind=session.get_bind(), autoflush=False, expire_on_commit=False)
+    session.close()  # release the connection before background scans open their own
+    for rid in ids:
+        background.add_task(_scan_in_background, factory, rid)
+    return {"queued": ids}
+
+
+def _scan_in_background(factory, repo_id: str) -> None:
+    with factory() as sess:
+        record = sess.get(RepoRecord, repo_id)
+        if record:
+            service.scan_record(sess, record, "webhook")
+            sess.commit()

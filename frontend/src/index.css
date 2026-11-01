@@ -207,3 +207,29 @@ iframe.mock { width: 100%; height: 480px; border: 1px solid #e3e6ea; border-radi
   .deps th:nth-child(2), .deps td:nth-child(2) { display: none; }
   .callout button { width: 100%; }
 }
+
+/* -- system map, history, API detail ----------------------------------------------------- */
+.card.warn { border-color: #f0c36d; background: #fffbf0; }
+.error-text { color: #c0392b; }
+.scan-row { align-items: center; gap: 8px; margin-top: 8px; }
+.scan-row select { width: auto; padding: 4px 8px; }
+.count-alert { background: #fde2e1 !important; color: #b42318; }
+ul.plain { list-style: none; padding: 0; margin: 6px 0; display: grid; gap: 4px; }
+ul.links { list-style: none; padding: 0; margin: 0; }
+ul.links li { padding: 8px 0; border-top: 1px solid #f0f1f3; display: grid; gap: 4px; }
+ul.links li:first-child { border-top: none; }
+.edge { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; margin: 0 6px; background: #eef1f5; }
+.edge-calls { background: #e6f0ff; color: #1f4fa3; } .edge-configures { background: #fdf6d8; color: #806400; }
+.edge-provisions { background: #fff1e0; color: #a35a00; }
+.ep-chip { display: inline-block; margin: 2px 4px 2px 0; padding: 1px 6px; border-radius: 4px; background: #f3f4f6; font-size: 11px; }
+.used-by { color: #1f4fa3; }
+pre.json { background: #f7f8fa; border: 1px solid #eceef1; border-radius: 6px; padding: 8px; font-size: 11px; overflow-x: auto; max-height: 260px; margin: 4px 0; }
+table.fields { width: auto; margin: 4px 0; }
+table.fields td { padding: 2px 12px 2px 0; border: none; }
+.req { color: #c0392b; margin-left: 2px; }
+.responses { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.status { font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 4px; background: #eef1f5; }
+.status-2 { background: #e6f7ef; color: #1d7a4a; } .status-4 { background: #fff1e0; color: #a35a00; } .status-5 { background: #fde2e1; color: #b42318; }
+.breaking { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #fff; background: #d64545; border-radius: 4px; padding: 1px 6px; }
+details.model { border-top: 1px solid #f0f1f3; padding: 6px 0; }
+details.model summary { cursor: pointer; }

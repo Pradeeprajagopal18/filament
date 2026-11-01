@@ -44,7 +44,8 @@ flowchart TB
 | `approvals` | Human gates on artifacts |
 | `signals` | Questions, unanswered questions and context misses for gap detection |
 | `readiness_reports` | Launchpad results per repo |
-| `repos` | Onboarded repos: kinds, latest analysis (readiness, API, UI, components) and `generated` (generator → draft artifact) |
+| `repos` | Onboarded repos: kinds, latest analysis (readiness, API, UI, components, outbound calls), `generated` (generator → reference artifact), scan interval and next scan |
+| `repo_scans` | Scan history: trigger, grade, commit and the diff against the previous scan (breaking changes, drift, reference refresh) |
 
 ## How a run works
 
@@ -107,7 +108,14 @@ Onboarding a repo runs one deterministic pass (no model, so it is fast, repeatab
 4. **UI**: routes → components → a wireframe of each page's real headings, inputs, buttons and child components.
 5. **Components**: a graph of what the repo connects to, every node backed by file:line evidence.
 
-Missing items (agent instructions, overview, architecture, ownership, API contract) are created **in Filament first**: as draft artifacts in the repo's project, with conventions proposed to project memory. Agents can use them immediately; `GET /repos/{id}/export` gives the files to commit once a person approves them.
+Missing items (agent instructions, overview, architecture, ownership, API contract) are created **in Filament, not in the repo** (Filament usually doesn't own these repos): as reference artifacts in the repo's project, with conventions proposed to project memory. Agents use them immediately.
+
+### Across repos and over time
+
+- **System map** (`repos/system.py`): outbound HTTP calls (`repos/consumers.py`) are matched to other repos' endpoints, with the base URL/env var used to disambiguate; config repos link by file name, infrastructure by resource name; shared external services are joined. `GET /workspaces/{ws}/system-map`, `GET /repos/{id}/impact` (dependents, endpoint consumers, calls to endpoints that don't exist).
+- **Agents**: `build_context_pack` adds compact repo summaries (the project's own repo, then the best keyword matches); `search_repos` and `get_repo` tools return capped, code-derived facts.
+- **Kept current** (`repos/service.py`): an in-process scheduler (`FILAMENT_REPO_SCAN_INTERVAL_HOURS`, default 24; per repo via `PATCH /repos/{id}`) and `POST /webhooks/github` rescan repos. Each scan is diffed with the previous (`repos/diff.py`): removed endpoints, new required parameters or fields, removed response fields and new auth are breaking and raise `breaking_change` signals naming consumers. References refresh: drafts update in place; approved references get a pending update a person accepts (`POST /repos/{id}/references/{item}/accept`). Private repos clone with `FILAMENT_GIT_TOKEN` / `GITHUB_TOKEN` from the environment.
+- **Contracts** (`repos/api_enrich.py`): request/response models (Pydantic, Java DTOs), query params, auth and error codes from code, plus examples that power the mock server (`/repos/{id}/mock/...`). Checked-in contracts are compared with routes in code (drift). `POST /repos/{id}/enrich-api` runs an optional model pass; only endpoints that exist are updated and the tokens are recorded as an `api-enricher` run.
 
 ## Next (from the roadmap)
 

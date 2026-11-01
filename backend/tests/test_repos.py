@@ -164,6 +164,6 @@ def test_onboard_and_generate_in_platform(client, ws, tmp_path):
     mem = client.get(f"/api/workspaces/{ws['id']}/memory").json()
     assert mem and all(m["status"] == "proposed" for m in mem)
     assert "paths:" in client.get(f"/api/repos/{repo['id']}/openapi").text
-    assert "openapi.yaml" in client.get(f"/api/repos/{repo['id']}/export").json()
+    assert "openapi.yaml" in client.get(f"/api/repos/{repo['id']}/files").json()
     bad = client.post(f"/api/repos/{repo['id']}/generate", json={"items": ["nope"]})
     assert bad.status_code == 422

@@ -7,7 +7,7 @@ import re
 from pathlib import PurePosixPath
 
 from filament.readiness.scanner import Repo, checkout, grade_for
-from filament.repos import api_extract, deps, ui_extract
+from filament.repos import api_extract, consumers, deps, ui_extract
 from filament.repos.checks import run_checks, score
 from filament.repos.manifests import parse
 from filament.repos.profile import detect
@@ -68,7 +68,8 @@ def analyze_path(root, repo_ref: str) -> dict:
     name = repo_name(repo_ref)
     api = api_extract.extract(indexed, name) if (
         profile.has("api") or profile.has("backend")) else {
-        "source": "none", "specs": [], "endpoints": [], "openapi": None}
+        "source": "none", "specs": [], "endpoints": [], "openapi": None, "schemas": {},
+        "drift": None, "auth": []}
     if api["endpoints"] and not profile.has("api"):
         from filament.repos.profile import Kind
 
@@ -76,6 +77,12 @@ def analyze_path(root, repo_ref: str) -> dict:
     ui = ui_extract.extract(indexed) if (profile.has("frontend") or profile.has("mobile")) else {
         "pages": [], "components": []}
     components = deps.extract(indexed, name, dependencies)
+    calls = consumers.extract(indexed) if not profile.kind_names == ["infrastructure"] else []
+    config_files = [str(p) for p in indexed.files
+                    if p.suffix in {".yaml", ".yml", ".json", ".toml", ".env", ".properties",
+                                    ".ini", ".conf"} and not p.name.startswith(".")
+                    and p.name not in {"package.json", "package-lock.json", "tsconfig.json"}
+                    ][:300] if profile.has("config") else []
     s = score(checks)
     return {
         "repo": repo_ref,
@@ -88,11 +95,26 @@ def analyze_path(root, repo_ref: str) -> dict:
         "api": api,
         "ui": ui,
         "components": components,
+        "client_calls": calls,
+        "config_files": config_files,
         "dependencies": [{"ecosystem": d.ecosystem, "name": d.name, "file": d.file, "dev": d.dev}
                          for d in dependencies][:400],
     }
 
 
+def head_commit(root) -> str | None:
+    import subprocess
+
+    try:
+        out = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"], capture_output=True,
+                             text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return out.stdout.strip() or None if out.returncode == 0 else None
+
+
 def analyze(repo_ref: str) -> dict:
     with checkout(repo_ref) as root:
-        return analyze_path(root, repo_ref)
+        result = analyze_path(root, repo_ref)
+        result["commit"] = head_commit(root)
+        return result

@@ -12,7 +12,10 @@ from pathlib import Path
 import yaml
 
 from filament.repos.analyze import analyze_path
+from filament.repos.diff import compare as diff_compare
 from filament.repos.generate import build, conventions
+from filament.repos.system import RepoView
+from filament.repos.system import build as build_system
 
 REPOS: dict[str, dict[str, str]] = {
     "github.com/acme/checkout-api": {
@@ -37,29 +40,72 @@ REPOS: dict[str, dict[str, str]] = {
             "app.include_router(payments.router, prefix='/v1')\n\n"
             "@app.get('/health')\ndef health():\n    \"\"\"Liveness probe.\"\"\"\n    return {'ok': True}\n"
         ),
+        "app/models.py": (
+            "from datetime import datetime\nfrom typing import Literal, Optional\n"
+            "from pydantic import BaseModel\n\n"
+            "class LineItem(BaseModel):\n    sku: str\n    name: str\n    quantity: int = 1\n"
+            "    unit_price: float\n\n"
+            "class Cart(BaseModel):\n    id: str\n    customer_id: Optional[str] = None\n"
+            "    items: list[LineItem]\n    subtotal: float\n    currency: str = 'usd'\n\n"
+            "class AddItem(BaseModel):\n    sku: str\n    quantity: int = 1\n\n"
+            "class PlaceOrder(BaseModel):\n    cart_id: str\n    shipping_address_id: str\n"
+            "    payment_method_id: str\n\n"
+            "class Order(BaseModel):\n    id: str\n    customer_id: str\n"
+            "    status: Literal['placed', 'paid', 'shipped', 'cancelled']\n"
+            "    items: list[LineItem]\n    total: float\n    created_at: datetime\n\n"
+            "class PaymentIntentIn(BaseModel):\n    order_id: str\n"
+            "    save_card: bool = False\n\n"
+            "class PaymentIntent(BaseModel):\n    id: str\n    client_secret: str\n"
+            "    status: str\n    amount: float\n"
+        ),
+        "app/auth.py": "def get_current_user():\n    ...\n",
         "app/routers/carts.py": (
-            "from fastapi import APIRouter\nrouter = APIRouter(prefix='/carts', tags=['carts'])\n\n"
-            "@router.post('')\ndef create_cart():\n    \"\"\"Start a cart for a shopper.\"\"\"\n\n"
-            "@router.get('/{cart_id}')\ndef get_cart(cart_id: str):\n    \"\"\"Read a cart with line items.\"\"\"\n\n"
-            "@router.post('/{cart_id}/items')\ndef add_item(cart_id: str):\n    \"\"\"Add a product to the cart.\"\"\"\n\n"
-            "@router.delete('/{cart_id}/items/{item_id}')\ndef remove_item(cart_id: str, item_id: str):\n"
-            "    \"\"\"Remove a line item.\"\"\"\n"
+            "from fastapi import APIRouter, HTTPException\nfrom app.models import AddItem, Cart\n"
+            "router = APIRouter(prefix='/carts', tags=['carts'])\n\n"
+            "@router.post('', response_model=Cart, status_code=201)\ndef create_cart():\n"
+            "    \"\"\"Start a cart for a shopper.\"\"\"\n\n"
+            "@router.get('/{cart_id}')\ndef get_cart(cart_id: str) -> Cart:\n"
+            "    \"\"\"Read a cart with line items.\"\"\"\n"
+            "    raise HTTPException(status_code=404, detail='cart not found')\n\n"
+            "@router.post('/{cart_id}/items', response_model=Cart)\n"
+            "def add_item(cart_id: str, body: AddItem) -> Cart:\n"
+            "    \"\"\"Add a product to the cart.\"\"\"\n"
+            "    raise HTTPException(status_code=409, detail='out of stock')\n\n"
+            "@router.delete('/{cart_id}/items/{item_id}', status_code=204)\n"
+            "def remove_item(cart_id: str, item_id: str):\n    \"\"\"Remove a line item.\"\"\"\n"
         ),
         "app/routers/orders.py": (
-            "import os\nfrom fastapi import APIRouter\nrouter = APIRouter(prefix='/orders', tags=['orders'])\n"
+            "import os\nfrom fastapi import APIRouter, Depends, HTTPException\n"
+            "from app.auth import get_current_user\nfrom app.models import Order, PlaceOrder\n"
+            "router = APIRouter(prefix='/orders', tags=['orders'])\n"
             "KAFKA = os.environ['KAFKA_BROKERS']\n\n"
-            "@router.post('')\ndef place_order():\n    \"\"\"Turn a cart into an order and emit order.placed.\"\"\"\n\n"
-            "@router.get('')\ndef list_orders(customer_id: str):\n    \"\"\"Orders for a customer.\"\"\"\n\n"
-            "@router.get('/{order_id}')\ndef get_order(order_id: str):\n    \"\"\"Read one order.\"\"\"\n\n"
-            "@router.post('/{order_id}/cancel')\ndef cancel_order(order_id: str):\n    \"\"\"Cancel before fulfilment.\"\"\"\n"
+            "@router.post('', response_model=Order, status_code=201)\n"
+            "def place_order(body: PlaceOrder, user=Depends(get_current_user)):\n"
+            "    \"\"\"Turn a cart into an order and emit order.placed.\"\"\"\n"
+            "    raise HTTPException(status_code=400, detail='cart is empty')\n\n"
+            "@router.get('')\ndef list_orders(customer_id: str, limit: int = 20, user=Depends(get_current_user)) -> list[Order]:\n"
+            "    \"\"\"Orders for a customer.\"\"\"\n\n"
+            "@router.get('/{order_id}')\ndef get_order(order_id: str, user=Depends(get_current_user)) -> Order:\n"
+            "    \"\"\"Read one order.\"\"\"\n    raise HTTPException(404, 'order not found')\n\n"
+            "@router.post('/{order_id}/cancel', response_model=Order)\n"
+            "def cancel_order(order_id: str, user=Depends(get_current_user)):\n"
+            "    \"\"\"Cancel before fulfilment.\"\"\"\n"
+            "    raise HTTPException(status_code=409, detail='already shipped')\n"
         ),
         "app/routers/payments.py": (
-            "import stripe\nfrom fastapi import APIRouter\n"
+            "import stripe\nfrom fastapi import APIRouter, Depends, HTTPException\n"
+            "from app.auth import get_current_user\nfrom app.models import PaymentIntent, PaymentIntentIn\n"
             "router = APIRouter(prefix='/payments', tags=['payments'])\n"
             "STRIPE_API = 'https://api.stripe.com/v1/payment_intents'\n\n"
-            "@router.post('/intents')\ndef create_intent():\n    \"\"\"Create a Stripe payment intent for an order.\"\"\"\n\n"
-            "@router.post('/webhooks/stripe')\ndef stripe_webhook():\n    \"\"\"Payment status from Stripe.\"\"\"\n\n"
-            "@router.post('/{payment_id}/refund')\ndef refund(payment_id: str):\n    \"\"\"Refund a captured payment.\"\"\"\n"
+            "@router.post('/intents', response_model=PaymentIntent, status_code=201)\n"
+            "def create_intent(body: PaymentIntentIn, user=Depends(get_current_user)):\n"
+            "    \"\"\"Create a Stripe payment intent for an order.\"\"\"\n"
+            "    raise HTTPException(status_code=402, detail='card declined')\n\n"
+            "@router.post('/webhooks/stripe')\ndef stripe_webhook():\n"
+            "    \"\"\"Payment status from Stripe.\"\"\"\n\n"
+            "@router.post('/{payment_id}/refund', response_model=PaymentIntent)\n"
+            "def refund(payment_id: str, user=Depends(get_current_user)):\n"
+            "    \"\"\"Refund a captured payment.\"\"\"\n"
         ),
         "app/db.py": "import os\nfrom sqlalchemy import create_engine\n"
                      "engine = create_engine(os.environ['DATABASE_URL'])\n",
@@ -78,8 +124,18 @@ REPOS: dict[str, dict[str, str]] = {
         "eslint.config.js": "export default []\n",
         "src/main.tsx": "import { createRoot } from 'react-dom/client'\nimport App from './App'\n"
                         "createRoot(document.getElementById('root')!).render(<App />)\n",
-        "src/api.ts": "const BASE = process.env.REACT_APP_CHECKOUT_API_URL\n"
-                      "export const getCart = (id: string) => fetch(`${BASE}/v1/carts/${id}`)\n",
+        "src/api.ts": (
+            "const BASE = process.env.REACT_APP_CHECKOUT_API_URL\n"
+            "export const getCart = (id: string) => fetch(`${BASE}/v1/carts/${id}`)\n"
+            "export const cartTotals = (id: string) => fetch(`${BASE}/v1/carts/${id}/totals`)\n"
+            "export const addItem = (id: string, sku: string) =>\n"
+            "  fetch(`${BASE}/v1/carts/${id}/items`, { method: 'POST', body: JSON.stringify({ sku }) })\n"
+            "export const placeOrder = (body: object) =>\n"
+            "  fetch(`${BASE}/v1/orders`, { method: 'POST', body: JSON.stringify(body) })\n"
+            "export const listOrders = (customer: string) => fetch(`${BASE}/v1/orders?customer_id=${customer}`)\n"
+            "export const payIntent = (orderId: string) =>\n"
+            "  fetch(`${BASE}/v1/payments/intents`, { method: 'POST', body: JSON.stringify({ order_id: orderId }) })\n"
+        ),
         "src/App.tsx": (
             "import { BrowserRouter, Routes, Route } from 'react-router-dom'\n"
             "import Home from './pages/Home'\nimport Product from './pages/Product'\n"
@@ -194,14 +250,35 @@ def write(root: Path, files: dict[str, str]) -> None:
         p.write_text(body)
 
 
+def older_checkout(files: dict[str, str]) -> dict[str, str]:
+    """checkout-api as it was a release ago: a totals endpoint (since removed, still called by
+    the storefront), list_orders without the required customer filter, and no refunds."""
+    old = dict(files)
+    old["app/routers/carts.py"] = files["app/routers/carts.py"] + (
+        "\n@router.get('/{cart_id}/totals')\ndef cart_totals(cart_id: str) -> Cart:\n"
+        "    \"\"\"Subtotal, tax and shipping for a cart.\"\"\"\n")
+    old["app/routers/orders.py"] = files["app/routers/orders.py"].replace(
+        "def list_orders(customer_id: str, limit: int = 20,", "def list_orders(limit: int = 20,")
+    old["app/routers/payments.py"] = files["app/routers/payments.py"].split(
+        "\n@router.post('/{payment_id}/refund'")[0]
+    return old
+
+
+def analyze_files(ref: str, files: dict[str, str]) -> dict:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / ref.rsplit("/", 1)[-1]
+        write(root, files)
+        a = analyze_path(root, ref)
+    a["repo"] = ref
+    return a
+
+
 def main(out: Path) -> None:
     results = []
+    analyses = {}
     for ref, files in REPOS.items():
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp) / ref.rsplit("/", 1)[-1]
-            write(root, files)
-            a = analyze_path(root, ref)
-        a["repo"] = ref
+        a = analyze_files(ref, files)
+        analyses[ref] = a
         drafts = {}
         for c in a["readiness"]["checks"]:
             gen = c.get("generate")
@@ -211,11 +288,41 @@ def main(out: Path) -> None:
                     drafts[gen] = {"title": built[0], "content": built[1], "data": built[2]}
         spec = a["api"].get("openapi")
         results.append({"analysis": a, "drafts": drafts, "conventions": conventions(a),
-                        "openapi_yaml": yaml.safe_dump(spec, sort_keys=False) if spec else None})
+                        "openapi_yaml": yaml.safe_dump(spec, sort_keys=False) if spec else None,
+                        "scans": [{"trigger": "onboard", "status": "ok",
+                                   "grade": a["readiness"]["grade"],
+                                   "score": a["readiness"]["score"], "hours_ago": 30,
+                                   "changes": {"first_scan": True, "summary": "First scan",
+                                               "breaking": [], "counts": {}}}]})
         print(f"{ref}: {a['profile']['kind_names']} grade {a['readiness']['grade']} "
               f"api={len(a['api']['endpoints'])} pages={len(a['ui']['pages'])} "
               f"nodes={len(a['components']['nodes'])} drafts={list(drafts)}")
-    out.write_text(json.dumps(results, indent=1))
+
+    # History for checkout-api: the scheduled rescan that picked up the latest release.
+    views = lambda an: [RepoView(x["name"], x["name"], x["profile"]["kind_names"],  # noqa: E731
+                                 x["readiness"]["grade"], x) for x in an.values()]
+    api_ref = "github.com/acme/checkout-api"
+    old = analyze_files(api_ref, older_checkout(REPOS[api_ref]))
+    old_system = build_system(views({**analyses, api_ref: old}))
+    changes = diff_compare(old, analyses[api_ref])
+    consumers = old_system["consumers"].get("checkout-api", {})
+    for b in changes["breaking"]:
+        b["consumers"] = sorted({u["repo"] for u in consumers.get(b["endpoint"], [])})
+    changes["references"] = {}
+    checkout = next(r for r in results if r["analysis"]["repo"] == api_ref)
+    checkout["scans"].insert(0, {"trigger": "schedule", "status": "ok",
+                                 "grade": analyses[api_ref]["readiness"]["grade"],
+                                 "score": analyses[api_ref]["readiness"]["score"],
+                                 "hours_ago": 2, "changes": changes})
+    checkout["scans"][1]["grade"] = old["readiness"]["grade"]
+    checkout["scans"][1]["score"] = old["readiness"]["score"]
+    system = build_system(views(analyses))
+    print("history:", changes["summary"], "| breaking:",
+          [(b["endpoint"], b["change"], b["consumers"]) for b in changes["breaking"]])
+    print("map:", [(e["source"], e["kind"], e["target"], len(e["endpoints"]))
+                   for e in system["edges"] if e["kind"] != "uses"],
+          "unresolved:", [(u["repo"], u["path"]) for u in system["unresolved"]])
+    out.write_text(json.dumps({"repos": results, "system": system}, indent=1))
     print(f"wrote {out} ({out.stat().st_size // 1024} KB)")
 
 

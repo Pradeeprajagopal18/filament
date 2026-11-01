@@ -366,6 +366,12 @@ class AgentSettingOut(BaseModel):
 class RepoIn(BaseModel):
     repo: str = Field(description="Local path or git URL")
     project_id: str | None = Field(default=None, description="Attach to an existing project")
+    scan_interval_hours: int | None = Field(
+        default=None, description="Rescan every N hours (0 = manual only; default from settings)")
+
+
+class RepoPatch(BaseModel):
+    scan_interval_hours: int | None = None
 
 
 class RepoSummary(ORM):
@@ -378,6 +384,23 @@ class RepoSummary(ORM):
     score: float
     grade: str
     generated: dict
+    scanned_at: datetime
+    scan_interval_hours: int | None = None
+    next_scan_at: datetime | None = None
+    last_error: str | None = None
+    commit: str | None = None
+
+
+class RepoScanOut(ORM):
+    id: str
+    repo_id: str
+    trigger: str
+    status: str
+    grade: str
+    score: float
+    commit: str | None
+    changes: dict
+    error: str | None
     scanned_at: datetime
 
 

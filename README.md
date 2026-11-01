@@ -32,8 +32,11 @@ work in the same place, and every agent output is linked, cited and reviewable.
 | What we're missing | Unanswered questions and agent context misses clustered into gaps |
 | Token usage | Tokens and cost per agent, project, model, person or status |
 | Launchpad repos | Onboards any repo (app, backend, API, frontend, infrastructure, config, library, monorepo): detects its type with evidence, runs only the readiness checks that apply, and creates missing pieces as drafts in Filament's graph and memory |
-| API docs | Collects OpenAPI / AsyncAPI / gRPC / GraphQL contracts, or infers endpoints from FastAPI, Flask, Django, Express, NestJS, Spring and Go code, and generates an OpenAPI 3.1 document |
+| API docs | Collects OpenAPI / AsyncAPI / gRPC / GraphQL contracts, or infers endpoints from FastAPI, Flask, Django, Express, NestJS, Spring and Go code, with request/response models, auth, error codes and examples, as OpenAPI 3.1. Flags drift between a contract and the code, includes a mock server, and an optional model pass adds descriptions |
 | UI mocks | Finds pages (React Router, Vue, Angular, Next.js, tab-based apps) and renders a wireframe of each from its real markup |
+| System map | Links onboarded repos to each other from evidence: HTTP calls matched to the endpoints they hit, config repos, provisioned infrastructure, shared SaaS. Shows who uses each endpoint and calls to endpoints that no longer exist |
+| Repo context for agents | Agents get compact repo summaries in their context and `search_repos` / `get_repo` tools, so PRDs and flows cite real endpoints, screens and affected systems |
+| Kept current | Repos are rescanned on a schedule (and on GitHub push webhooks). Each scan is diffed against the last: breaking API changes are flagged to the repos that consume them, and Filament's references refresh (approved ones wait for review) |
 | Component view | Maps what a repo connects to (databases, caches, queues, SaaS, internal services, cloud resources) from manifests, env vars, connection strings, compose, k8s and Terraform, each with file:line evidence |
 | `fil` CLI | Every capability from the terminal |
 
@@ -71,6 +74,10 @@ fil ready scan github.com/acme/checkout-api      # Launchpad readiness (no serve
 fil repo add github.com/acme/checkout-api        # onboard: type, readiness, API, UI, components
 fil repo generate <id>                           # create missing items as drafts in Filament
 fil repo openapi <id> -o openapi.yaml            # API contract (checked in or inferred)
+fil repo map                                     # how repos connect
+fil repo impact <id>                             # who depends on this repo
+fil repo rescan <id> | --due                     # rescan and show what changed
+fil repo schedule <id> 24                        # rescan interval in hours (0 = manual)
 fil ready fix ./my-repo --write                  # starter AGENTS.md, CODEOWNERS, Makefile, ...
 
 fil ws create "Acme"                              # then: export FIL_WORKSPACE=<id>

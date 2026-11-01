@@ -21,8 +21,12 @@ class RequirementsAgent(Agent):
         "Work like a strong product manager:\n"
         "1. Search shared memory for standards and decisions that constrain this idea, and "
         "search the project graph for existing PRDs/stories so you extend rather than duplicate.\n"
+        "   If the idea touches existing software, use search_repos and get_repo (repo summaries "
+        "may already be in your context) to find the real endpoints, screens and the systems "
+        "that depend on them.\n"
         "2. Create one PRD (type 'prd', link derives_from the idea) with sections: Problem, "
-        "Goals, Non-goals, Users, Requirements, Non-functional requirements, Open questions.\n"
+        "Goals, Non-goals, Users, Requirements, Affected systems (repos, endpoints and screens "
+        "this changes, and who consumes them), Non-functional requirements, Open questions.\n"
         "3. Create 3-8 small, independently shippable stories (type 'story', link implements "
         "the PRD). Each story: 'As a ..., I want ..., so that ...' then Given/When/Then "
         "acceptance criteria.\n"
@@ -66,8 +70,30 @@ class RequirementsAgent(Agent):
     def offline_script(self) -> OfflineScript:
         first = self.idea_text.strip().splitlines()[0][:80]
         mem = yield [("search_memory", {"query": self.idea_text[:300]}),
-                     ("search_graph", {"query": first, "types": ["prd", "story"]})]
+                     ("search_graph", {"query": first, "types": ["prd", "story"]}),
+                     ("search_repos", {"query": self.idea_text[:300]})]
         standards = [m["content"] for m in mem[0].get("results", [])]
+        affected = "- None of the onboarded repos match this idea (to confirm)"
+        repo_hits = [r["name"] for r in mem[2].get("results", [])[:2]] if len(mem) > 2 else []
+        if repo_hits:
+            details = yield [("get_repo", {"repo": n, "detail": "endpoints",
+                                           "query": self.idea_text[:300]}) for n in repo_hits]
+            lines = []
+            for d in details:
+                if not d.get("name"):
+                    continue
+                eps = [f"`{e['method']} {e['path']}`" for e in d.get("endpoint_details", [])[:5]]
+                pages = [f"`{p['path']}`" for p in d.get("pages", [])[:4]]
+                users = d.get("used_by") or []
+                bits = [f"- **{d['name']}** ({', '.join(d.get('kinds', []))})"]
+                if eps:
+                    bits.append(f"  - Endpoints: {', '.join(eps)}")
+                if pages:
+                    bits.append(f"  - Screens: {', '.join(pages)}")
+                if users:
+                    bits.append(f"  - Used by: {'; '.join(users)}")
+                lines.append("\n".join(bits))
+            affected = "\n".join(lines) or affected
         nfr = "\n".join(f"- {s}" for s in standards) or "- Meets the team's adopted standards"
         idea_link = ([{"target_id": self.idea_art.id, "kind": "derives_from"}]
                      if self.idea_art else [])
@@ -75,6 +101,7 @@ class RequirementsAgent(Agent):
             f"# PRD: {first}\n\n## Problem\n{self.idea_text.strip()}\n\n## Goals\n- Deliver: "
             f"{first}\n\n## Non-goals\n- Anything not described in the idea\n\n## Users\n"
             f"- Primary user (to confirm)\n\n## Requirements\n- The system supports: {first}\n\n"
+            f"## Affected systems\n{affected}\n\n"
             f"## Non-functional requirements\n{nfr}\n\n## Open questions\n"
             "- Offline draft: set ANTHROPIC_API_KEY for a full analysis"
         )

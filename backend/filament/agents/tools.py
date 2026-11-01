@@ -101,6 +101,58 @@ def search_memory(agent: Agent, inp: dict) -> dict:
                          "content": m.content} for m in entries]}
 
 
+def _repos(agent: Agent):
+    from filament.models import RepoRecord
+
+    return agent.session.scalars(select(RepoRecord).where(
+        RepoRecord.workspace_id == agent.project.workspace_id)).all()
+
+
+def search_repos(agent: Agent, inp: dict) -> dict:
+    """Repos onboarded in this workspace, most relevant first."""
+    from filament.repos import context as rc
+
+    query = inp.get("query", "")
+    repos = _repos(agent)
+    ranked = sorted(repos, key=lambda r: -rc.relevance(r, query)) if query else repos
+    if query:
+        ranked = [r for r in ranked if rc.relevance(r, query) > 0] or ranked[:5]
+    return {"results": [{"id": r.id, "name": r.name, "kinds": r.kinds, "grade": r.grade,
+                         "endpoints": len((r.analysis.get("api") or {}).get("endpoints") or []),
+                         "pages": len((r.analysis.get("ui") or {}).get("pages") or [])}
+                        for r in ranked[:10]],
+            "total": len(repos)}
+
+
+def get_repo(agent: Agent, inp: dict) -> dict:
+    """What Filament read from a repo's code: endpoints, screens, connections, dependents."""
+    from filament.repos import context as rc
+    from filament.repos.service import system_for
+
+    key = (inp.get("repo") or "").lower()
+    repos = _repos(agent)
+    record = next((r for r in repos if r.id == key or r.name.lower() == key), None) or next(
+        (r for r in repos if key and key in r.name.lower()), None)
+    if record is None:
+        raise ToolError(f"No onboarded repo '{inp.get('repo')}'. Known: "
+                        f"{', '.join(r.name for r in repos) or 'none'}. Use search_repos.")
+    detail = inp.get("detail", "summary")
+    out = rc.summary(record, system_for(agent.session, record.workspace_id),
+                     endpoints=200 if detail == "endpoints" else 25, query=inp.get("query", ""))
+    if detail == "endpoints":
+        eps = (record.analysis.get("api") or {}).get("endpoints") or []
+        q = keywords(inp.get("query", ""))
+        if q:
+            eps = [e for e in eps if q & keywords(f"{e['path']} {e.get('summary', '')}")] or eps
+        out["endpoint_details"] = [
+            {"method": e["method"], "path": e["path"], "summary": e.get("summary", ""),
+             "auth": e.get("auth"), "params": [p["name"] for p in e.get("params") or []],
+             "request": ((e.get("request") or {}).get("schema") or {}).get("$ref", "")
+             .rsplit("/", 1)[-1] or None,
+             "responses": sorted((e.get("responses") or {}).keys())} for e in eps[:40]]
+    return out
+
+
 # -- write tools ------------------------------------------------------------------------
 def _not_saved() -> dict:
     return {"saved": False,
@@ -233,6 +285,15 @@ TOOLS: dict[str, Tool] = {t.name: t for t in [
          _obj({"id": {"type": "string"}}, ["id"]), read_artifact),
     Tool("search_memory", "Search shared memory: org/team/project standards, decisions, facts.",
          _obj({"query": {"type": "string"}}, ["query"]), search_memory),
+    Tool("search_repos", "Find onboarded code repos (APIs, frontends, infrastructure, config) "
+         "by name, endpoint path, screen or dependency.",
+         _obj({"query": {"type": "string"}}), search_repos),
+    Tool("get_repo", "What Filament read from a repo's code: kinds, API endpoints, screens, "
+         "connections, who depends on it. Use detail='endpoints' (with an optional query) for "
+         "parameters, request models and responses. Base designs on these facts, not guesses.",
+         _obj({"repo": {"type": "string", "description": "Repo name or id"},
+               "detail": {"type": "string", "enum": ["summary", "endpoints"]},
+               "query": {"type": "string"}}, ["repo"]), get_repo),
     Tool("create_artifact", "Create an artifact in the project graph, optionally linked to "
          "existing artifacts. Saved per the run's autonomy level.",
          _obj(_ARTIFACT_INPUT, ["type", "title", "content"]), create_artifact, writes=True),
@@ -263,7 +324,7 @@ TOOLS: dict[str, Tool] = {t.name: t for t in [
               ["agent", "goal"]), delegate),
 ]}
 
-READ_TOOLS = ["search_graph", "read_artifact", "search_memory"]
+READ_TOOLS = ["search_graph", "read_artifact", "search_memory", "search_repos", "get_repo"]
 SPECIALIST_TOOLS = READ_TOOLS + ["create_artifact", "update_artifact", "link_artifacts",
                                  "propose_memory", "ask_human", "finish"]
 ORCHESTRATOR_TOOLS = READ_TOOLS + ["delegate", "ask_human", "finish"]
