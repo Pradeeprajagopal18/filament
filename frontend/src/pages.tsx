@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, type Artifact, type Gap, type Memory, type Project, type Run, type UsageRow } from './api'
 import { Badge, Content, ErrorLine, Tokens } from './components'
 
-const TYPE_ORDER = ['idea', 'prd', 'story', 'flow', 'adr', 'api_contract', 'task', 'test_plan', 'release']
+const TYPE_ORDER = ['idea', 'opportunity', 'feature_request', 'prd', 'story', 'flow', 'component_view', 'ui_mock', 'adr', 'api_contract', 'doc', 'task', 'test_plan', 'release', 'incident']
 
 // -- Project: run agents, browse the graph, approve at the human gate --------------
 export function ProjectPage({ project }: { project: Project }) {
@@ -52,7 +52,9 @@ export function ProjectPage({ project }: { project: Project }) {
     await load()
   }
 
-  const grouped = TYPE_ORDER.map(t => [t, artifacts.filter(a => a.type === t)] as const).filter(([, list]) => list.length)
+  // Known types in a sensible order, then anything else, so no artifact is ever hidden.
+  const types = [...TYPE_ORDER, ...new Set(artifacts.map(a => a.type).filter(t => !TYPE_ORDER.includes(t)))]
+  const grouped = types.map(t => [t, artifacts.filter(a => a.type === t)] as const).filter(([, list]) => list.length)
   const topRuns = runs.filter(r => !r.parent_run_id)
   const childrenOf = (id: string) => runs.filter(r => r.parent_run_id === id).reverse()
 
@@ -77,7 +79,7 @@ export function ProjectPage({ project }: { project: Project }) {
           <button className="secondary" disabled={!idea.trim() || !!busy} onClick={() => run('requirements')}>
             {busy === 'requirements' ? 'Writing…' : 'Requirements'}
           </button>
-          <button className="secondary" disabled={!!busy || !artifacts.some(a => a.type === 'story')} onClick={() => run('flow')}>
+          <button className="secondary" disabled={!!busy} onClick={() => run('flow')}>
             {busy === 'flow' ? 'Drawing…' : 'Flow'}
           </button>
           <label className="push">Autonomy
@@ -89,7 +91,8 @@ export function ProjectPage({ project }: { project: Project }) {
             </select>
           </label>
         </div>
-        <p className="muted small">The orchestrator inspects the project, decides which specialists to call and in what order, and reviews their work. Approval gates, budgets and autonomy limits are enforced by the platform.</p>
+        <p className="muted small"><b>Take idea to design</b> writes the PRD and stories, then draws the user flow and sequence diagram. <b>Requirements</b> writes only the PRD and stories. <b>Flow</b> draws diagrams from the stories already here{artifacts.some(a => a.type === 'story') ? '' : ' (there are none yet, so add an idea first)'}.</p>
+        <p className="muted small">The orchestrator decides which specialists to call and in what order, and reviews their work. Approval gates, budgets and autonomy limits are enforced by the platform.</p>
         <ErrorLine error={error} />
       </section>
 

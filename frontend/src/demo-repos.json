@@ -2950,8 +2950,27 @@
        }
       }
      }
+    },
+    "request_flows": {
+     "title": "Request flows: checkout-api",
+     "content": "# Request flows: checkout-api\nDrawn from the code: each endpoint, its auth, the services its handler's file uses and the responses it can return. Refreshed on every scan.\n## carts\n```mermaid\nsequenceDiagram\n  actor C as Client\n  participant S as checkout-api\n  C->>S: POST /v1/carts\n  S-->>C: 201 Cart\n  C->>S: GET /v1/carts/cart_id\n  S-->>C: 200 Cart\n  Note over C,S: or 404, 422\n  C->>S: POST /v1/carts/cart_id/items\n  S-->>C: 201 Cart\n  Note over C,S: or 409, 422\n  C->>S: DELETE /v1/carts/cart_id/items/item_id\n  S-->>C: 204\n  Note over C,S: or 422\n```\n## orders\n```mermaid\nsequenceDiagram\n  actor C as Client\n  participant S as checkout-api\n  participant kafka as Kafka\n  Note over S,kafka: orders module uses Kafka (app/routers/orders.py:6)\n  C->>S: GET /v1/orders\n  S->>S: check auth\n  S-->>C: 200 Order[]\n  Note over C,S: or 401\n  C->>S: POST /v1/orders\n  S->>S: check auth\n  S-->>C: 201 Order\n  Note over C,S: or 400, 401, 422\n  C->>S: GET /v1/orders/order_id\n  S->>S: check auth\n  S-->>C: 200 Order\n  Note over C,S: or 401, 404, 422\n  C->>S: POST /v1/orders/order_id/cancel\n  S->>S: check auth\n  S-->>C: 200 Order\n  Note over C,S: or 401, 409, 422\n```\n## payments\n```mermaid\nsequenceDiagram\n  actor C as Client\n  participant S as checkout-api\n  participant stripe as Stripe\n  Note over S,stripe: payments module uses Stripe (app/routers/payments.py:6)\n  C->>S: POST /v1/payments/intents\n  S->>S: check auth\n  S-->>C: 201 PaymentIntent\n  Note over C,S: or 401, 402, 422\n  C->>S: POST /v1/payments/webhooks/stripe\n  S-->>C: 200\n  C->>S: POST /v1/payments/payment_id/refund\n  S->>S: check auth\n  S-->>C: 200 PaymentIntent\n  Note over C,S: or 401, 422\n```\n## health\n```mermaid\nsequenceDiagram\n  actor C as Client\n  participant S as checkout-api\n  participant sentry as Sentry\n  Note over S,sentry: health module uses Sentry (app/main.py:6)\n  C->>S: GET /health\n  S-->>C: 200\n```",
+     "data": {
+      "diagram": "sequence",
+      "groups": 4
+     }
+    },
+    "component_view": {
+     "title": "Component view: checkout-api",
+     "content": "# Component view: checkout-api\nWhat this repo connects to, from manifests, env vars, connection strings, compose, Kubernetes and Terraform. Refreshed on every scan.\n```mermaid\nflowchart LR\n  n_checkout_api([\"checkout-api\"])\n  n_postgres[(\"PostgreSQL\")]\n  n_redis[(\"Redis\")]\n  n_stripe[\"Stripe\"]\n  n_kafka[[\"Kafka\"]]\n  n_sentry[\"Sentry\"]\n  n_inventory[\"inventory\"]\n  n_checkout_api -->|uses| n_postgres\n  n_checkout_api -->|uses| n_redis\n  n_checkout_api -->|uses| n_stripe\n  n_checkout_api -->|uses| n_kafka\n  n_checkout_api -->|uses| n_sentry\n  n_checkout_api -->|calls| n_inventory\n  classDef self fill:#fbf1df,stroke:#c47f17,stroke-width:2px\n  class n_checkout_api self\n  classDef datastore fill:#e7f1fb,stroke:#5b8cc4\n  class n_postgres datastore\n  classDef cache fill:#e7f1fb,stroke:#5b8cc4\n  class n_redis cache\n  classDef queue fill:#efedff,stroke:#7b6fd0\n  class n_kafka queue\n  classDef external fill:#f9ece7,stroke:#c4825b\n  class n_stripe external\n  classDef observability fill:#f0efec,stroke:#999\n  class n_sentry observability\n  classDef service fill:#fff,stroke:#666\n  class n_inventory service\n```",
+     "data": {
+      "diagram": "components"
+     }
     }
    },
+   "diagrams": [
+    "request_flows",
+    "component_view"
+   ],
    "conventions": [
     "checkout-api: run tests with `make test`.",
     "checkout-api: lint/format config is pyproject.toml [tool.ruff].",
@@ -3371,8 +3390,46 @@
        "router": "React Router",
        "elements": [
         {
-         "type": "header",
-         "label": ""
+         "type": "component",
+         "label": "Header",
+         "children": [
+          {
+           "type": "header",
+           "label": ""
+          },
+          {
+           "type": "nav",
+           "label": ""
+          },
+          {
+           "type": "link",
+           "label": "/"
+          },
+          {
+           "type": "link",
+           "label": "Acme Store"
+          },
+          {
+           "type": "input",
+           "label": "Search products"
+          },
+          {
+           "type": "link",
+           "label": "/cart"
+          },
+          {
+           "type": "link",
+           "label": "Cart"
+          },
+          {
+           "type": "link",
+           "label": "/account"
+          },
+          {
+           "type": "link",
+           "label": "Account"
+          }
+         ]
         },
         {
          "type": "heading",
@@ -3410,7 +3467,7 @@
          "repeated": true
         }
        ],
-       "mock_html": "<!DOCTYPE html><html><head><meta charset='utf-8'><style>body{font:13px system-ui,sans-serif;margin:0;padding:16px;color:#333;background:#fff}\nh2{font-size:18px;margin:8px 0}h3{font-size:14px;margin:8px 0;color:#555}\n.txt{margin:4px 0;color:#666}.bar{height:8px;background:#eee;border-radius:4px;width:60%;margin:8px 0}\n.btn{display:inline-block;border:1.5px solid #333;border-radius:6px;padding:4px 12px;margin:4px 6px 4px 0;font-weight:600}\n.lnk{display:inline-block;color:#2b6cb0;text-decoration:underline;margin:4px 8px 4px 0}\n.inp{border:1.5px solid #aaa;border-radius:6px;padding:7px 10px;margin:6px 0;color:#999;max-width:420px}\n.inp.tall{height:56px}.chk{margin:6px 0;color:#555}\n.img{background:repeating-linear-gradient(45deg,#f2f2f2,#f2f2f2 8px,#e6e6e6 8px,#e6e6e6 16px);height:80px;border-radius:6px;margin:6px 0;display:flex;align-items:center;justify-content:center;color:#888}\n.tbl{border:1px solid #ccc;border-radius:6px;margin:8px 0}.tbl div{height:22px;border-bottom:1px solid #eee}\n.itm{border-bottom:1px solid #eee;padding:6px 0}.zone{background:#f6f6f6;border:1px dashed #bbb;border-radius:6px;padding:6px 10px;margin:6px 0;color:#888;text-transform:uppercase;font-size:10px}\n.cmp{border:1px dashed #c9a24b;border-radius:8px;padding:8px 10px 6px;margin:8px 0;position:relative}\n.cmpname{font-size:10px;color:#a07a20;font-weight:600;display:block;margin-bottom:4px}.rep{font-size:10px;color:#a07a20}</style></head><body><div class=\"zone\">header</div><h2>New this week</h2><p class=\"txt\">Fresh picks from our makers.</p><span class=\"btn\">Shop all</span><div class=\"cmp\"><span class=\"cmpname\">ProductCard <span class=\"rep\">\u00d7 n</span></span><div class=\"img\">Product photo</div><h3>Product name</h3><p class=\"txt\">Price</p><span class=\"btn\">Add to cart</span></div></body></html>"
+       "mock_html": "<!DOCTYPE html><html><head><meta charset='utf-8'><style>body{font:13px system-ui,sans-serif;margin:0;padding:16px;color:#333;background:#fff}\nh2{font-size:18px;margin:8px 0}h3{font-size:14px;margin:8px 0;color:#555}\n.txt{margin:4px 0;color:#666}.bar{height:8px;background:#eee;border-radius:4px;width:60%;margin:8px 0}\n.btn{display:inline-block;border:1.5px solid #333;border-radius:6px;padding:4px 12px;margin:4px 6px 4px 0;font-weight:600}\n.lnk{display:inline-block;color:#2b6cb0;text-decoration:underline;margin:4px 8px 4px 0}\n.inp{border:1.5px solid #aaa;border-radius:6px;padding:7px 10px;margin:6px 0;color:#999;max-width:420px}\n.inp.tall{height:56px}.chk{margin:6px 0;color:#555}\n.img{background:repeating-linear-gradient(45deg,#f2f2f2,#f2f2f2 8px,#e6e6e6 8px,#e6e6e6 16px);height:80px;border-radius:6px;margin:6px 0;display:flex;align-items:center;justify-content:center;color:#888}\n.tbl{border:1px solid #ccc;border-radius:6px;margin:8px 0}.tbl div{height:22px;border-bottom:1px solid #eee}\n.itm{border-bottom:1px solid #eee;padding:6px 0}.zone{background:#f6f6f6;border:1px dashed #bbb;border-radius:6px;padding:6px 10px;margin:6px 0;color:#888;text-transform:uppercase;font-size:10px}\n.cmp{border:1px dashed #c9a24b;border-radius:8px;padding:8px 10px 6px;margin:8px 0;position:relative}\n.cmpname{font-size:10px;color:#a07a20;font-weight:600;display:block;margin-bottom:4px}.rep{font-size:10px;color:#a07a20}</style></head><body><div class=\"cmp\"><span class=\"cmpname\">Header</span><div class=\"zone\">header</div><div class=\"zone\">nav</div><span class=\"lnk\">/</span><span class=\"lnk\">Acme Store</span><div class=\"inp\">Search products</div><span class=\"lnk\">/cart</span><span class=\"lnk\">Cart</span><span class=\"lnk\">/account</span><span class=\"lnk\">Account</span></div><h2>New this week</h2><p class=\"txt\">Fresh picks from our makers.</p><span class=\"btn\">Shop all</span><div class=\"cmp\"><span class=\"cmpname\">ProductCard <span class=\"rep\">\u00d7 n</span></span><div class=\"img\">Product photo</div><h3>Product name</h3><p class=\"txt\">Price</p><span class=\"btn\">Add to cart</span></div></body></html>"
       },
       {
        "path": "/products/:id",
@@ -3419,8 +3476,46 @@
        "router": "React Router",
        "elements": [
         {
-         "type": "header",
-         "label": ""
+         "type": "component",
+         "label": "Header",
+         "children": [
+          {
+           "type": "header",
+           "label": ""
+          },
+          {
+           "type": "nav",
+           "label": ""
+          },
+          {
+           "type": "link",
+           "label": "/"
+          },
+          {
+           "type": "link",
+           "label": "Acme Store"
+          },
+          {
+           "type": "input",
+           "label": "Search products"
+          },
+          {
+           "type": "link",
+           "label": "/cart"
+          },
+          {
+           "type": "link",
+           "label": "Cart"
+          },
+          {
+           "type": "link",
+           "label": "/account"
+          },
+          {
+           "type": "link",
+           "label": "Account"
+          }
+         ]
         },
         {
          "type": "image",
@@ -3451,7 +3546,7 @@
          "label": "Add to cart"
         }
        ],
-       "mock_html": "<!DOCTYPE html><html><head><meta charset='utf-8'><style>body{font:13px system-ui,sans-serif;margin:0;padding:16px;color:#333;background:#fff}\nh2{font-size:18px;margin:8px 0}h3{font-size:14px;margin:8px 0;color:#555}\n.txt{margin:4px 0;color:#666}.bar{height:8px;background:#eee;border-radius:4px;width:60%;margin:8px 0}\n.btn{display:inline-block;border:1.5px solid #333;border-radius:6px;padding:4px 12px;margin:4px 6px 4px 0;font-weight:600}\n.lnk{display:inline-block;color:#2b6cb0;text-decoration:underline;margin:4px 8px 4px 0}\n.inp{border:1.5px solid #aaa;border-radius:6px;padding:7px 10px;margin:6px 0;color:#999;max-width:420px}\n.inp.tall{height:56px}.chk{margin:6px 0;color:#555}\n.img{background:repeating-linear-gradient(45deg,#f2f2f2,#f2f2f2 8px,#e6e6e6 8px,#e6e6e6 16px);height:80px;border-radius:6px;margin:6px 0;display:flex;align-items:center;justify-content:center;color:#888}\n.tbl{border:1px solid #ccc;border-radius:6px;margin:8px 0}.tbl div{height:22px;border-bottom:1px solid #eee}\n.itm{border-bottom:1px solid #eee;padding:6px 0}.zone{background:#f6f6f6;border:1px dashed #bbb;border-radius:6px;padding:6px 10px;margin:6px 0;color:#888;text-transform:uppercase;font-size:10px}\n.cmp{border:1px dashed #c9a24b;border-radius:8px;padding:8px 10px 6px;margin:8px 0;position:relative}\n.cmpname{font-size:10px;color:#a07a20;font-weight:600;display:block;margin-bottom:4px}.rep{font-size:10px;color:#a07a20}</style></head><body><div class=\"zone\">header</div><div class=\"img\">Product gallery</div><h2>Product name</h2><p class=\"txt\">Description</p><div class=\"inp\">select \u25be</div><p class=\"txt\">Size</p><div class=\"inp\">Qty</div><span class=\"btn\">Add to cart</span></body></html>"
+       "mock_html": "<!DOCTYPE html><html><head><meta charset='utf-8'><style>body{font:13px system-ui,sans-serif;margin:0;padding:16px;color:#333;background:#fff}\nh2{font-size:18px;margin:8px 0}h3{font-size:14px;margin:8px 0;color:#555}\n.txt{margin:4px 0;color:#666}.bar{height:8px;background:#eee;border-radius:4px;width:60%;margin:8px 0}\n.btn{display:inline-block;border:1.5px solid #333;border-radius:6px;padding:4px 12px;margin:4px 6px 4px 0;font-weight:600}\n.lnk{display:inline-block;color:#2b6cb0;text-decoration:underline;margin:4px 8px 4px 0}\n.inp{border:1.5px solid #aaa;border-radius:6px;padding:7px 10px;margin:6px 0;color:#999;max-width:420px}\n.inp.tall{height:56px}.chk{margin:6px 0;color:#555}\n.img{background:repeating-linear-gradient(45deg,#f2f2f2,#f2f2f2 8px,#e6e6e6 8px,#e6e6e6 16px);height:80px;border-radius:6px;margin:6px 0;display:flex;align-items:center;justify-content:center;color:#888}\n.tbl{border:1px solid #ccc;border-radius:6px;margin:8px 0}.tbl div{height:22px;border-bottom:1px solid #eee}\n.itm{border-bottom:1px solid #eee;padding:6px 0}.zone{background:#f6f6f6;border:1px dashed #bbb;border-radius:6px;padding:6px 10px;margin:6px 0;color:#888;text-transform:uppercase;font-size:10px}\n.cmp{border:1px dashed #c9a24b;border-radius:8px;padding:8px 10px 6px;margin:8px 0;position:relative}\n.cmpname{font-size:10px;color:#a07a20;font-weight:600;display:block;margin-bottom:4px}.rep{font-size:10px;color:#a07a20}</style></head><body><div class=\"cmp\"><span class=\"cmpname\">Header</span><div class=\"zone\">header</div><div class=\"zone\">nav</div><span class=\"lnk\">/</span><span class=\"lnk\">Acme Store</span><div class=\"inp\">Search products</div><span class=\"lnk\">/cart</span><span class=\"lnk\">Cart</span><span class=\"lnk\">/account</span><span class=\"lnk\">Account</span></div><div class=\"img\">Product gallery</div><h2>Product name</h2><p class=\"txt\">Description</p><div class=\"inp\">select \u25be</div><p class=\"txt\">Size</p><div class=\"inp\">Qty</div><span class=\"btn\">Add to cart</span></body></html>"
       },
       {
        "path": "/cart",
@@ -3460,8 +3555,46 @@
        "router": "React Router",
        "elements": [
         {
-         "type": "header",
-         "label": ""
+         "type": "component",
+         "label": "Header",
+         "children": [
+          {
+           "type": "header",
+           "label": ""
+          },
+          {
+           "type": "nav",
+           "label": ""
+          },
+          {
+           "type": "link",
+           "label": "/"
+          },
+          {
+           "type": "link",
+           "label": "Acme Store"
+          },
+          {
+           "type": "input",
+           "label": "Search products"
+          },
+          {
+           "type": "link",
+           "label": "/cart"
+          },
+          {
+           "type": "link",
+           "label": "Cart"
+          },
+          {
+           "type": "link",
+           "label": "/account"
+          },
+          {
+           "type": "link",
+           "label": "Account"
+          }
+         ]
         },
         {
          "type": "heading",
@@ -3490,7 +3623,7 @@
          "label": "Go to checkout"
         }
        ],
-       "mock_html": "<!DOCTYPE html><html><head><meta charset='utf-8'><style>body{font:13px system-ui,sans-serif;margin:0;padding:16px;color:#333;background:#fff}\nh2{font-size:18px;margin:8px 0}h3{font-size:14px;margin:8px 0;color:#555}\n.txt{margin:4px 0;color:#666}.bar{height:8px;background:#eee;border-radius:4px;width:60%;margin:8px 0}\n.btn{display:inline-block;border:1.5px solid #333;border-radius:6px;padding:4px 12px;margin:4px 6px 4px 0;font-weight:600}\n.lnk{display:inline-block;color:#2b6cb0;text-decoration:underline;margin:4px 8px 4px 0}\n.inp{border:1.5px solid #aaa;border-radius:6px;padding:7px 10px;margin:6px 0;color:#999;max-width:420px}\n.inp.tall{height:56px}.chk{margin:6px 0;color:#555}\n.img{background:repeating-linear-gradient(45deg,#f2f2f2,#f2f2f2 8px,#e6e6e6 8px,#e6e6e6 16px);height:80px;border-radius:6px;margin:6px 0;display:flex;align-items:center;justify-content:center;color:#888}\n.tbl{border:1px solid #ccc;border-radius:6px;margin:8px 0}.tbl div{height:22px;border-bottom:1px solid #eee}\n.itm{border-bottom:1px solid #eee;padding:6px 0}.zone{background:#f6f6f6;border:1px dashed #bbb;border-radius:6px;padding:6px 10px;margin:6px 0;color:#888;text-transform:uppercase;font-size:10px}\n.cmp{border:1px dashed #c9a24b;border-radius:8px;padding:8px 10px 6px;margin:8px 0;position:relative}\n.cmpname{font-size:10px;color:#a07a20;font-weight:600;display:block;margin-bottom:4px}.rep{font-size:10px;color:#a07a20}</style></head><body><div class=\"zone\">header</div><h2>Your cart</h2><div class=\"tbl\"><div></div><div></div><div></div></div><div class=\"inp\">Promo code</div><span class=\"btn\">Apply</span><span class=\"lnk\">/checkout</span><span class=\"lnk\">Go to checkout</span></body></html>"
+       "mock_html": "<!DOCTYPE html><html><head><meta charset='utf-8'><style>body{font:13px system-ui,sans-serif;margin:0;padding:16px;color:#333;background:#fff}\nh2{font-size:18px;margin:8px 0}h3{font-size:14px;margin:8px 0;color:#555}\n.txt{margin:4px 0;color:#666}.bar{height:8px;background:#eee;border-radius:4px;width:60%;margin:8px 0}\n.btn{display:inline-block;border:1.5px solid #333;border-radius:6px;padding:4px 12px;margin:4px 6px 4px 0;font-weight:600}\n.lnk{display:inline-block;color:#2b6cb0;text-decoration:underline;margin:4px 8px 4px 0}\n.inp{border:1.5px solid #aaa;border-radius:6px;padding:7px 10px;margin:6px 0;color:#999;max-width:420px}\n.inp.tall{height:56px}.chk{margin:6px 0;color:#555}\n.img{background:repeating-linear-gradient(45deg,#f2f2f2,#f2f2f2 8px,#e6e6e6 8px,#e6e6e6 16px);height:80px;border-radius:6px;margin:6px 0;display:flex;align-items:center;justify-content:center;color:#888}\n.tbl{border:1px solid #ccc;border-radius:6px;margin:8px 0}.tbl div{height:22px;border-bottom:1px solid #eee}\n.itm{border-bottom:1px solid #eee;padding:6px 0}.zone{background:#f6f6f6;border:1px dashed #bbb;border-radius:6px;padding:6px 10px;margin:6px 0;color:#888;text-transform:uppercase;font-size:10px}\n.cmp{border:1px dashed #c9a24b;border-radius:8px;padding:8px 10px 6px;margin:8px 0;position:relative}\n.cmpname{font-size:10px;color:#a07a20;font-weight:600;display:block;margin-bottom:4px}.rep{font-size:10px;color:#a07a20}</style></head><body><div class=\"cmp\"><span class=\"cmpname\">Header</span><div class=\"zone\">header</div><div class=\"zone\">nav</div><span class=\"lnk\">/</span><span class=\"lnk\">Acme Store</span><div class=\"inp\">Search products</div><span class=\"lnk\">/cart</span><span class=\"lnk\">Cart</span><span class=\"lnk\">/account</span><span class=\"lnk\">Account</span></div><h2>Your cart</h2><div class=\"tbl\"><div></div><div></div><div></div></div><div class=\"inp\">Promo code</div><span class=\"btn\">Apply</span><span class=\"lnk\">/checkout</span><span class=\"lnk\">Go to checkout</span></body></html>"
       },
       {
        "path": "/checkout",
@@ -3499,8 +3632,46 @@
        "router": "React Router",
        "elements": [
         {
-         "type": "header",
-         "label": ""
+         "type": "component",
+         "label": "Header",
+         "children": [
+          {
+           "type": "header",
+           "label": ""
+          },
+          {
+           "type": "nav",
+           "label": ""
+          },
+          {
+           "type": "link",
+           "label": "/"
+          },
+          {
+           "type": "link",
+           "label": "Acme Store"
+          },
+          {
+           "type": "input",
+           "label": "Search products"
+          },
+          {
+           "type": "link",
+           "label": "/cart"
+          },
+          {
+           "type": "link",
+           "label": "Cart"
+          },
+          {
+           "type": "link",
+           "label": "/account"
+          },
+          {
+           "type": "link",
+           "label": "Account"
+          }
+         ]
         },
         {
          "type": "heading",
@@ -3543,7 +3714,7 @@
          "label": "Place order"
         }
        ],
-       "mock_html": "<!DOCTYPE html><html><head><meta charset='utf-8'><style>body{font:13px system-ui,sans-serif;margin:0;padding:16px;color:#333;background:#fff}\nh2{font-size:18px;margin:8px 0}h3{font-size:14px;margin:8px 0;color:#555}\n.txt{margin:4px 0;color:#666}.bar{height:8px;background:#eee;border-radius:4px;width:60%;margin:8px 0}\n.btn{display:inline-block;border:1.5px solid #333;border-radius:6px;padding:4px 12px;margin:4px 6px 4px 0;font-weight:600}\n.lnk{display:inline-block;color:#2b6cb0;text-decoration:underline;margin:4px 8px 4px 0}\n.inp{border:1.5px solid #aaa;border-radius:6px;padding:7px 10px;margin:6px 0;color:#999;max-width:420px}\n.inp.tall{height:56px}.chk{margin:6px 0;color:#555}\n.img{background:repeating-linear-gradient(45deg,#f2f2f2,#f2f2f2 8px,#e6e6e6 8px,#e6e6e6 16px);height:80px;border-radius:6px;margin:6px 0;display:flex;align-items:center;justify-content:center;color:#888}\n.tbl{border:1px solid #ccc;border-radius:6px;margin:8px 0}.tbl div{height:22px;border-bottom:1px solid #eee}\n.itm{border-bottom:1px solid #eee;padding:6px 0}.zone{background:#f6f6f6;border:1px dashed #bbb;border-radius:6px;padding:6px 10px;margin:6px 0;color:#888;text-transform:uppercase;font-size:10px}\n.cmp{border:1px dashed #c9a24b;border-radius:8px;padding:8px 10px 6px;margin:8px 0;position:relative}\n.cmpname{font-size:10px;color:#a07a20;font-weight:600;display:block;margin-bottom:4px}.rep{font-size:10px;color:#a07a20}</style></head><body><div class=\"zone\">header</div><h2>Checkout</h2><div class=\"zone\">form</div><h2>Shipping</h2><div class=\"inp\">Full name</div><div class=\"inp\">Address</div><div class=\"inp\">Postcode</div><h2>Payment</h2><div class=\"inp\">Card number</div><div class=\"chk\">\u2610 Save card for next time</div><span class=\"btn\">Place order</span></body></html>"
+       "mock_html": "<!DOCTYPE html><html><head><meta charset='utf-8'><style>body{font:13px system-ui,sans-serif;margin:0;padding:16px;color:#333;background:#fff}\nh2{font-size:18px;margin:8px 0}h3{font-size:14px;margin:8px 0;color:#555}\n.txt{margin:4px 0;color:#666}.bar{height:8px;background:#eee;border-radius:4px;width:60%;margin:8px 0}\n.btn{display:inline-block;border:1.5px solid #333;border-radius:6px;padding:4px 12px;margin:4px 6px 4px 0;font-weight:600}\n.lnk{display:inline-block;color:#2b6cb0;text-decoration:underline;margin:4px 8px 4px 0}\n.inp{border:1.5px solid #aaa;border-radius:6px;padding:7px 10px;margin:6px 0;color:#999;max-width:420px}\n.inp.tall{height:56px}.chk{margin:6px 0;color:#555}\n.img{background:repeating-linear-gradient(45deg,#f2f2f2,#f2f2f2 8px,#e6e6e6 8px,#e6e6e6 16px);height:80px;border-radius:6px;margin:6px 0;display:flex;align-items:center;justify-content:center;color:#888}\n.tbl{border:1px solid #ccc;border-radius:6px;margin:8px 0}.tbl div{height:22px;border-bottom:1px solid #eee}\n.itm{border-bottom:1px solid #eee;padding:6px 0}.zone{background:#f6f6f6;border:1px dashed #bbb;border-radius:6px;padding:6px 10px;margin:6px 0;color:#888;text-transform:uppercase;font-size:10px}\n.cmp{border:1px dashed #c9a24b;border-radius:8px;padding:8px 10px 6px;margin:8px 0;position:relative}\n.cmpname{font-size:10px;color:#a07a20;font-weight:600;display:block;margin-bottom:4px}.rep{font-size:10px;color:#a07a20}</style></head><body><div class=\"cmp\"><span class=\"cmpname\">Header</span><div class=\"zone\">header</div><div class=\"zone\">nav</div><span class=\"lnk\">/</span><span class=\"lnk\">Acme Store</span><div class=\"inp\">Search products</div><span class=\"lnk\">/cart</span><span class=\"lnk\">Cart</span><span class=\"lnk\">/account</span><span class=\"lnk\">Account</span></div><h2>Checkout</h2><div class=\"zone\">form</div><h2>Shipping</h2><div class=\"inp\">Full name</div><div class=\"inp\">Address</div><div class=\"inp\">Postcode</div><h2>Payment</h2><div class=\"inp\">Card number</div><div class=\"chk\">\u2610 Save card for next time</div><span class=\"btn\">Place order</span></body></html>"
       },
       {
        "path": "/account",
@@ -3552,8 +3723,46 @@
        "router": "React Router",
        "elements": [
         {
-         "type": "header",
-         "label": ""
+         "type": "component",
+         "label": "Header",
+         "children": [
+          {
+           "type": "header",
+           "label": ""
+          },
+          {
+           "type": "nav",
+           "label": ""
+          },
+          {
+           "type": "link",
+           "label": "/"
+          },
+          {
+           "type": "link",
+           "label": "Acme Store"
+          },
+          {
+           "type": "input",
+           "label": "Search products"
+          },
+          {
+           "type": "link",
+           "label": "/cart"
+          },
+          {
+           "type": "link",
+           "label": "Cart"
+          },
+          {
+           "type": "link",
+           "label": "/account"
+          },
+          {
+           "type": "link",
+           "label": "Account"
+          }
+         ]
         },
         {
          "type": "heading",
@@ -3578,7 +3787,7 @@
          "label": "Sign out"
         }
        ],
-       "mock_html": "<!DOCTYPE html><html><head><meta charset='utf-8'><style>body{font:13px system-ui,sans-serif;margin:0;padding:16px;color:#333;background:#fff}\nh2{font-size:18px;margin:8px 0}h3{font-size:14px;margin:8px 0;color:#555}\n.txt{margin:4px 0;color:#666}.bar{height:8px;background:#eee;border-radius:4px;width:60%;margin:8px 0}\n.btn{display:inline-block;border:1.5px solid #333;border-radius:6px;padding:4px 12px;margin:4px 6px 4px 0;font-weight:600}\n.lnk{display:inline-block;color:#2b6cb0;text-decoration:underline;margin:4px 8px 4px 0}\n.inp{border:1.5px solid #aaa;border-radius:6px;padding:7px 10px;margin:6px 0;color:#999;max-width:420px}\n.inp.tall{height:56px}.chk{margin:6px 0;color:#555}\n.img{background:repeating-linear-gradient(45deg,#f2f2f2,#f2f2f2 8px,#e6e6e6 8px,#e6e6e6 16px);height:80px;border-radius:6px;margin:6px 0;display:flex;align-items:center;justify-content:center;color:#888}\n.tbl{border:1px solid #ccc;border-radius:6px;margin:8px 0}.tbl div{height:22px;border-bottom:1px solid #eee}\n.itm{border-bottom:1px solid #eee;padding:6px 0}.zone{background:#f6f6f6;border:1px dashed #bbb;border-radius:6px;padding:6px 10px;margin:6px 0;color:#888;text-transform:uppercase;font-size:10px}\n.cmp{border:1px dashed #c9a24b;border-radius:8px;padding:8px 10px 6px;margin:8px 0;position:relative}\n.cmpname{font-size:10px;color:#a07a20;font-weight:600;display:block;margin-bottom:4px}.rep{font-size:10px;color:#a07a20}</style></head><body><div class=\"zone\">header</div><h2>Your account</h2><h2>Orders</h2><h2>Saved cards</h2><span class=\"btn\">Add card</span> <span class=\"rep\">\u00d7 n</span><span class=\"btn\">Sign out</span></body></html>"
+       "mock_html": "<!DOCTYPE html><html><head><meta charset='utf-8'><style>body{font:13px system-ui,sans-serif;margin:0;padding:16px;color:#333;background:#fff}\nh2{font-size:18px;margin:8px 0}h3{font-size:14px;margin:8px 0;color:#555}\n.txt{margin:4px 0;color:#666}.bar{height:8px;background:#eee;border-radius:4px;width:60%;margin:8px 0}\n.btn{display:inline-block;border:1.5px solid #333;border-radius:6px;padding:4px 12px;margin:4px 6px 4px 0;font-weight:600}\n.lnk{display:inline-block;color:#2b6cb0;text-decoration:underline;margin:4px 8px 4px 0}\n.inp{border:1.5px solid #aaa;border-radius:6px;padding:7px 10px;margin:6px 0;color:#999;max-width:420px}\n.inp.tall{height:56px}.chk{margin:6px 0;color:#555}\n.img{background:repeating-linear-gradient(45deg,#f2f2f2,#f2f2f2 8px,#e6e6e6 8px,#e6e6e6 16px);height:80px;border-radius:6px;margin:6px 0;display:flex;align-items:center;justify-content:center;color:#888}\n.tbl{border:1px solid #ccc;border-radius:6px;margin:8px 0}.tbl div{height:22px;border-bottom:1px solid #eee}\n.itm{border-bottom:1px solid #eee;padding:6px 0}.zone{background:#f6f6f6;border:1px dashed #bbb;border-radius:6px;padding:6px 10px;margin:6px 0;color:#888;text-transform:uppercase;font-size:10px}\n.cmp{border:1px dashed #c9a24b;border-radius:8px;padding:8px 10px 6px;margin:8px 0;position:relative}\n.cmpname{font-size:10px;color:#a07a20;font-weight:600;display:block;margin-bottom:4px}.rep{font-size:10px;color:#a07a20}</style></head><body><div class=\"cmp\"><span class=\"cmpname\">Header</span><div class=\"zone\">header</div><div class=\"zone\">nav</div><span class=\"lnk\">/</span><span class=\"lnk\">Acme Store</span><div class=\"inp\">Search products</div><span class=\"lnk\">/cart</span><span class=\"lnk\">Cart</span><span class=\"lnk\">/account</span><span class=\"lnk\">Account</span></div><h2>Your account</h2><h2>Orders</h2><h2>Saved cards</h2><span class=\"btn\">Add card</span> <span class=\"rep\">\u00d7 n</span><span class=\"btn\">Sign out</span></body></html>"
       }
      ],
      "components": [
@@ -3851,8 +4060,28 @@
        "name": "web-storefront"
       }
      }
+    },
+    "user_flow": {
+     "title": "User flow: web-storefront",
+     "content": "# User flow: web-storefront\nScreens Filament found and the links and navigation buttons that lead between them. Navigation shared by every screen (like a header) is shown once. Refreshed on every scan.\n```mermaid\nflowchart LR\n  start([\"Open app\"])\n  P0[\"/<br/><small>New this week</small>\"]\n  P1[\"/products/:id<br/><small>Product name</small>\"]\n  P2[\"/cart<br/><small>Your cart</small>\"]\n  P3[\"/checkout<br/><small>Checkout</small>\"]\n  P4[\"/account<br/><small>Your account</small>\"]\n  start --> P0\n  P2 --> P3\n  nav_Header[[\"Header<br/><small>on every screen</small>\"]]\n  nav_Header -.-> P0\n  nav_Header -.-> P4\n  nav_Header -.-> P2\n  style start fill:#fbf1df,stroke:#c47f17\n```",
+     "data": {
+      "diagram": "user_flow",
+      "screens": 5,
+      "transitions": 4
+     }
+    },
+    "component_view": {
+     "title": "Component view: web-storefront",
+     "content": "# Component view: web-storefront\nWhat this repo connects to, from manifests, env vars, connection strings, compose, Kubernetes and Terraform. Refreshed on every scan.\n```mermaid\nflowchart LR\n  n_web_storefront([\"web-storefront\"])\n  n_stripe[\"Stripe\"]\n  n_sentry[\"Sentry\"]\n  n_checkout_api[\"checkout-api\"]\n  n_web_storefront -->|uses| n_stripe\n  n_web_storefront -->|uses| n_sentry\n  n_web_storefront -->|calls| n_checkout_api\n  classDef self fill:#fbf1df,stroke:#c47f17,stroke-width:2px\n  class n_web_storefront self\n  classDef external fill:#f9ece7,stroke:#c4825b\n  class n_stripe external\n  classDef observability fill:#f0efec,stroke:#999\n  class n_sentry observability\n  classDef service fill:#fff,stroke:#666\n  class n_checkout_api service\n```",
+     "data": {
+      "diagram": "components"
+     }
     }
    },
+   "diagrams": [
+    "user_flow",
+    "component_view"
+   ],
    "conventions": [
     "web-storefront: run tests with `npm test`.",
     "web-storefront: build with `npm run build`.",
@@ -4658,8 +4887,18 @@
        "name": "platform-infra"
       }
      }
+    },
+    "component_view": {
+     "title": "Component view: platform-infra",
+     "content": "# Component view: platform-infra\nWhat this repo connects to, from manifests, env vars, connection strings, compose, Kubernetes and Terraform. Refreshed on every scan.\n```mermaid\nflowchart LR\n  n_platform_infra([\"platform-infra\"])\n  n_module_vpc[\"module vpc\"]\n  n_aws_eks_cluster_shop[\"shop  aws_eks_cluster \"]\n  n_aws_db_instance_checkout[(\"checkout  aws_db_instance \")]\n  n_aws_elasticache_cluster_sessions[(\"sessions  aws_elasticache_cluster \")]\n  n_aws_s3_bucket_assets[\"assets  aws_s3_bucket \"]\n  n_aws_cloudfront_distribution_cdn[\"cdn  aws_cloudfront_distribution \"]\n  n_aws_sqs_queue_orders[[\"orders  aws_sqs_queue \"]]\n  n_aws_vpc_this[\"this  aws_vpc \"]\n  n_aws_subnet_private[\"private  aws_subnet \"]\n  n_platform_infra -->|provisions| n_module_vpc\n  n_platform_infra -->|provisions| n_aws_eks_cluster_shop\n  n_platform_infra -->|provisions| n_aws_db_instance_checkout\n  n_platform_infra -->|provisions| n_aws_elasticache_cluster_sessions\n  n_platform_infra -->|provisions| n_aws_s3_bucket_assets\n  n_platform_infra -->|provisions| n_aws_cloudfront_distribution_cdn\n  n_platform_infra -->|provisions| n_aws_sqs_queue_orders\n  n_platform_infra -->|provisions| n_aws_vpc_this\n  n_platform_infra -->|provisions| n_aws_subnet_private\n  n_aws_eks_cluster_shop -->|references| n_module_vpc\n  n_aws_db_instance_checkout -->|references| n_module_vpc\n  n_aws_elasticache_cluster_sessions -->|references| n_module_vpc\n  n_aws_cloudfront_distribution_cdn -->|references| n_aws_s3_bucket_assets\n  n_aws_subnet_private -->|references| n_aws_vpc_this\n  classDef self fill:#fbf1df,stroke:#c47f17,stroke-width:2px\n  class n_platform_infra self\n  classDef datastore fill:#e7f1fb,stroke:#5b8cc4\n  class n_aws_db_instance_checkout datastore\n  classDef cache fill:#e7f1fb,stroke:#5b8cc4\n  class n_aws_elasticache_cluster_sessions cache\n  classDef queue fill:#efedff,stroke:#7b6fd0\n  class n_aws_sqs_queue_orders queue\n  classDef cloud fill:#e5f4e4,stroke:#5ba35b\n  class n_aws_s3_bucket_assets cloud\n  classDef compute fill:#fff,stroke:#666\n  class n_aws_eks_cluster_shop compute\n```",
+     "data": {
+      "diagram": "components"
+     }
     }
    },
+   "diagrams": [
+    "component_view"
+   ],
    "conventions": [
     "platform-infra is a infrastructure repo using Terraform.",
     "platform-infra depends on checkout (aws_db_instance), orders (aws_sqs_queue), sessions (aws_elasticache_cluster)."
@@ -5111,8 +5350,18 @@
        "name": "service-config"
       }
      }
+    },
+    "component_view": {
+     "title": "Component view: service-config",
+     "content": "# Component view: service-config\nWhat this repo connects to, from manifests, env vars, connection strings, compose, Kubernetes and Terraform. Refreshed on every scan.\n```mermaid\nflowchart LR\n  n_service_config([\"service-config\"])\n  n_postgres[(\"PostgreSQL\")]\n  n_service_config -->|uses| n_postgres\n  classDef self fill:#fbf1df,stroke:#c47f17,stroke-width:2px\n  class n_service_config self\n  classDef datastore fill:#e7f1fb,stroke:#5b8cc4\n  class n_postgres datastore\n```",
+     "data": {
+      "diagram": "components"
+     }
     }
    },
+   "diagrams": [
+    "component_view"
+   ],
    "conventions": [
     "service-config depends on PostgreSQL."
    ],

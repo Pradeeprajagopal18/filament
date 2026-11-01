@@ -233,3 +233,9 @@ table.fields td { padding: 2px 12px 2px 0; border: none; }
 .breaking { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #fff; background: #d64545; border-radius: 4px; padding: 1px 6px; }
 details.model { border-top: 1px solid #f0f1f3; padding: 6px 0; }
 details.model summary { cursor: pointer; }
+
+/* markdown headings in artifact content; wide diagrams scroll instead of shrinking */
+.md-h { font-weight: 700; margin: 12px 0 4px; }
+.md-h1 { font-size: 17px; } .md-h2 { font-size: 15px; } .md-h3, .md-h4 { font-size: 13px; }
+.content .mermaid { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+@media (max-width: 640px) { .content .mermaid svg { min-width: 520px; } }

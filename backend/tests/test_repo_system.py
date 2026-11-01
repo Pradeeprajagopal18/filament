@@ -279,3 +279,50 @@ def test_mock_server_and_enrichment(client, ws, company):
     assert enriched["analysis"]["api"]["enrichment"]["applied"] == 3
     usage = client.get(f"/api/workspaces/{ws['id']}/usage?by=agent").json()
     assert any(row["key"] == "api-enricher" for row in usage)
+
+
+# -- diagrams kept for every repo -------------------------------------------------------------
+def test_onboarding_creates_diagrams_in_the_project(client, ws, company):
+    api = onboard(client, ws, company["api"])
+    web = onboard(client, ws, company["web"])
+    infra = onboard(client, ws, company["infra"])
+    assert "request_flows" in api["generated"]
+    assert "component_view" not in api["generated"]  # no connections found: nothing to draw
+    assert "user_flow" in web["generated"] and "component_view" in infra["generated"]
+    arts = client.get(f"/api/projects/{api['project_id']}/artifacts").json()
+    flow = next(a for a in arts if a["data"].get("generator") == "request_flows")
+    assert flow["type"] == "flow" and "sequenceDiagram" in flow["content"]
+    assert "C->>S: POST /v1/carts/cart_id/items" in flow["content"]
+    assert "S->>S: check auth" in flow["content"] and "Note over C,S: or" in flow["content"]
+    ui = client.get(f"/api/artifacts/{web['generated']['user_flow']}").json()
+    assert "flowchart LR" in ui["content"] and "/cart" in ui["content"]
+    assert client.get(f"/api/artifacts/{infra['generated']['component_view']}").json()[
+        "type"] == "component_view"
+    # Diagrams don't count as readiness items, and rescans keep (not duplicate) them.
+    client.post(f"/api/repos/{api['id']}/rescan")
+    again = client.get(f"/api/repos/{api['id']}").json()
+    assert again["generated"]["request_flows"] == api["generated"]["request_flows"]
+
+
+def test_flow_agent_without_requirements_points_at_code_diagrams(client, ws, company):
+    api = onboard(client, ws, company["api"])
+    run = client.post(f"/api/projects/{api['project_id']}/runs",
+                      json={"agent": "flow", "goal": "Draw flows"}).json()
+    assert run["status"] == "succeeded", run.get("error")
+    assert "already has" in run["output"].get("summary", "") or "already has" in str(run["output"])
+
+
+def test_user_flow_shared_nav_and_action_buttons():
+    from filament.repos.generate import user_flow
+
+    page = lambda path, els: {"path": path, "component": path, "elements": els}  # noqa: E731
+    header = {"type": "component", "label": "Header", "children": [
+        {"type": "link", "label": "/cart"}, {"type": "link", "label": "/"}]}
+    a = {"name": "shop", "ui": {"pages": [
+        page("/", [header, {"type": "button", "label": "Add to cart"}]),
+        page("/cart", [header, {"type": "button", "label": "Go to checkout"}]),
+        page("/checkout", [header])]}}
+    body = user_flow(a)[1]
+    assert "Add to cart" not in body  # an action, not navigation
+    assert "|Go to checkout|" in body
+    assert body.count("nav_Header -.->") == 2

@@ -71,6 +71,10 @@ def store(session: Session, record: RepoRecord, analysis: dict, trigger: str) ->
     session.add(ReadinessReport(repo=record.ref, project_id=record.project_id, score=record.score,
                                 grade=record.grade, checks=analysis["readiness"]["checks"]))
     changes["references"] = refresh_references(session, record) if record.generated else {}
+    missing = [g for g in gen.diagrams_for(analysis) if g not in (record.generated or {})]
+    if missing:  # diagrams Filament keeps for every repo (also backfills older repos)
+        generate(session, record, missing, propose=False)
+        changes["references"].setdefault("created", []).extend(missing)
     if before is not None:
         _breaking_signals(session, record, changes, before)
     scan = RepoScan(repo_id=record.id, trigger=trigger, grade=record.grade, score=record.score,
@@ -146,7 +150,8 @@ def accept_update(session: Session, record: RepoRecord, item: str) -> Artifact:
     return art
 
 
-def generate(session: Session, record: RepoRecord, items: list[str]) -> list[str]:
+def generate(session: Session, record: RepoRecord, items: list[str],
+             propose: bool = True) -> list[str]:
     """Create (or refresh) references for the given generators; propose conventions."""
     a = record.analysis
     generated = dict(record.generated or {})
@@ -158,7 +163,7 @@ def generate(session: Session, record: RepoRecord, items: list[str]) -> list[str
         title, content, data = built
         data = {**data, "repo": record.ref, "generator": item, "in_repo": False,
                 "source_commit": record.commit}
-        art_type = "api_contract" if item == "api_contract" else "doc"
+        art_type = gen.ARTIFACT_TYPE.get(item, "doc")
         existing = session.get(Artifact, generated[item]) if item in generated else None
         if existing:
             existing.title, existing.content, existing.data = title, content, data
@@ -172,6 +177,9 @@ def generate(session: Session, record: RepoRecord, items: list[str]) -> list[str
             session.flush()
             generated[item] = art.id
             touched.append(art.id)
+    record.generated = generated
+    if not propose:
+        return touched
     known = {m.content for m in session.scalars(select(MemoryEntry).where(
         MemoryEntry.scope == "project", MemoryEntry.scope_ref == record.project_id))}
     for fact in gen.conventions(a):

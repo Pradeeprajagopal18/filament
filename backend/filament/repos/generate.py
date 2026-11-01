@@ -18,7 +18,14 @@ GENERATORS = {
     "architecture": "Architecture and components",
     "codeowners": "Suggested code owners",
     "api_contract": "API contract (OpenAPI)",
+    "request_flows": "Request flows (sequence diagrams)",
+    "user_flow": "User flow (screens)",
+    "component_view": "Component view",
 }
+# Diagrams Filament keeps for every onboarded repo where they apply (refreshed on rescans).
+DIAGRAMS = ["request_flows", "user_flow", "component_view"]
+ARTIFACT_TYPE = {"api_contract": "api_contract", "request_flows": "flow", "user_flow": "flow",
+                 "component_view": "component_view"}
 
 
 def _kinds(a: dict) -> str:
@@ -111,8 +118,179 @@ def api_contract(a: dict) -> tuple[str, str, dict] | None:
             {"openapi": spec})
 
 
+def _mid(text: str) -> str:
+    """A safe Mermaid identifier."""
+    import re
+
+    return re.sub(r"\W", "_", text) or "x"
+
+
+def _mlabel(text: str) -> str:
+    import re
+
+    return re.sub(r'["<>{}|;#]', "", text)[:60]
+
+
+def request_flows(a: dict) -> tuple[str, str, dict] | None:
+    """Sequence diagrams per API resource, from the endpoints and the services each handler's
+    file actually references."""
+    eps = [e for e in a["api"]["endpoints"] if e["method"] in
+           {"GET", "POST", "PUT", "PATCH", "DELETE", "ANY"}]
+    if not eps:
+        return None
+    by_file: dict[str, list[dict]] = {}
+    for n in a["components"]["nodes"]:
+        if n["category"] == "self":
+            continue
+        for ev in n["evidence"]:
+            if ev.get("file"):
+                by_file.setdefault(ev["file"], [])
+                if n not in by_file[ev["file"]]:
+                    by_file[ev["file"]].append(n)
+    groups: dict[str, list[dict]] = {}
+    for e in eps:
+        groups.setdefault(e.get("tag") or "root", []).append(e)
+    name = a["name"]
+    sections = [f"# Request flows: {name}",
+                "Drawn from the code: each endpoint, its auth, the services its handler's file "
+                "uses and the responses it can return. Refreshed on every scan."]
+    for tag, items in sorted(groups.items(), key=lambda kv: -len(kv[1]))[:8]:
+        deps = []
+        for e in items:
+            for n in by_file.get(e.get("file") or "", []):
+                if n not in deps:
+                    deps.append(n)
+        lines = ["sequenceDiagram", "  actor C as Client", f"  participant S as {_mlabel(name)}"]
+        for n in deps[:5]:
+            lines.append(f"  participant {_mid(n['id'])} as {_mlabel(n['label'])}")
+        # Which handler calls a service isn't visible from module-level references, so the
+        # diagram states what the module uses rather than drawing calls it can't attribute.
+        for n in deps[:5]:
+            ev = next((v for v in n["evidence"] if any(v.get("file") == e.get("file")
+                                                        for e in items)), {})
+            where = f"{ev.get('file')}:{ev.get('line')}" if ev.get("line") else ev.get("file", "")
+            lines.append(f"  Note over S,{_mid(n['id'])}: {tag} module uses {_mlabel(n['label'])}"
+                         f" ({_mlabel(where)})")
+        for e in items[:8]:
+            lines.append(f"  C->>S: {e['method']} {_mlabel(e['path'])}")
+            if e.get("auth"):
+                lines.append("  S->>S: check auth")
+            codes = sorted((e.get("responses") or {"200": {}}).keys())
+            ok = next((c for c in codes if c.startswith("2")), "200")
+            schema = ((e.get("responses") or {}).get(ok) or {}).get("schema") or {}
+            ref = schema.get("$ref") or (schema.get("items") or {}).get("$ref") or ""
+            model = ref.rsplit("/", 1)[-1] + ("[]" if schema.get("type") == "array" else "") \
+                if ref else ""
+            lines.append(f"  S-->>C: {ok} {model}".rstrip())
+            errors = [c for c in codes if not c.startswith("2")]
+            if errors:
+                lines.append(f"  Note over C,S: or {', '.join(errors)}")
+        sections += [f"## {tag}", "```mermaid", *lines, "```"]
+    return (f"Request flows: {name}", "\n".join(sections),
+            {"diagram": "sequence", "groups": len(groups)})
+
+
+def user_flow(a: dict) -> tuple[str, str, dict] | None:
+    """Screens and how they connect: navigation links and buttons that name another screen."""
+    import re
+
+    pages = a["ui"]["pages"]
+    if not pages:
+        return None
+    paths = [p["path"] for p in pages]
+
+    def walk(elements, out, via=None):
+        for el in elements:
+            out.append((el, via))
+            if el.get("children"):
+                walk(el["children"], out, via or el["label"])
+        return out
+
+    nav_button = re.compile(r"^(go to|view|open|back to|continue to|proceed to|see)\b", re.I)
+
+    def target(el: dict) -> str | None:
+        lab = (el.get("label") or "").strip()
+        low = lab.lower()
+        if el["type"] == "link" and low.startswith("/"):
+            for p in paths:
+                pattern = re.sub(r"\\\{[^}]+\\\}|:\w+", "[^/]+", re.escape(p))
+                if re.fullmatch(pattern, low):
+                    return p
+            return None
+        if el["type"] == "button" and not nav_button.match(lab):
+            return None  # actions like "Add to cart" don't navigate
+        words = set(re.findall(r"[a-z]{3,}", low)) - {"view", "open", "back", "continue",
+                                                       "proceed", "see"}
+        return next((p for p in paths if p != "/" and
+                     set(re.findall(r"[a-z]{3,}", p.lower())) & words), None)
+
+    # Components that appear on two or more screens (headers, navbars) are global navigation.
+    uses: dict[str, int] = {}
+    for p in pages:
+        for name in {v for _, v in walk(p["elements"], []) if v}:
+            uses[name] = uses.get(name, 0) + 1
+    shared = {n for n, c in uses.items() if c >= 2 and c >= len(pages) // 2}
+
+    lines = ["flowchart LR", '  start(["Open app"])']
+    ids = {p: f"P{i}" for i, p in enumerate(paths)}
+    for p in pages:
+        heading = next((el["label"] for el, _ in walk(p["elements"], [])
+                        if el["type"] == "heading" and el["label"]), p["component"])
+        lines.append(f'  {ids[p["path"]]}["{_mlabel(p["path"])}<br/><small>{_mlabel(heading)}</small>"]')
+    lines.append(f"  start --> {ids['/' if '/' in paths else paths[0]]}")
+    edges: set[tuple[str, str]] = set()
+    nav_targets: dict[str, set[str]] = {}
+    for p in pages:
+        for el, via in walk(p["elements"], []):
+            if el["type"] not in {"link", "button"}:
+                continue
+            dst = target(el)
+            if not dst:
+                continue
+            if via in shared:
+                nav_targets.setdefault(via, set()).add(dst)
+                continue
+            if dst != p["path"] and (p["path"], dst) not in edges:
+                edges.add((p["path"], dst))
+                lab = el.get("label") or ""
+                via_lbl = "" if lab.startswith("/") else f"|{_mlabel(lab)}|"
+                lines.append(f"  {ids[p['path']]} -->{via_lbl} {ids[dst]}")
+    for comp, dsts in nav_targets.items():
+        nid = f"nav_{_mid(comp)}"
+        lines.append(f'  {nid}[["{_mlabel(comp)}<br/><small>on every screen</small>"]]')
+        lines += [f"  {nid} -.-> {ids[d]}" for d in sorted(dsts)]
+    lines.append("  style start fill:#fbf1df,stroke:#c47f17")
+    body = [f"# User flow: {a['name']}",
+            "Screens Filament found and the links and navigation buttons that lead between "
+            "them. Navigation shared by every screen (like a header) is shown once. Refreshed on "
+            "every scan.", "```mermaid", *lines, "```"]
+    if not edges and not nav_targets:
+        body.append("No navigation between screens was found in the markup.")
+    return f"User flow: {a['name']}", "\n".join(body), {
+        "diagram": "user_flow", "screens": len(pages),
+        "transitions": len(edges) + sum(len(v) for v in nav_targets.values())}
+
+
+def component_view(a: dict) -> tuple[str, str, dict] | None:
+    c = a["components"]
+    if len(c["nodes"]) < 2:
+        return None
+    body = [f"# Component view: {a['name']}",
+            "What this repo connects to, from manifests, env vars, connection strings, compose, "
+            "Kubernetes and Terraform. Refreshed on every scan.",
+            "```mermaid", c["mermaid"], "```"]
+    return f"Component view: {a['name']}", "\n".join(body), {"diagram": "components"}
+
+
+def diagrams_for(a: dict) -> list[str]:
+    """The diagrams that apply to this repo."""
+    return [g for g in DIAGRAMS if BUILDERS[g](a) is not None]
+
+
 BUILDERS = {"agents_md": agents_md, "overview": overview, "architecture": architecture,
-            "codeowners": codeowners, "api_contract": api_contract}
+            "codeowners": codeowners, "api_contract": api_contract,
+            "request_flows": request_flows, "user_flow": user_flow,
+            "component_view": component_view}
 
 
 def conventions(a: dict) -> list[str]:

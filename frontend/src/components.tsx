@@ -18,16 +18,28 @@ export function Mermaid({ code }: { code: string }) {
   return <div className="mermaid" dangerouslySetInnerHTML={{ __html: svg }} />
 }
 
-/** Renders artifact markdown: text as-is, ```mermaid blocks as diagrams. */
+/** Renders artifact markdown: headings as headings, other text as-is, ```mermaid blocks as diagrams. */
 export function Content({ text }: { text: string }) {
   const parts = text.split(/```mermaid\n([\s\S]*?)```/g)
   return (
     <div className="content">
-      {parts.map((part, i) =>
-        i % 2 === 1 ? <Mermaid key={i} code={part} /> : part.trim() && <pre key={i}>{part.trim()}</pre>,
-      )}
+      {parts.map((part, i) => i % 2 === 1 ? <Mermaid key={i} code={part} /> : <Prose key={i} text={part} />)}
     </div>
   )
+}
+
+function Prose({ text }: { text: string }) {
+  // Split out markdown headings; everything else stays preformatted (lists, tables, code).
+  const blocks: { h?: number; body: string }[] = []
+  for (const line of text.split('\n')) {
+    const m = /^(#{1,4})\s+(.*)$/.exec(line)
+    if (m) blocks.push({ h: m[1].length, body: m[2] })
+    else if (blocks.length && blocks[blocks.length - 1].h === undefined) blocks[blocks.length - 1].body += '\n' + line
+    else blocks.push({ body: line })
+  }
+  return <>{blocks.map((b, i) => b.h
+    ? <div key={i} className={`md-h md-h${b.h}`}>{b.body}</div>
+    : b.body.trim() && <pre key={i}>{b.body.trim()}</pre>)}</>
 }
 
 export function Badge({ value }: { value: string }) {

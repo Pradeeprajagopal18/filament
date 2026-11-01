@@ -11,7 +11,9 @@ interface RepoSample {
   analysis: RepoAnalysis; conventions: string[]; openapi_yaml: string | null
   drafts: Record<string, { title: string; content: string; data: Record<string, unknown> }>
   scans: { trigger: string; status: string; grade: string; score: number; hours_ago: number; changes: ScanChanges }[]
+  diagrams: string[]
 }
+const DIAGRAM_TYPE: Record<string, string> = { request_flows: 'flow', user_flow: 'flow', component_view: 'component_view' }
 type DemoSystem = SystemMap & { consumers: Record<string, Record<string, { repo_id: string; repo: string; file: string; line: number }[]>> }
 const DEMO_DATA = demoRepos as unknown as { repos: RepoSample[]; system: DemoSystem }
 const SAMPLES = DEMO_DATA.repos
@@ -76,6 +78,14 @@ function onboard(ws: string, ref: string): DemoRepo {
     score: analysis.readiness.score, grade: analysis.readiness.grade, generated: {}, scanned_at: scans[0].scanned_at, analysis, sample,
     scan_interval_hours: 24, next_scan_at: new Date(new Date(scans[0].scanned_at).getTime() + 24 * 3600_000).toISOString(),
     last_error: null, commit: null, scans,
+  }
+  // Diagrams drawn from the code, kept in the repo's project like the server does.
+  for (const g of SAMPLES[sample].diagrams ?? []) {
+    const d = SAMPLES[sample].drafts[g]
+    if (!d) continue
+    const a = art(project.id, DIAGRAM_TYPE[g] ?? 'flow', d.title.replaceAll(SAMPLES[sample].analysis.name, name), d.content.replaceAll(SAMPLES[sample].analysis.name, name), 'draft', 'agent:repo-onboarding')
+    a.data = { ...d.data, repo: ref, generator: g, in_repo: false }
+    ;(r.generated as Record<string, string>)[g] = a.id
   }
   db.repos.unshift(r)
   return r
@@ -392,7 +402,15 @@ function simulateFlow(p: Project, autonomy: string, parent: string | null) {
   const stories = db.artifacts.filter(a => a.project_id === p.id && a.type === 'story' && a.status !== 'rejected').slice(-4)
   const prd = db.artifacts.filter(a => a.project_id === p.id && a.type === 'prd').slice(-1)[0]
   if (!stories.length) {
-    Object.assign(r, { status: 'failed', error: 'No PRD or stories found to draw from' })
+    // No requirements: point at the diagrams drawn from the project's code, or ask for a PRD.
+    const existing = db.artifacts.filter(a => a.project_id === p.id && (a.type === 'flow' || a.type === 'component_view'))
+    const summary = existing.length
+      ? `No PRD or stories to diagram yet. This project already has ${existing.length} diagram(s) drawn from its code: ${existing.slice(0, 3).map(e => `'${e.title}'`).join(', ')}. Add an idea or PRD to get feature flows.`
+      : 'Nothing to diagram yet: asked for requirements.'
+    r.trace = [m(['search_graph']), t('search_graph', { types: ['prd', 'story'] }), m(['search_graph']), t('search_graph', { types: ['flow', 'component_view'] }),
+      ...(existing.length ? [] : [m(['ask_human']), t('ask_human', { question: `${p.name} has no PRD or stories yet. What feature should the flow cover?` })]),
+      m(['finish']), t('finish', { summary }), { type: 'stop', reason: 'finished' }]
+    Object.assign(r, { turns: 2, input_tokens: 1800, output_tokens: 300, output: { summary, created: [], questions: [] } })
     return r
   }
   const lab = (s: string) => s.replace(/["[\](){}<>|:;]/g, '').slice(0, 48)

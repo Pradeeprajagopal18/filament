@@ -13,7 +13,7 @@ import yaml
 
 from filament.repos.analyze import analyze_path
 from filament.repos.diff import compare as diff_compare
-from filament.repos.generate import build, conventions
+from filament.repos.generate import build, conventions, diagrams_for
 from filament.repos.system import RepoView
 from filament.repos.system import build as build_system
 
@@ -286,8 +286,11 @@ def main(out: Path) -> None:
                 built = build(gen, a)
                 if built:
                     drafts[gen] = {"title": built[0], "content": built[1], "data": built[2]}
+        for g in diagrams_for(a):
+            built = build(g, a)
+            drafts[g] = {"title": built[0], "content": built[1], "data": built[2]}
         spec = a["api"].get("openapi")
-        results.append({"analysis": a, "drafts": drafts, "conventions": conventions(a),
+        results.append({"analysis": a, "drafts": drafts, "diagrams": diagrams_for(a), "conventions": conventions(a),
                         "openapi_yaml": yaml.safe_dump(spec, sort_keys=False) if spec else None,
                         "scans": [{"trigger": "onboard", "status": "ok",
                                    "grade": a["readiness"]["grade"],

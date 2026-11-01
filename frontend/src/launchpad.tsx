@@ -13,6 +13,7 @@ const KIND_LABEL: Record<string, string> = {
 const GEN_LABEL: Record<string, string> = {
   agents_md: 'Agent instructions', overview: 'Overview', architecture: 'Architecture & components',
   codeowners: 'Ownership', api_contract: 'API contract (OpenAPI)',
+  request_flows: 'Request flows (sequence diagrams)', user_flow: 'User flow (screens)', component_view: 'Component view',
 }
 const INTERVALS: [number, string][] = [[6, 'every 6 hours'], [24, 'daily'], [168, 'weekly'], [0, 'manually only']]
 

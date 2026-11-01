@@ -4,7 +4,7 @@ import re
 
 from sqlalchemy import select
 
-from filament.agents.base import Agent, AgentError, OfflineScript
+from filament.agents.base import Agent, OfflineScript
 from filament.agents.tools import SPECIALIST_TOOLS
 from filament.models import Artifact
 
@@ -27,6 +27,9 @@ class FlowAgent(Agent):
         "3. Link each diagram to what it visualizes (kind 'visualizes').\n"
         "4. If the stories leave a gap the flow exposes (a missing error path, an undefined "
         "actor), say so with ask_human and note it under the diagram.\n"
+        "If the project has no PRD or stories, base the diagrams on its repo (search_repos, "
+        "get_repo) and on existing flow and component_view artifacts, or ask for requirements; "
+        "never invent steps.\n"
         "Use only valid Mermaid syntax."
     )
 
@@ -37,8 +40,8 @@ class FlowAgent(Agent):
                                              Artifact.type.in_(["prd", "story"]),
                                              Artifact.status != "rejected")
             ids = list(self.session.scalars(stmt))
-        if not ids:
-            raise AgentError("No PRD or stories found to draw from")
+        # With no PRD or stories the agent still runs: it works from the project's repo and
+        # existing diagrams, or asks for requirements (see the system prompt).
         self._targets = ids
 
     def target_artifact_ids(self) -> list[str]:
@@ -56,6 +59,9 @@ class FlowAgent(Agent):
     def offline_script(self) -> OfflineScript:
         found = yield [("search_graph", {"types": ["prd", "story"], "limit": 25})]
         items = found[0].get("results", [])
+        if not items:
+            yield from self._without_requirements()
+            return
         stories = [i for i in items if i["type"] == "story"] or items
         lines = ["flowchart TD", '  Start(["Start"])']
         prev = "Start"
@@ -79,6 +85,20 @@ class FlowAgent(Agent):
         ]
         yield [("finish", {"summary": f"Drew a user flow and a sequence diagram from "
                                       f"{len(stories)} stories."})]
+
+    def _without_requirements(self):
+        """No PRD or stories: point at the code-derived diagrams, or ask for requirements."""
+        have = yield [("search_graph", {"types": ["flow", "component_view"], "limit": 10})]
+        existing = have[0].get("results", [])
+        if existing:
+            names = ", ".join(f"'{e['title']}'" for e in existing[:4])
+            yield [("finish", {"summary": f"No PRD or stories to diagram yet. This project already "
+                                          f"has {len(existing)} diagram(s) drawn from its code: "
+                                          f"{names}. Add an idea or PRD to get feature flows."})]
+            return
+        yield [("ask_human", {"question": f"{self.project.name} has no PRD or stories yet. What "
+                                          "feature should the flow cover?"})]
+        yield [("finish", {"summary": "Nothing to diagram yet: asked for requirements."})]
 
 
 def _label(text: str) -> str:

@@ -205,7 +205,7 @@ def elements(repo: Repo, file: str, depth: int = 1, component: str | None = None
             out.append({"type": "table", "label": ""})
         elif lname == "form" or name == "Form":
             out.append({"type": "form", "label": ""})
-        elif lname in {"nav", "header", "footer", "aside"}:
+        elif name in {"nav", "header", "footer", "aside"}:  # HTML tags only, not <Header />
             out.append({"type": lname, "label": ""})
         elif name[0].isupper() and name not in {"Fragment", "React.Fragment", "Suspense",
                                                 "Route", "Routes", "Router", "Provider"}:
