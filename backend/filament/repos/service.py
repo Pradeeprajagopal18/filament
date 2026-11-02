@@ -77,6 +77,10 @@ def store(session: Session, record: RepoRecord, analysis: dict, trigger: str) ->
         changes["references"].setdefault("created", []).extend(missing)
     if before is not None:
         _breaking_signals(session, record, changes, before)
+    from filament.mcp_registry import sync_generated
+
+    session.flush()
+    sync_generated(session, record)  # the repo's API as an MCP server (tools start disabled)
     scan = RepoScan(repo_id=record.id, trigger=trigger, grade=record.grade, score=record.score,
                     commit=record.commit, changes=changes)
     session.add(scan)
@@ -275,5 +279,14 @@ async def scheduler_loop() -> None:
             n = await asyncio.to_thread(run)
             if n:
                 log.info("rescanned %d repos", n)
+
+            def sync() -> int:
+                from filament.mcp_registry import sync_due
+
+                with SessionLocal() as s:
+                    return sync_due(s)
+            m = await asyncio.to_thread(sync)
+            if m:
+                log.info("re-synced %d MCP servers", m)
         except Exception:  # never let the loop die
             log.exception("repo scheduler tick failed")

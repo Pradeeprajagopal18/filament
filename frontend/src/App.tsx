@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, DEMO, type Health, type Project, type Workspace } from './api'
+import { GatewayPage } from './gateway'
 import { LaunchpadPage } from './launchpad'
 import { AskPage, GapsPage, MemoryPage, ProjectPage, UsagePage } from './pages'
 import { ConnectorsPage, RunnersPage } from './settings'
 
-type View = { kind: 'project'; project: Project } | { kind: 'memory' | 'ask' | 'usage' | 'launchpad' | 'gaps' | 'connectors' | 'runners' }
+type View = { kind: 'project'; project: Project } | { kind: 'memory' | 'ask' | 'usage' | 'launchpad' | 'gaps' | 'connectors' | 'gateway' | 'runners' }
 
 const NAV: { kind: Exclude<View['kind'], 'project'>; label: string }[] = [
   { kind: 'ask', label: 'Ask Filament' },
@@ -13,6 +14,7 @@ const NAV: { kind: Exclude<View['kind'], 'project'>; label: string }[] = [
   { kind: 'gaps', label: "What we're missing" },
   { kind: 'usage', label: 'Token usage' },
   { kind: 'connectors', label: 'Connectors (MCP)' },
+  { kind: 'gateway', label: 'MCP gateway' },
   { kind: 'runners', label: 'Runners and agents' },
 ]
 
@@ -97,6 +99,7 @@ export default function App() {
         {ws && view.kind === 'gaps' && <GapsPage ws={ws} />}
         {ws && view.kind === 'launchpad' && <LaunchpadPage ws={ws} />}
         {ws && view.kind === 'connectors' && <ConnectorsPage ws={ws} />}
+        {ws && view.kind === 'gateway' && <GatewayPage ws={ws} />}
         {ws && view.kind === 'runners' && <RunnersPage ws={ws} />}
       </main>
     </div>

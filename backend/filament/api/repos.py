@@ -115,9 +115,16 @@ def scan_due(limit: int = 5, session: Session = Depends(get_session)):
 
 @router.delete("/repos/{repo_id}", status_code=204)
 def remove_repo(repo_id: str, session: Session = Depends(get_session)):
+    from sqlalchemy import delete
+
+    from filament.models import McpServer, McpToolEntry
+
     record = get_or_404(session, RepoRecord, repo_id)
     for scan in session.scalars(select(RepoScan).where(RepoScan.repo_id == repo_id)):
         session.delete(scan)
+    for server in session.scalars(select(McpServer).where(McpServer.source_repo_id == repo_id)):
+        session.execute(delete(McpToolEntry).where(McpToolEntry.server_id == server.id))
+        session.delete(server)
     session.delete(record)
     session.commit()
 

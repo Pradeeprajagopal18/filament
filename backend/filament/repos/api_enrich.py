@@ -331,7 +331,7 @@ _SAMPLE_STR = [("email", "ada@example.com"), ("currency", "usd"), ("status", "ac
 
 
 def example(schema: dict | None, components: dict, field: str = "", depth: int = 0,
-            seen: frozenset = frozenset()):
+            seen: frozenset = frozenset(), model: str = ""):
     """A plausible example value for a JSON schema (refs resolved, cycles cut)."""
     if not schema or depth > 8:
         return None
@@ -339,17 +339,17 @@ def example(schema: dict | None, components: dict, field: str = "", depth: int =
         name = schema["$ref"].rsplit("/", 1)[-1]
         if name in seen:
             return {}
-        return example(components.get(name), components, field, depth + 1, seen | {name})
+        return example(components.get(name), components, field, depth + 1, seen | {name}, name)
     t = schema.get("type")
     if schema.get("example") is not None:
         return schema["example"]
     if schema.get("enum"):
         return schema["enum"][0]
     if t == "object":
-        return {k: example(v, components, k, depth + 1, seen)
+        return {k: example(v, components, k, depth + 1, seen, model)
                 for k, v in (schema.get("properties") or {}).items()}
     if t == "array":
-        return [example(schema.get("items"), components, field, depth + 1, seen)]
+        return [example(schema.get("items"), components, field, depth + 1, seen, model)]
     f = field.lower()
     if t == "integer":
         return 2 if re.search(r"qty|quantity|count", f) else 20 if "limit" in f else \
@@ -366,7 +366,8 @@ def example(schema: dict | None, components: dict, field: str = "", depth: int =
     if fmt == "uuid":
         return "3f2b8c1e-7d4a-4e2b-9a61-5c0d8e7f1a23"
     if f == "id" or f.endswith("_id"):
-        stem = f[:-3] or "obj"
+        # an object's own id takes its model's name: Cart.id -> cart_1042, Order.id -> ord_1042
+        stem = f[:-3] or re.sub(r"(?<!^)(?=[A-Z])", "_", model).lower().split("_")[0] or "obj"
         return f"{stem[:4]}_1042"
     hit = next((v for k, v in _SAMPLE_STR if k in f), None)
     return hit or (f"sample-{field}" if field else "sample")

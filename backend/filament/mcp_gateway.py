@@ -122,10 +122,16 @@ def call(server: McpServer, tool: str, arguments: dict, max_chars: int) -> dict:
 
 
 def test_server(session: Session, server: McpServer) -> McpServer:
-    """Connect, list tools and cache them on the server record."""
+    """Connect, list tools, cache them and reconcile them with the gateway registry."""
+    from filament.mcp_registry import sync_native
+
     server.last_tested_at = datetime.now(UTC)
     try:
-        server.tools_cache = discover(server)
+        if server.kind == "generated":
+            server.last_test_ok, server.last_test_error = True, None
+            session.commit()
+            return server
+        sync_native(session, server)
         server.last_test_ok, server.last_test_error = True, None
     except BaseException as exc:  # noqa: BLE001 - include ExceptionGroup from task groups
         server.last_test_ok = False
@@ -140,9 +146,12 @@ class McpTool:
     server: McpServer
     tool: dict
     agent_name: str  # the name exposed to the model
+    entry: object | None = None  # McpToolEntry when the server is in the registry
 
     @property
     def writes(self) -> bool:
+        if self.entry is not None:
+            return bool(self.entry.write)
         return self.tool["name"] in (self.server.write_tools or [])
 
 
@@ -167,9 +176,27 @@ def visible_servers(session: Session, project: Project) -> list[McpServer]:
     return list(chosen.values())
 
 
-def tools_for(session: Session, project: Project) -> list[McpTool]:
+def tools_for(session: Session, project: Project, agent: str | None = None) -> list[McpTool]:
+    """Tools an agent in this project may call: enabled registry entries (or, for servers not
+    yet in the registry, the cached allow-listed tools)."""
+    from filament.models import McpToolEntry
+
     out = []
     for server in visible_servers(session, project):
+        entries = session.scalars(select(McpToolEntry).where(
+            McpToolEntry.server_id == server.id)).all()
+        if entries:
+            for e in entries:
+                if not e.enabled or e.status == "removed":
+                    continue
+                if e.allowed_agents and agent not in e.allowed_agents:
+                    continue
+                out.append(McpTool(server, {"name": e.name, "description": e.description,
+                                            "input_schema": e.input_schema},
+                                   tool_name(server.name, e.name), e))
+            continue
+        if server.kind == "generated":
+            continue
         allowed = set(server.allowed_tools or [])
         for t in server.tools_cache or []:
             if allowed and t["name"] not in allowed:

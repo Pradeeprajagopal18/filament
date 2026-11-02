@@ -62,9 +62,15 @@ def add_mcp(ws_id: str, body: s.McpServerIn, test: bool = False,
 @router.patch("/mcp/{server_id}", response_model=s.McpServerOut)
 def update_mcp(server_id: str, body: s.McpServerPatch, session: Session = Depends(get_session)):
     server = get_or_404(session, McpServer, server_id)
-    for key, value in body.model_dump(exclude_none=True).items():
+    changes = body.model_dump(exclude_none=True)
+    for key, value in changes.items():
         setattr(server, key, value)
-    _validate(server)
+    if server.kind != "generated":
+        _validate(server)
+    if {"allowed_tools", "write_tools"} & set(changes):
+        from filament.mcp_registry import apply_server_lists
+
+        apply_server_lists(session, server)
     session.commit()
     return server
 
@@ -77,6 +83,11 @@ def test_mcp(server_id: str, session: Session = Depends(get_session)):
 
 @router.delete("/mcp/{server_id}", status_code=204)
 def delete_mcp(server_id: str, session: Session = Depends(get_session)):
+    from sqlalchemy import delete
+
+    from filament.models import McpToolEntry
+
+    session.execute(delete(McpToolEntry).where(McpToolEntry.server_id == server_id))
     session.delete(get_or_404(session, McpServer, server_id))
     session.commit()
 

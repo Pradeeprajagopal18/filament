@@ -102,6 +102,29 @@ export interface McpServer {
   allowed_tools: string[]; write_tools: string[]; min_autonomy_for_writes: string; timeout_s: number
   tools_cache: McpTool[]; last_test_ok: boolean | null; last_test_error: string | null; last_tested_at: string | null
 }
+export interface GatewayServer {
+  id: string; name: string; kind: 'native' | 'generated'; description: string; enabled: boolean; url: string | null
+  transport: string; redact: boolean; source_repo_id: string | null; min_autonomy_for_writes: string
+  last_synced_at: string | null; tools: number; enabled_tools: number
+  counts: { new: number; active: number; changed: number; removed: number }
+  matches: { name: string; description: string; enabled: boolean; write: boolean }[]
+}
+export interface GatewayTool {
+  id: string; server_id: string; name: string; description: string; input_schema: Record<string, unknown>
+  enabled: boolean; write: boolean; status: 'new' | 'active' | 'changed' | 'removed'; version: number
+  history: { version: number; description: string; input_schema: Record<string, unknown>; at: string; by: string; rolled_back_to?: number }[]
+  pending: { description: string; input_schema: Record<string, unknown>; source: string; at: string } | null
+  allowed_agents: string[]; rate_limit_per_min: number | null; meta: Record<string, unknown>; updated_at: string
+}
+export interface GatewayMetrics {
+  hours: number; calls: number; errors: number; denied: number; bytes_saved: number; redactions: number
+  tools: { server: string; tool: string; calls: number; errors: number; denied: number; simulated: number; p50_ms: number; p95_ms: number; bytes_saved: number; redactions: number; actors: string[] }[]
+}
+export interface GatewayCall {
+  server: string; tool: string; actor: string; status: string; latency_ms: number; bytes_raw: number
+  bytes_returned: number; redactions: number; error: string | null; run_id: string | null; at: string
+}
+export interface InvokeResult { status: number; body: Record<string, unknown> }
 export type McpServerInput = Partial<Omit<McpServer, 'id' | 'tools_cache' | 'last_test_ok' | 'last_test_error' | 'last_tested_at'>> & { name: string }
 export interface Runner {
   id: string; name: string; kind: string; description: string; labels: string[]; config: Record<string, unknown>
@@ -183,6 +206,21 @@ const httpApi = {
     try { data = await res.json() } catch { /* empty body */ }
     return { status: res.status, body: data }
   },
+  gatewayRegistry: (ws: string, q = '') => call<GatewayServer[]>('GET', `/workspaces/${ws}/mcp/registry?q=${encodeURIComponent(q)}`),
+  gatewayTools: (serverId: string) => call<GatewayTool[]>('GET', `/mcp/${serverId}/tools`),
+  patchGatewayTool: (id: string, body: Partial<Pick<GatewayTool, 'enabled' | 'write' | 'allowed_agents' | 'rate_limit_per_min'>> & { description?: string }) =>
+    call<GatewayTool>('PATCH', `/mcp-tools/${id}`, body),
+  approveGatewayTool: (id: string) => call<GatewayTool>('POST', `/mcp-tools/${id}/approve`),
+  rejectGatewayTool: (id: string) => call<GatewayTool>('POST', `/mcp-tools/${id}/reject`),
+  rollbackGatewayTool: (id: string, version: number) => call<GatewayTool>('POST', `/mcp-tools/${id}/rollback`, { version }),
+  syncGatewayServer: (id: string) => call<Record<string, unknown>>('POST', `/mcp/${id}/sync`),
+  setGatewayServer: (id: string, body: { url?: string | null; redact?: boolean; enabled?: boolean }) => call<McpServer>('PATCH', `/mcp/${id}`, body),
+  gatewayInvoke: async (ws: string, body: { server: string; tool: string; arguments: Record<string, unknown>; fields?: string[] | null; autonomy?: string }): Promise<InvokeResult> => {
+    const res = await fetch(`/api/workspaces/${ws}/mcp/invoke`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, actor: 'web' }) })
+    return { status: res.status, body: await res.json() }
+  },
+  gatewayMetrics: (ws: string) => call<GatewayMetrics>('GET', `/workspaces/${ws}/mcp/metrics`),
+  gatewayCalls: (ws: string) => call<GatewayCall[]>('GET', `/workspaces/${ws}/mcp/calls?limit=40`),
   mcpServers: (ws: string) => call<McpServer[]>('GET', `/workspaces/${ws}/mcp`),
   addMcpServer: (ws: string, body: McpServerInput) => call<McpServer>('POST', `/workspaces/${ws}/mcp?test=true`, body),
   updateMcpServer: (id: string, body: Partial<McpServerInput>) => call<McpServer>('PATCH', `/mcp/${id}`, body),

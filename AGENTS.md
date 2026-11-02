@@ -21,6 +21,7 @@ Guidance for AI coding agents (and humans) working in this repo.
 - `backend/filament/llm.py` — the only place that calls the Anthropic API
 - `backend/filament/readiness/` — readiness scan entry point (checkout, scoring, CLI fixes)
 - `backend/filament/repos/` — repo intelligence, deterministic, no model: `profile.py` (repo kinds), `checks.py` (kind-aware checks), `api_extract.py`, `ui_extract.py`, `deps.py` (component view), `generate.py` (references kept in Filament), `analyze.py`, `api_enrich.py` (schemas, auth, errors, examples), `consumers.py` (outbound HTTP calls), `system.py` (system map, impact), `diff.py` (scan-to-scan changes), `service.py` (scans, references, scheduler), `context.py` (repo summaries for agents)
+- `backend/filament/mcp_registry.py` — MCP gateway: registry sync (native + generated from repo APIs), review/rollback, invoke (policy, rate limits, projection, redaction, call log), discovery and metrics; `api/gateway.py` serves it plus the Omni MCP endpoint; `agents/gateway_tools.py` is progressive discovery for agents
 - `backend/scripts/demo_repos.py` — regenerates `frontend/src/demo-repos.json` for the preview after analyzer changes
 - `frontend/src/` — `api.ts` client, `pages.tsx` views, `App.tsx` shell
 

@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     repo_scan_interval_hours: int = 24
     repo_scheduler_enabled: bool = True
     repo_scheduler_tick_seconds: int = 300
+    # MCP gateway: above this many enabled tools, agents get progressive discovery (discover,
+    # list, schema, invoke) instead of every tool definition, to keep context small.
+    mcp_discovery_threshold: int = 15
+    mcp_sync_interval_hours: int = 24
     # Verifies GitHub push webhooks (X-Hub-Signature-256) when set.
     github_webhook_secret: str | None = None
 

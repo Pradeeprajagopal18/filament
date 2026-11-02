@@ -277,6 +277,7 @@ class McpServerPatch(BaseModel):
     write_tools: list[str] | None = None
     min_autonomy_for_writes: Autonomy | None = None
     timeout_s: int | None = Field(default=None, ge=1, le=600)
+    redact: bool | None = None
 
 
 class McpServerOut(ORM):
@@ -301,6 +302,10 @@ class McpServerOut(ORM):
     last_test_ok: bool | None
     last_test_error: str | None
     last_tested_at: datetime | None
+    kind: str = "native"
+    source_repo_id: str | None = None
+    redact: bool = True
+    last_synced_at: datetime | None = None
 
 
 # -- runners and agent settings ----------------------------------------------------------------
@@ -410,3 +415,44 @@ class RepoDetail(RepoSummary):
 
 class GenerateIn(BaseModel):
     items: list[str] = Field(default_factory=list, description="Generator ids; empty = all missing")
+
+
+# -- MCP gateway registry --------------------------------------------------------------------------
+class McpToolOut(ORM):
+    id: str
+    server_id: str
+    name: str
+    description: str
+    input_schema: dict
+    enabled: bool
+    write: bool
+    status: str
+    version: int
+    history: list
+    pending: dict | None
+    allowed_agents: list
+    rate_limit_per_min: int | None
+    meta: dict
+    updated_at: datetime
+
+
+class McpToolPatch(BaseModel):
+    enabled: bool | None = None
+    write: bool | None = None
+    allowed_agents: list[str] | None = None
+    rate_limit_per_min: int | None = Field(default=None, ge=0, le=100_000)
+    description: str | None = Field(default=None, description="Proposes a new description; an "
+                                                              "owner approves it")
+
+
+class RollbackIn(BaseModel):
+    version: int
+
+
+class InvokeIn(BaseModel):
+    server: str
+    tool: str
+    arguments: dict = Field(default_factory=dict)
+    fields: list[str] | None = None
+    autonomy: Autonomy = "L1"
+    actor: str = "api"

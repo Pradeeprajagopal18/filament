@@ -363,6 +363,7 @@ function ApiTab({ repo, busy, generate, impact, onChange }: {
             <p className="muted small">{a.source === 'spec'
               ? `Read from ${a.specs.join(', ')}`
               : `No contract is checked in, so Filament read the routes, request and response models, auth and error codes from the code${models.length ? ` (${models.length} models)` : ''}.`}</p>
+            <p className="muted small">Agents can call this API through the MCP gateway as <code>api-{repo.name}</code> once an owner enables its tools (MCP gateway page).</p>
             {a.enrichment && <p className="muted small">Descriptions added by {a.enrichment.model} for {a.enrichment.applied} endpoints, {ago(a.enrichment.at)}.</p>}
           </div>
           <div className="row wrap">

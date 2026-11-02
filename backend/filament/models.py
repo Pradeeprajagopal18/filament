@@ -212,6 +212,11 @@ class McpServer(Base):
     min_autonomy_for_writes: Mapped[str] = mapped_column(String(4), default="L2")
     timeout_s: Mapped[int] = mapped_column(Integer, default=30)
     tools_cache: Mapped[list] = mapped_column(JSON, default=list)  # discovered on test/refresh
+    # native: a real MCP server. generated: built by Filament from a repo's API contract.
+    kind: Mapped[str] = mapped_column(String(12), default="native")
+    source_repo_id: Mapped[str | None] = mapped_column(String(12), nullable=True)
+    redact: Mapped[bool] = mapped_column(Boolean, default=True)  # scrub PII/secrets in results
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_test_ok: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     last_test_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_tested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -302,3 +307,53 @@ class RepoScan(Base):
     changes: Mapped[dict] = mapped_column(JSON, default=dict)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     scanned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class McpToolEntry(Base):
+    """A tool in the gateway registry: the source of truth for what agents may call.
+
+    Discovered and generated tools start disabled until an owner enables them. Changes found on
+    re-sync (or description edits) wait in `pending` until approved; every applied change is
+    kept in `history`, so an owner can roll back.
+    """
+
+    __tablename__ = "mcp_tools"
+    __table_args__ = (UniqueConstraint("server_id", "name"),)
+
+    id: Mapped[str] = mapped_column(String(12), primary_key=True, default=new_id)
+    server_id: Mapped[str] = mapped_column(ForeignKey("mcp_servers.id", ondelete="CASCADE"),
+                                           index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    description: Mapped[str] = mapped_column(Text, default="")
+    input_schema: Mapped[dict] = mapped_column(JSON, default=dict)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    write: Mapped[bool] = mapped_column(Boolean, default=False)
+    status: Mapped[str] = mapped_column(String(12), default="new")  # new|active|changed|removed
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    history: Mapped[list] = mapped_column(JSON, default=list)
+    pending: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    allowed_agents: Mapped[list] = mapped_column(JSON, default=list)  # empty = any agent
+    rate_limit_per_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    meta: Mapped[dict] = mapped_column(JSON, default=dict)  # e.g. method/path for generated tools
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class McpCallLog(Base):
+    """Every tool call through the gateway, for observability and audit."""
+
+    __tablename__ = "mcp_calls"
+
+    id: Mapped[str] = mapped_column(String(12), primary_key=True, default=new_id)
+    workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    server_id: Mapped[str | None] = mapped_column(String(12), nullable=True, index=True)
+    server: Mapped[str] = mapped_column(String(60))
+    tool: Mapped[str] = mapped_column(String(120))
+    actor: Mapped[str] = mapped_column(String(120))  # agent:<name> | cli | omni | api
+    run_id: Mapped[str | None] = mapped_column(String(12), nullable=True)
+    status: Mapped[str] = mapped_column(String(20))  # ok|error|denied|rate_limited|simulated
+    latency_ms: Mapped[int] = mapped_column(Integer, default=0)
+    bytes_raw: Mapped[int] = mapped_column(Integer, default=0)
+    bytes_returned: Mapped[int] = mapped_column(Integer, default=0)
+    redactions: Mapped[int] = mapped_column(Integer, default=0)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)

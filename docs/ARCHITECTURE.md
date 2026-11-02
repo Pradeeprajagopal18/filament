@@ -45,6 +45,8 @@ flowchart TB
 | `signals` | Questions, unanswered questions and context misses for gap detection |
 | `readiness_reports` | Launchpad results per repo |
 | `repos` | Onboarded repos: kinds, latest analysis (readiness, API, UI, components, outbound calls), `generated` (generator → reference artifact), scan interval and next scan |
+| `mcp_tools` | Gateway registry: one row per tool (enabled, write, status new/active/changed/removed, version, history, pending change, allowed agents, rate limit) |
+| `mcp_calls` | Every gateway call: actor, status, latency, bytes before/after projection, redactions |
 | `repo_scans` | Scan history: trigger, grade, commit and the diff against the previous scan (breaking changes, drift, reference refresh) |
 
 ## How a run works
@@ -121,3 +123,13 @@ Missing items (agent instructions, overview, architecture, ownership, API contra
 
 Durable background runs (workflow engine), pgvector semantic memory, code index and context
 graph, connectors (GitHub, Jira, Slack) via MCP, test/release/ops agents, SSO and policies.
+
+
+## MCP gateway
+
+Modelled on a control plane / data plane split:
+
+- **Registry (control plane, `mcp_registry.py`)**: native MCP servers are synced by listing their tools (on add/test, `POST /mcp/{id}/sync`, and by the scheduler every `FILAMENT_MCP_SYNC_INTERVAL_HOURS`). Every repo scan turns the repo's API contract into a *generated* server (`api-<repo>`) with one tool per endpoint: path/query parameters and the request model become the input schema, the HTTP method decides `write`. Generated tools and tools that appear on a re-sync start **disabled**; changed descriptions or schemas wait in `pending` until an owner approves (`/mcp-tools/{id}/approve|reject|rollback`). A native server's first sync is enabled because the owner just added it.
+- **Invoke (data plane)**: agents, the CLI (`fil mcp call`), the API and the Omni endpoint all go through `invoke()`: enabled check, per-tool agent allow-list, rate limit, autonomy for writes, then the call (MCP for native servers; HTTP to the server's base URL, or the contract's example response when none is set, for generated ones), then projection to requested `fields`, redaction of PII and secrets, size cap and a `mcp_calls` row.
+- **Agents**: with few tools each is offered directly (plus an optional `_fields`); above `FILAMENT_MCP_DISCOVERY_THRESHOLD` (15) agents get `gateway_discover_servers`, `gateway_list_tools`, `gateway_get_schema` and `gateway_invoke` instead, so context stays small however many tools exist.
+- **Omni MCP** (`POST /api/workspaces/{ws}/mcp/omni`): a streamable-HTTP MCP server with the same four discovery tools, for Claude Code and other clients. Writes need `X-Filament-Autonomy` at or above the server's minimum.

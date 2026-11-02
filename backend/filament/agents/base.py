@@ -115,17 +115,34 @@ class Agent:
         token_budget = int(cfg.get("token_budget", settings.run_token_budget))
 
         tool_specs = [TOOLS[n].spec() for n in self.tools]
+        self.mcp_discovery = False
         if self.uses_mcp:
             from filament.mcp_gateway import tools_for
 
-            for t in tools_for(self.session, self.project):
-                self.mcp_tools[t.agent_name] = t
-                note = " Changes external systems." if t.writes else ""
-                tool_specs.append({
-                    "name": t.agent_name,
-                    "description": f"[MCP {t.server.name}] {t.tool['description']}{note}"[:1000],
-                    "input_schema": t.tool.get("input_schema") or {"type": "object"},
-                })
+            available = tools_for(self.session, self.project, self.name)
+            if len(available) > settings.mcp_discovery_threshold:
+                # Too many tools to describe up front: progressive discovery keeps the context
+                # small (the model finds servers, then tools, then schemas, then invokes).
+                self.mcp_discovery = True
+                from filament.agents.gateway_tools import DISCOVERY_SPECS
+
+                tool_specs += DISCOVERY_SPECS
+            else:
+                for t in available:
+                    self.mcp_tools[t.agent_name] = t
+                    note = " Changes external systems." if t.writes else ""
+                    schema = dict(t.tool.get("input_schema") or {"type": "object"})
+                    props = dict(schema.get("properties") or {})
+                    props["_fields"] = {"type": "array", "items": {"type": "string"},
+                                        "description": "Optional: dotted field paths to keep in "
+                                                       "the response (e.g. id, items.sku)"}
+                    schema["properties"] = props
+                    tool_specs.append({
+                        "name": t.agent_name,
+                        "description": (f"[MCP {t.server.name}] {t.tool['description']}"
+                                        f"{note}")[:1000],
+                        "input_schema": schema,
+                    })
 
         self.seen_ids |= {i["id"] for i in (run.context_pack or {}).get("items", [])}
         messages: list[dict] = [{"role": "user", "content": self.task(context)}]
@@ -160,6 +177,10 @@ class Agent:
                 try:
                     if call.name in self.mcp_tools:
                         out = self._call_mcp(call)
+                    elif self.mcp_discovery and call.name.startswith("gateway_"):
+                        from filament.agents.gateway_tools import handle
+
+                        out = handle(self, call.name, call.input or {})
                     elif call.name in TOOLS and call.name in self.tools:
                         with self.session.begin_nested():
                             out = TOOLS[call.name].handler(self, call.input)
@@ -241,6 +262,8 @@ class Agent:
         from filament.mcp_gateway import call as mcp_call
 
         t = self.mcp_tools[call.name]
+        args = dict(call.input or {})
+        fields = args.pop("_fields", None)
         if t.writes:
             if not self.persists:
                 return {"saved": False, "reason": "Autonomy L0 (suggest only): external write "
@@ -249,11 +272,24 @@ class Agent:
             if not autonomy_allows_write(self.autonomy, required):
                 raise ToolError(f"{t.tool['name']} changes external systems and needs autonomy "
                                 f"{required} or higher; this run is {self.autonomy}.")
+        if t.entry is not None:  # through the gateway: policy, projection, redaction, logging
+            return self.gateway_invoke(t.server, t.entry, args, fields)
         try:
-            return mcp_call(t.server, t.tool["name"], call.input or {},
-                            get_settings().tool_result_max_chars)
+            return mcp_call(t.server, t.tool["name"], args, get_settings().tool_result_max_chars)
         except McpCallError as exc:
             raise ToolError(f"MCP {t.server.name}: {exc}") from exc
+
+    def gateway_invoke(self, server, entry, args: dict, fields) -> dict:
+        from filament.agents.tools import ToolError
+        from filament.mcp_registry import GatewayError, invoke
+
+        try:
+            with self.session.begin_nested():
+                return invoke(self.session, self.project.workspace_id, server, entry, args,
+                              actor=f"agent:{self.name}", autonomy=self.autonomy,
+                              run_id=self.run_record.id, fields=fields)
+        except GatewayError as exc:
+            raise ToolError(f"MCP {server.name}: {exc}") from exc
 
     def _system(self) -> str:
         level = {"L0": "L0 (suggest only: write tools save nothing)",

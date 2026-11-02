@@ -37,6 +37,7 @@ work in the same place, and every agent output is linked, cited and reviewable.
 | System map | Links onboarded repos to each other from evidence: HTTP calls matched to the endpoints they hit, config repos, provisioned infrastructure, shared SaaS. Shows who uses each endpoint and calls to endpoints that no longer exist |
 | Repo context for agents | Agents get compact repo summaries in their context and `search_repos` / `get_repo` tools, so PRDs and flows cite real endpoints, screens and affected systems |
 | Kept current | Repos are rescanned on a schedule (and on GitHub push webhooks). Each scan is diffed against the last: breaking API changes are flagged to the repos that consume them, and Filament's references refresh (approved ones wait for review) |
+| MCP gateway | One registry and policy point for every tool agents can call: third-party MCP servers plus servers generated from onboarded repos' APIs (one tool per endpoint, call the real service or simulate from the contract). Tools start disabled until an owner enables them; re-syncs and description edits wait for review, with version history and rollback. Per-tool agent policy, rate limits, autonomy-gated writes, response projection (`fields`), PII/secret redaction, call logs and metrics. Agents switch to progressive discovery above a threshold, and the whole gateway is exposed as one MCP endpoint (Omni) for Claude Code and other clients |
 | Component view | Maps what a repo connects to (databases, caches, queues, SaaS, internal services, cloud resources) from manifests, env vars, connection strings, compose, k8s and Terraform, each with file:line evidence |
 | `fil` CLI | Every capability from the terminal |
 
@@ -78,6 +79,11 @@ fil repo map                                     # how repos connect
 fil repo impact <id>                             # who depends on this repo
 fil repo rescan <id> | --due                     # rescan and show what changed
 fil repo schedule <id> 24                        # rescan interval in hours (0 = manual)
+fil mcp search "cart"                             # gateway registry (Code Mode)
+fil mcp enable api-checkout-api get_cart         # tools start disabled
+fil mcp call api-checkout-api get_cart --arg cart_id=c1 --fields id,total -o cart.json
+fil mcp metrics                                  # calls, errors, latency, bytes trimmed
+claude mcp add --transport http filament http://localhost:8000/api/workspaces/<id>/mcp/omni
 fil ready fix ./my-repo --write                  # starter AGENTS.md, CODEOWNERS, Makefile, ...
 
 fil ws create "Acme"                              # then: export FIL_WORKSPACE=<id>

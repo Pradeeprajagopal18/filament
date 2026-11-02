@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from filament import __version__
-from filament.api import config, graph, memory, repos, runs
+from filament.api import config, gateway, graph, memory, repos, runs
 from filament.config import get_settings
 from filament.db import init_db
 
@@ -31,7 +31,8 @@ def create_app() -> FastAPI:
                   description="Agentic software delivery platform with shared team memory.")
     app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins,
                        allow_methods=["*"], allow_headers=["*"])
-    for router in (graph.router, memory.router, runs.router, config.router, repos.router):
+    for router in (graph.router, memory.router, runs.router, config.router, repos.router,
+                   gateway.router):
         app.include_router(router, prefix="/api")
 
     @app.get("/api/health")

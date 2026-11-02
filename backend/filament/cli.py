@@ -629,5 +629,119 @@ def repo_enrich(repo_id: str):
     e = r["analysis"]["api"].get("enrichment", {})
     console.print(f"Enriched {e.get('applied', 0)} endpoints with {e.get('model')}")
 
+
+# -- MCP gateway: Code Mode ----------------------------------------------------------------
+@mcp_app.command("search")
+def mcp_search(query: str = typer.Argument("", help="What you need, e.g. 'cart totals'"),
+               ws: str | None = typer.Option(None)):
+    """Find servers and tools in the gateway registry (disabled ones included, marked)."""
+    for s in _call("GET", f"/workspaces/{_ws(ws)}/mcp/registry", params={"q": query}):
+        console.print(f"[bold]{s['name']}[/bold] ({s['kind']}) {s['enabled_tools']}/{s['tools']} "
+                      f"tools enabled")
+        for t in s["matches"]:
+            flag = "" if t["enabled"] else " [dim](disabled)[/dim]"
+            w = " [yellow]write[/yellow]" if t["write"] else ""
+            console.print(f"  {t['name']}{w}{flag} — {t['description'][:90]}")
+
+
+@mcp_app.command("tools")
+def mcp_tools(server: str, ws: str | None = typer.Option(None)):
+    """List a server's tools with registry status."""
+    srv = next((s for s in _call("GET", f"/workspaces/{_ws(ws)}/mcp/registry")
+                if s["name"] == server), None)
+    if srv is None:
+        console.print(f"[red]No server {server}[/red]")
+        raise typer.Exit(1)
+    table = Table(title=f"{server} ({srv['kind']})")
+    for col in ("Tool", "Status", "Enabled", "Write", "Version", "Limits"):
+        table.add_column(col)
+    for t in _call("GET", f"/mcp/{srv['id']}/tools"):
+        limits = ", ".join(filter(None, [f"{t['rate_limit_per_min']}/min" if
+                                         t["rate_limit_per_min"] else "",
+                                         "agents: " + ",".join(t["allowed_agents"])
+                                         if t["allowed_agents"] else ""]))
+        table.add_row(t["name"], t["status"], "yes" if t["enabled"] else "no",
+                      "yes" if t["write"] else "", str(t["version"]), limits or "—")
+    console.print(table)
+
+
+@mcp_app.command("schema")
+def mcp_schema(server: str, tool: str, ws: str | None = typer.Option(None)):
+    import json as _json
+
+    print(_json.dumps(_call("GET", f"/workspaces/{_ws(ws)}/mcp/schema",
+                            params={"server": server, "tool": tool}), indent=2))
+
+
+@mcp_app.command("call")
+def mcp_call_cmd(
+    server: str, tool: str,
+    arg: list[str] = typer.Option([], "--arg", help="key=value (repeatable; JSON values ok)"),
+    body: str | None = typer.Option(None, help="JSON request body (generated API tools)"),
+    fields: str | None = typer.Option(None, help="Comma-separated dotted fields to keep"),
+    out: str | None = typer.Option(None, "-o", help="Write the result to a file"),
+    autonomy: str = typer.Option("L1", help="Writes need the server's minimum autonomy"),
+    ws: str | None = typer.Option(None),
+):
+    """Call a tool through the gateway (Code Mode): no MCP server installs, results can go to
+    a file and be trimmed to the fields you need."""
+    import json as _json
+
+    args: dict = {}
+    for a in arg:
+        k, _, v = a.partition("=")
+        try:
+            args[k] = _json.loads(v)
+        except ValueError:
+            args[k] = v
+    if body:
+        args["body"] = _json.loads(body)
+    res = _call("POST", f"/workspaces/{_ws(ws)}/mcp/invoke",
+                json={"server": server, "tool": tool, "arguments": args, "autonomy": autonomy,
+                      "fields": [f.strip() for f in fields.split(",")] if fields else None,
+                      "actor": "cli"})
+    text = _json.dumps(res.get("result", res.get("content")), indent=2, default=str)
+    if out:
+        with open(out, "w") as fh:
+            fh.write(text)
+        console.print(f"Wrote {len(text)} bytes to {out}" + (" (simulated)" if
+                                                              res.get("simulated") else ""))
+    else:
+        print(text)
+
+
+@mcp_app.command("enable")
+def mcp_enable(server: str, tool: list[str] = typer.Argument(...),
+               off: bool = typer.Option(False, "--off", help="Disable instead"),
+               ws: str | None = typer.Option(None)):
+    """Enable (or disable) tools in the registry. Discovered and generated tools start off."""
+    srv = next((s for s in _call("GET", f"/workspaces/{_ws(ws)}/mcp/registry")
+                if s["name"] == server), None)
+    if srv is None:
+        console.print(f"[red]No server {server}[/red]")
+        raise typer.Exit(1)
+    entries = {t["name"]: t for t in _call("GET", f"/mcp/{srv['id']}/tools")}
+    for name in tool:
+        if name not in entries:
+            console.print(f"[red]No tool {name}[/red]")
+            continue
+        _call("PATCH", f"/mcp-tools/{entries[name]['id']}", json={"enabled": not off})
+        console.print(f"{'Disabled' if off else 'Enabled'} {server}.{name}")
+
+
+@mcp_app.command("metrics")
+def mcp_metrics(hours: int = typer.Option(24), ws: str | None = typer.Option(None)):
+    m = _call("GET", f"/workspaces/{_ws(ws)}/mcp/metrics", params={"hours": hours})
+    console.print(f"{m['calls']} calls · {m['errors']} errors · {m['denied']} denied · "
+                  f"{m['bytes_saved']:,} bytes saved by projection · {m['redactions']} redactions")
+    table = Table()
+    for col in ("Server", "Tool", "Calls", "Errors", "Denied", "p50 ms", "p95 ms", "Actors"):
+        table.add_column(col)
+    for t in m["tools"]:
+        table.add_row(t["server"], t["tool"], str(t["calls"]), str(t["errors"]),
+                      str(t["denied"]), str(t["p50_ms"]), str(t["p95_ms"]),
+                      ", ".join(t["actors"]))
+    console.print(table)
+
 if __name__ == "__main__":
     app()
