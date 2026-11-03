@@ -60,8 +60,43 @@ export interface RepoAnalysis {
     enrichment?: { model: string; applied: number; at: string }
   }
   client_calls?: ClientCall[]
+  code?: CodeSummary
+  data_model?: DataModel
   ui: { pages: UiPage[]; components: string[] }
   components: { nodes: DepNode[]; edges: { source: string; target: string; label: string }[]; mermaid: string; summary: Record<string, number> }
+}
+export interface ServiceUse { service: string; label: string; category: string; via: string; confidence: string; file: string; line: number }
+export interface CodeSummary {
+  engine: string | null; reason?: string; error?: string; engine_version?: string; warnings?: string[]
+  nodes: number; edges: number; symbols: number; files: number; extracted_pct: number; inferred_pct: number
+  communities: { id: number; name: string; size: number; files: number; cohesion: number; key_symbols: string[] }[]
+  hotspots: { id: string; label: string; file: string; line: number; fan_in: number; fan_out: number }[]
+  cycles: string[][]
+  rationale: { id: string; tag: string; text: string; file: string; line: number; about: string | null; refs: string[] }[]
+  endpoints: Record<string, { node: string; services: ServiceUse[] }>
+  built_at?: string | null; commit?: string | null
+}
+export interface CodeSym { id: string; label: string; kind: string; file: string | null; line: number | null }
+export interface CodeGraphView {
+  mode: 'subsystems' | 'symbols'; community?: number; name?: string
+  nodes: { id: string; label: string; size?: number; community?: number; kind?: string; file?: string; line?: number; callable?: boolean; inside?: boolean }[]
+  edges: { source: string; target: string; weight?: number; relation?: string; confidence?: string }[]
+}
+export interface CodeEdgeRef { relation: string; direction: string; confidence: string; node: CodeSym; at: string | null }
+export interface CodeExplain {
+  symbol: CodeSym; calls: CodeEdgeRef[]; called_by: CodeEdgeRef[]; other: CodeEdgeRef[]; notes: string[]
+  serves_endpoints: string[]; uses_services: ServiceUse[]
+}
+export type CodeLookup<T> = { ok: true; data: T } | { ok: false; ambiguous?: boolean; candidates?: CodeSym[]; suggestions?: CodeSym[]; detail: string }
+export interface CodePath { from: CodeSym; to: CodeSym; found: boolean; confidence?: string; hops: { from: string; relation: string; to: string; confidence: string; forward: boolean; at: string }[] }
+export interface ChangeImpact {
+  files: string[]; changed: CodeSym[]; affected: (CodeSym & { distance: number })[]; endpoints: string[]
+  consumers: { repo: string; endpoints: string[] }[]; communities: number[]; hotspots_touched: string[]
+  risk: 'low' | 'medium' | 'high'; summary: string
+}
+export interface DataModel {
+  entities: { name: string; source: string; file: string; line: number; model?: string; fields: { name: string; type: string; pk: boolean; nullable: boolean; fk: string | null }[] }[]
+  relations: { from: string; to: string; field: string; kind: string; file: string }[]; mermaid: string
 }
 export interface DriftItem { method: string; path: string; file: string | null; line: number | null }
 export interface RepoSummary {
@@ -146,6 +181,13 @@ async function callText(method: string, path: string, body?: string): Promise<st
   return res.text()
 }
 
+async function lookup<T>(path: string): Promise<CodeLookup<T>> {
+  const res = await fetch(`/api${path}`)
+  const body = await res.json()
+  if (res.ok) return { ok: true, data: body as T }
+  return { ok: false, ambiguous: body.ambiguous, candidates: body.candidates, suggestions: body.suggestions, detail: body.detail ?? res.statusText }
+}
+
 async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api${path}`, {
     method,
@@ -206,6 +248,10 @@ const httpApi = {
     try { data = await res.json() } catch { /* empty body */ }
     return { status: res.status, body: data }
   },
+  repoCodeGraph: (id: string, community?: number) => call<CodeGraphView>('GET', `/repos/${id}/code/graph${community != null ? `?community=${community}` : ''}`),
+  codeExplain: (id: string, name: string) => lookup<CodeExplain>(`/repos/${id}/code/explain?name=${encodeURIComponent(name)}`),
+  codePath: (id: string, a: string, b: string) => lookup<CodePath>(`/repos/${id}/code/path?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`),
+  codeChanges: (id: string, body: { files?: string[]; diff?: string; pr?: string }) => call<ChangeImpact>('POST', `/repos/${id}/code/changes`, body),
   gatewayRegistry: (ws: string, q = '') => call<GatewayServer[]>('GET', `/workspaces/${ws}/mcp/registry?q=${encodeURIComponent(q)}`),
   gatewayTools: (serverId: string) => call<GatewayTool[]>('GET', `/mcp/${serverId}/tools`),
   patchGatewayTool: (id: string, body: Partial<Pick<GatewayTool, 'enabled' | 'write' | 'allowed_agents' | 'rate_limit_per_min'>> & { description?: string }) =>

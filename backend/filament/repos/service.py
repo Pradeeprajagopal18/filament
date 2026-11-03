@@ -53,8 +53,52 @@ def system_for(session: Session, workspace_id: str) -> dict:
                          for r in records])
 
 
+def _save_code_graph(session: Session, record: RepoRecord, graph: dict | None) -> None:
+    from filament.models import CodeGraph
+
+    if graph is None:
+        return
+    row = session.get(CodeGraph, record.id) or CodeGraph(repo_id=record.id)
+    row.engine, row.engine_version = graph.get("engine", "graphify"), graph.get("engine_version")
+    row.schema_version, row.commit = graph.get("schema_version"), record.commit
+    row.graph = {"nodes": graph["nodes"], "edges": graph["edges"]}
+    row.built_at = datetime.now(UTC)
+    session.add(row)
+
+
+def _propose_notes(session: Session, record: RepoRecord) -> int:
+    """NOTE/WHY/DECISION comments in the code become proposed project memory, linked to the
+    ADRs they cite when those ADRs exist in Filament."""
+    import re as _re
+
+    notes = ((record.analysis or {}).get("code") or {}).get("rationale") or []
+    if not notes:
+        return 0
+    known = {m.content for m in session.scalars(select(MemoryEntry).where(
+        MemoryEntry.workspace_id == record.workspace_id))}
+    adrs = session.scalars(select(Artifact).where(Artifact.type == "adr")).all()
+    added = 0
+    for n in notes[:20]:
+        where = f"{n['file']}:{n['line']}"
+        about = f" ({n['about']})" if n.get("about") and not n["about"].endswith((".py", ".ts",
+                                                                                   ".js", ".go")) else ""
+        content = f"{record.name}{about}: {n['text']} [{where}]"
+        if content in known:
+            continue
+        linked = [a.id for a in adrs for ref in n.get("refs", [])
+                  if _re.search(rf"\b{_re.escape(ref)}\b".replace("-", "[- ]?"), a.title, _re.I)]
+        session.add(MemoryEntry(workspace_id=record.workspace_id, scope="project",
+                                scope_ref=record.project_id,
+                                kind="decision" if n["tag"] in {"WHY", "DECISION"} else "fact",
+                                content=content, status="proposed", author="agent:repo-onboarding",
+                                source_artifact_ids=linked, confidence=0.9))
+        added += 1
+    return added
+
+
 def store(session: Session, record: RepoRecord, analysis: dict, trigger: str) -> RepoScan:
     """Save a fresh analysis on the record, with history, reference refresh and signals."""
+    graph = analysis.pop("_code_graph", None)
     previous = record.analysis or None
     changes = diffmod.compare(previous, analysis)
     # Consumers are looked up on the map as it was, before this change removed anything.
@@ -65,6 +109,7 @@ def store(session: Session, record: RepoRecord, analysis: dict, trigger: str) ->
     record.score = analysis["readiness"]["score"]
     record.grade = analysis["readiness"]["grade"]
     record.commit = analysis.get("commit")
+    _save_code_graph(session, record, graph)
     record.scanned_at = datetime.now(UTC)
     record.last_error = None
     schedule_next(record)
@@ -81,6 +126,9 @@ def store(session: Session, record: RepoRecord, analysis: dict, trigger: str) ->
 
     session.flush()
     sync_generated(session, record)  # the repo's API as an MCP server (tools start disabled)
+    notes = _propose_notes(session, record)
+    if notes:
+        changes["notes_proposed"] = notes
     scan = RepoScan(repo_id=record.id, trigger=trigger, grade=record.grade, score=record.score,
                     commit=record.commit, changes=changes)
     session.add(scan)
@@ -88,6 +136,19 @@ def store(session: Session, record: RepoRecord, analysis: dict, trigger: str) ->
 
 
 def scan_record(session: Session, record: RepoRecord, trigger: str = "manual") -> RepoScan:
+    if trigger == "schedule" and record.commit:
+        from filament.readiness.scanner import remote_head
+
+        head = remote_head(record.ref)
+        if head and head == record.commit:  # nothing pushed since the last scan
+            schedule_next(record)
+            record.scanned_at = datetime.now(UTC)
+            scan = RepoScan(repo_id=record.id, trigger=trigger, grade=record.grade,
+                            score=record.score, commit=head,
+                            changes={"summary": "No changes (same commit)", "skipped": True,
+                                     "breaking": [], "counts": {}})
+            session.add(scan)
+            return scan
     try:
         analysis = analyze(record.ref)
     except Exception as exc:  # clone failures, unreadable repos: keep the last good analysis

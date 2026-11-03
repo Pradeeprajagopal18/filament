@@ -60,7 +60,35 @@ def layout(repo: Repo) -> list[dict]:
     return [{"path": k, "files": v} for k, v in sorted(counts.items(), key=lambda x: -x[1])][:15]
 
 
-def analyze_path(root, repo_ref: str) -> dict:
+def code_dir(repo_ref: str):
+    """Per-repo folder for Graphify's output and incremental cache (outside the repo)."""
+    import hashlib
+    from pathlib import Path
+
+    from filament.config import get_settings
+
+    key = hashlib.sha1(repo_ref.encode()).hexdigest()[:16]
+    return Path(get_settings().data_dir).resolve() / "codegraph" / key
+
+
+def _code_graph(indexed, root, repo_ref: str, endpoints: list[dict], build: bool) -> tuple[dict, dict | None]:
+    from filament.config import get_settings
+    from filament.repos import codegraph
+
+    settings = get_settings()
+    if not build or not settings.code_graph:
+        return {"engine": None, "reason": "disabled"}, None
+    if not codegraph.engine_path():
+        return {"engine": None, "reason": "Graphify is not installed (pip install graphifyy)"}, None
+    try:
+        path = codegraph.build(root, code_dir(repo_ref), settings.code_graph_timeout_s)
+        graph = codegraph.load_file(path)
+        return codegraph.summary(graph, endpoints, indexed.read), graph
+    except codegraph.CodeGraphError as exc:
+        return {"engine": "graphify", "error": str(exc)}, None
+
+
+def analyze_path(root, repo_ref: str, code_graph: bool = True) -> dict:
     indexed = Repo(root)
     dependencies = parse(indexed)
     profile = detect(indexed, dependencies)
@@ -83,6 +111,14 @@ def analyze_path(root, repo_ref: str) -> dict:
                                     ".ini", ".conf"} and not p.name.startswith(".")
                     and p.name not in {"package.json", "package-lock.json", "tsconfig.json"}
                     ][:300] if profile.has("config") else []
+    from filament.repos import datamodel
+
+    code, graph = _code_graph(indexed, root, repo_ref, api["endpoints"], code_graph)
+    if graph is not None:
+        from filament.repos.codegraph import align_services
+
+        align_services(code, components)
+    data_model = datamodel.extract(indexed)
     s = score(checks)
     return {
         "repo": repo_ref,
@@ -96,6 +132,9 @@ def analyze_path(root, repo_ref: str) -> dict:
         "ui": ui,
         "components": components,
         "client_calls": calls,
+        "code": code,
+        "_code_graph": graph,
+        "data_model": data_model,
         "config_files": config_files,
         "dependencies": [{"ecosystem": d.ecosystem, "name": d.name, "file": d.file, "dev": d.dev}
                          for d in dependencies][:400],

@@ -281,3 +281,15 @@ input.narrow { width: 90px; }
   .gw-tool-head { flex-wrap: wrap; }
   .gw-tool-head .grow { flex-basis: 100%; order: 10; padding-left: 42px; }
 }
+
+/* -- code graph ------------------------------------------------------------------------- */
+.code-graph { height: 360px; border: 1px solid #e3e6ea; border-radius: 8px; background: #fbfbfc; margin-top: 6px; }
+.legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; color: #555; }
+.legend i { display: inline-block; width: 14px; height: 3px; margin-right: 4px; vertical-align: middle; border-radius: 2px; }
+.explain { display: grid; gap: 6px; margin-top: 8px; }
+.chip.sym { font-size: 11px; padding: 2px 8px; margin: 2px 4px 2px 0; }
+.chip.conf-inferred { border-style: dashed; }
+.risk { font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 2px 8px; border-radius: 4px; margin-right: 6px; }
+.risk-high { background: #fde2e1; color: #b42318; } .risk-medium { background: #fff1e0; color: #a35a00; } .risk-low { background: #e6f7ef; color: #1d7a4a; }
+.impact { display: grid; gap: 6px; margin-top: 8px; }
+@media (max-width: 640px) { .code-graph { height: 300px; } }

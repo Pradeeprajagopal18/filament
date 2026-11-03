@@ -21,7 +21,9 @@ dependencies = [
 
 [project.optional-dependencies]
 postgres = ["psycopg[binary]>=3.2"]
-dev = ["pytest>=8.2", "ruff>=0.5"]
+# Symbol-level code graph during repo scans (tree-sitter, code-only, no LLM).
+code = ["graphifyy>=0.9"]
+dev = ["pytest>=8.2", "ruff>=0.5", "graphifyy>=0.9"]
 
 [project.scripts]
 fil = "filament.cli:app"

@@ -11,6 +11,7 @@
     "build:demo": "VITE_DEMO=1 vite build --base ./ --outDir dist-demo"
   },
   "dependencies": {
+    "cytoscape": "^3.34.4",
     "mermaid": "^12.2.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"

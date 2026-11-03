@@ -232,8 +232,9 @@ def test_omni_mcp_endpoint(client, ws, gen):
     assert init["result"]["serverInfo"]["name"] == "filament-gateway"
     assert client.post(url, json={"jsonrpc": "2.0", "method": "notifications/initialized"}).status_code == 202
     listed = client.post(url, json={"jsonrpc": "2.0", "id": 2, "method": "tools/list"}).json()
-    assert [t["name"] for t in listed["result"]["tools"]] == ["discover_servers", "list_tools",
-                                                             "get_tool_schema", "invoke_tool"]
+    names = [t["name"] for t in listed["result"]["tools"]]
+    assert names[:4] == ["discover_servers", "list_tools", "get_tool_schema", "invoke_tool"]
+    assert {"code_query", "code_explain", "code_path", "code_impact"} <= set(names)
     call = lambda name, args, **h: client.post(url, headers=h, json={  # noqa: E731
         "jsonrpc": "2.0", "id": 3, "method": "tools/call",
         "params": {"name": name, "arguments": args}}).json()["result"]

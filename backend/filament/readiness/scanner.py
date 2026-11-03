@@ -164,6 +164,23 @@ def checkout(repo: str):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def remote_head(repo: str) -> str | None:
+    """The remote's HEAD commit without cloning (None for local paths or on any error)."""
+    if Path(repo).expanduser().exists():
+        return None
+    url = repo if "://" in repo or repo.startswith("git@") else f"https://{repo}"
+    token = os.environ.get("FILAMENT_GIT_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    if token and url.startswith("https://github.com/"):
+        url = url.replace("https://", f"https://x-access-token:{token}@", 1)
+    try:
+        out = subprocess.run(["git", "ls-remote", url, "HEAD"], capture_output=True, text=True,
+                             timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    sha = out.stdout.split()[0] if out.returncode == 0 and out.stdout.strip() else None
+    return sha
+
+
 def scan(repo: str) -> ReadinessResult:
     from filament.repos.checks import run_checks as kind_checks
     from filament.repos.checks import score as score_checks

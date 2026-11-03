@@ -146,13 +146,16 @@ class Graph:
         self.edges: dict[tuple[str, str], str] = {}
 
     def node(self, nid: str, label: str, category: str, file: str, line: int | None,
-             detail: str) -> str:
+             detail: str, confidence: str = "extracted") -> str:
+        """confidence: 'extracted' when the code names the thing (a dependency, an import, a
+        connection string, a compose service); 'inferred' when Filament worked it out (a service
+        guessed from an env var or host name)."""
         nid = re.sub(r"[^a-zA-Z0-9_-]", "-", nid.lower())[:60] or "node"
         n = self.nodes.setdefault(nid, {"id": nid, "label": label, "category": category,
                                         "evidence": []})
         if n["category"] in {"service", "unknown"} and category not in {"service", "unknown"}:
             n["category"], n["label"] = category, label
-        ev = {"file": file, "line": line, "detail": detail}
+        ev = {"file": file, "line": line, "detail": detail, "confidence": confidence}
         if ev not in n["evidence"] and len(n["evidence"]) < 8:
             n["evidence"].append(ev)
         return nid
@@ -162,6 +165,10 @@ class Graph:
             self.edges.setdefault((a, b), label)
 
     def to_dict(self) -> dict:
+        for n in self.nodes.values():
+            n["confidence"] = "extracted" if any(
+                e.get("confidence", "extracted") == "extracted" for e in n["evidence"]) or (
+                n["category"] == "self") else "inferred"
         nodes = list(self.nodes.values())
         edges = [{"from": a, "to": b, "label": lbl} for (a, b), lbl in self.edges.items()]
         return {"nodes": nodes, "edges": edges, "mermaid": mermaid(nodes, edges, self.center)}
@@ -200,10 +207,12 @@ def _from_env(g: Graph, repo: Repo, texts: dict[str, str]) -> None:
                 prefix += "_api"
             known = next((k for k in ENV_KEYWORDS if k[0] in prefix + "_"), None)
             if known:
-                nid = g.node(known[1], known[2], known[3], f, _line(text, m.start()), f"reads {var}")
+                nid = g.node(known[1], known[2], known[3], f, _line(text, m.start()), f"reads {var}",
+                             "inferred")
             else:
                 name = prefix.replace("_", "-")
-                nid = g.node(name, name, "service", f, _line(text, m.start()), f"reads {var}")
+                nid = g.node(name, name, "service", f, _line(text, m.start()), f"reads {var}",
+                             "inferred")
             g.edge(g.center, nid, "calls" if not known else "uses")
 
 
@@ -221,7 +230,7 @@ def _from_urls(g: Graph, texts: dict[str, str]) -> None:
                 nid = g.node(known[1], known[2], known[3], f, line, f"calls {host}")
             elif ".svc" in host or "." not in host or host.endswith((".internal", ".local")):
                 name = host.split(".")[0]
-                nid = g.node(name, name, "service", f, line, f"calls {host}")
+                nid = g.node(name, name, "service", f, line, f"calls {host}", "inferred")
             else:
                 nid = g.node(host, host, "external", f, line, f"calls {host}")
             g.edge(g.center, nid, "calls")

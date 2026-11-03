@@ -21,11 +21,12 @@ GENERATORS = {
     "request_flows": "Request flows (sequence diagrams)",
     "user_flow": "User flow (screens)",
     "component_view": "Component view",
+    "data_model": "Data model (entities and relationships)",
 }
 # Diagrams Filament keeps for every onboarded repo where they apply (refreshed on rescans).
-DIAGRAMS = ["request_flows", "user_flow", "component_view"]
+DIAGRAMS = ["request_flows", "user_flow", "component_view", "data_model"]
 ARTIFACT_TYPE = {"api_contract": "api_contract", "request_flows": "flow", "user_flow": "flow",
-                 "component_view": "component_view"}
+                 "component_view": "component_view", "data_model": "component_view"}
 
 
 def _kinds(a: dict) -> str:
@@ -56,6 +57,20 @@ def agents_md(a: dict) -> tuple[str, str, dict]:
                   "- Keep provider versions pinned and run validate before every commit."]
     if "config" in kinds:
         lines.append("- Change one environment at a time and validate against the schema.")
+    code = a.get("code") or {}
+    if code.get("symbols"):
+        lines += ["", "## Navigating the code",
+                  f"- Filament keeps a code graph of this repo ({code['symbols']} symbols, "
+                  f"{len(code.get('communities') or [])} subsystems). Before grepping, ask it: "
+                  "`code_query`, `code_explain`, `code_path` and `code_impact` through Filament's "
+                  "MCP endpoint, or `fil code explain <repo> <symbol>`.",
+                  "- Check `code_impact` before changing a shared function; it lists the "
+                  "endpoints and the repos that consume them."]
+        hot = [h["label"] for h in code.get("hotspots") or []][:5]
+        if hot:
+            lines.append(f"- Most-connected code (change with care): {', '.join(hot)}.")
+        for c in code.get("cycles") or []:
+            lines.append(f"- Known import cycle: {' → '.join(c)}; don't add to it.")
     lines.append("- Every change ships with tests or validation appropriate to this repo.")
     lines += ["", "## Do not touch", "- Lockfiles by hand, generated code, and secrets."]
     if "infrastructure" in kinds:
@@ -152,29 +167,48 @@ def request_flows(a: dict) -> tuple[str, str, dict] | None:
         groups.setdefault(e.get("tag") or "root", []).append(e)
     name = a["name"]
     sections = [f"# Request flows: {name}",
-                "Drawn from the code: each endpoint, its auth, the services its handler's file "
-                "uses and the responses it can return. Refreshed on every scan."]
+                "Drawn from the code: each endpoint, its auth, the services its handler reaches "
+                "(through its own calls when a code graph is available) and the responses it can "
+                "return. Refreshed on every scan."]
+    code_eps = ((a.get("code") or {}).get("endpoints")) or {}
     for tag, items in sorted(groups.items(), key=lambda kv: -len(kv[1]))[:8]:
+        # With a code graph: the services each handler reaches through real calls.
+        per_ep = {f"{e['method']} {e['path']}": (code_eps.get(f"{e['method']} {e['path']}") or {})
+                  .get("services") or [] for e in items}
+        traced = any(per_ep.values())
         deps = []
-        for e in items:
-            for n in by_file.get(e.get("file") or "", []):
-                if n not in deps:
-                    deps.append(n)
+        if traced:
+            for svcs in per_ep.values():
+                for s in svcs:
+                    if s["service"] not in [d["id"] for d in deps]:
+                        deps.append({"id": s["service"], "label": s["label"],
+                                     "category": s["category"], "evidence": []})
+        else:
+            for e in items:
+                for n in by_file.get(e.get("file") or "", []):
+                    if n not in deps:
+                        deps.append(n)
         lines = ["sequenceDiagram", "  actor C as Client", f"  participant S as {_mlabel(name)}"]
-        for n in deps[:5]:
+        for n in deps[:6]:
             lines.append(f"  participant {_mid(n['id'])} as {_mlabel(n['label'])}")
-        # Which handler calls a service isn't visible from module-level references, so the
-        # diagram states what the module uses rather than drawing calls it can't attribute.
-        for n in deps[:5]:
-            ev = next((v for v in n["evidence"] if any(v.get("file") == e.get("file")
-                                                        for e in items)), {})
-            where = f"{ev.get('file')}:{ev.get('line')}" if ev.get("line") else ev.get("file", "")
-            lines.append(f"  Note over S,{_mid(n['id'])}: {tag} module uses {_mlabel(n['label'])}"
-                         f" ({_mlabel(where)})")
+        if not traced:
+            # Which handler calls a service isn't visible from module-level references, so the
+            # diagram states what the module uses rather than drawing calls it can't attribute.
+            for n in deps[:5]:
+                ev = next((v for v in n["evidence"] if any(v.get("file") == e.get("file")
+                                                            for e in items)), {})
+                where = f"{ev.get('file')}:{ev.get('line')}" if ev.get("line") else ev.get("file", "")
+                lines.append(f"  Note over S,{_mid(n['id'])}: {tag} module uses "
+                             f"{_mlabel(n['label'])} ({_mlabel(where)})")
         for e in items[:8]:
             lines.append(f"  C->>S: {e['method']} {_mlabel(e['path'])}")
             if e.get("auth"):
                 lines.append("  S->>S: check auth")
+            for s in per_ep.get(f"{e['method']} {e['path']}", [])[:4] if traced else []:
+                verb = {"datastore": "query", "cache": "read/write", "queue": "publish",
+                        "external": "call"}.get(s["category"], "use")
+                via = "" if s["via"] == "direct" else f" via {_mlabel(s['via'])}"
+                lines.append(f"  S->>{_mid(s['service'])}: {verb}{via}")
             codes = sorted((e.get("responses") or {"200": {}}).keys())
             ok = next((c for c in codes if c.startswith("2")), "200")
             schema = ((e.get("responses") or {}).get(ok) or {}).get("schema") or {}
@@ -282,6 +316,21 @@ def component_view(a: dict) -> tuple[str, str, dict] | None:
     return f"Component view: {a['name']}", "\n".join(body), {"diagram": "components"}
 
 
+def data_model(a: dict) -> tuple[str, str, dict] | None:
+    dm = a.get("data_model") or {}
+    if not dm.get("entities"):
+        return None
+    rows = ["| Entity | Source | Fields |", "| --- | --- | --- |"]
+    for e in dm["entities"][:40]:
+        rows.append(f"| {e['name']} | {e['source']} `{e['file']}:{e['line']}` | "
+                    f"{', '.join(f['name'] for f in e['fields'][:8])} |")
+    body = [f"# Data model: {a['name']}",
+            "Tables and relationships from SQL migrations and ORM models. Refreshed on every scan.",
+            "```mermaid", dm["mermaid"], "```", "", *rows]
+    return f"Data model: {a['name']}", "\n".join(body), {"diagram": "data_model",
+                                                         "entities": len(dm["entities"])}
+
+
 def diagrams_for(a: dict) -> list[str]:
     """The diagrams that apply to this repo."""
     return [g for g in DIAGRAMS if BUILDERS[g](a) is not None]
@@ -290,7 +339,7 @@ def diagrams_for(a: dict) -> list[str]:
 BUILDERS = {"agents_md": agents_md, "overview": overview, "architecture": architecture,
             "codeowners": codeowners, "api_contract": api_contract,
             "request_flows": request_flows, "user_flow": user_flow,
-            "component_view": component_view}
+            "component_view": component_view, "data_model": data_model}
 
 
 def conventions(a: dict) -> list[str]:

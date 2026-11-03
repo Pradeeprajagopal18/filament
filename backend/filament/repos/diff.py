@@ -101,6 +101,11 @@ def compare(old: dict | None, new: dict) -> dict:
     drift = n_api.get("drift") or {}
     out["contract_drift"] = (len(drift.get("in_code_not_in_contract") or []) +
                              len(drift.get("in_contract_not_in_code") or []))
+    oc, nc = old.get("code") or {}, new.get("code") or {}
+    if oc.get("symbols") is not None and nc.get("symbols") is not None:
+        out["symbols_delta"] = nc["symbols"] - oc["symbols"]
+        old_cycles = {tuple(c) for c in oc.get("cycles") or []}
+        out["new_import_cycles"] = [c for c in nc.get("cycles") or [] if tuple(c) not in old_cycles]
     o_score = (old.get("readiness") or {}).get("score", 0)
     n_score = (new.get("readiness") or {}).get("score", 0)
     out["score_delta"] = round(n_score - o_score, 1)
@@ -117,7 +122,8 @@ def compare(old: dict | None, new: dict) -> dict:
                            ("pages_added", "page added", "pages added"),
                            ("connections_added", "new connection", "new connections"),
                            ("checks_fixed", "check fixed", "checks fixed"),
-                           ("checks_regressed", "check regressed", "checks regressed")):
+                           ("checks_regressed", "check regressed", "checks regressed"),
+                           ("new_import_cycles", "new import cycle", "new import cycles")):
         if counts.get(key):
             parts.append(f"{counts[key]} {one if counts[key] == 1 else many}")
     out["summary"] = ", ".join(parts) if parts else "No changes"

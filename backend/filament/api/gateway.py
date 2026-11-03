@@ -202,6 +202,13 @@ OMNI_TOOLS = [
 ]
 
 
+def _omni_tools() -> list[dict]:
+    from filament.repos.code_tools import SPECS
+
+    return OMNI_TOOLS + [{"name": s["name"], "description": s["description"],
+                          "inputSchema": s["input_schema"]} for s in SPECS]
+
+
 def _rpc(id_, result=None, error=None):
     msg = {"jsonrpc": "2.0", "id": id_}
     if error is not None:
@@ -237,11 +244,13 @@ async def omni(ws_id: str, request: Request, session: Session = Depends(get_sess
                 "capabilities": {"tools": {"listChanged": False}},
                 "serverInfo": {"name": "filament-gateway", "version": __version__},
                 "instructions": "Use discover_servers, then list_tools, get_tool_schema and "
-                                "invoke_tool. Ask for only the fields you need."}))
+                                "invoke_tool. Ask for only the fields you need. For questions "
+                                "about code, use code_query / code_explain / code_path / "
+                                "code_impact before reading or grepping files."}))
         elif method == "ping":
             replies.append(_rpc(id_, {}))
         elif method == "tools/list":
-            replies.append(_rpc(id_, {"tools": OMNI_TOOLS}))
+            replies.append(_rpc(id_, {"tools": _omni_tools()}))
         elif method == "tools/call":
             replies.append(_rpc(id_, _omni_call(session, ws_id, params.get("name"),
                                                 params.get("arguments") or {}, autonomy)))
@@ -275,6 +284,13 @@ def _omni_call(session: Session, ws_id: str, name: str | None, args: dict, auton
             srv, entry = reg.find(session, ws_id, args.get("server", ""), args.get("tool", ""))
             return ok(reg.invoke(session, ws_id, srv, entry, args.get("arguments") or {},
                                  actor="omni", autonomy=autonomy, fields=args.get("fields")))
+        from filament.repos import code_tools
+
+        if name in code_tools.NAMES:
+            try:
+                return ok(code_tools.run(session, ws_id, name, args))
+            except code_tools.CodeToolError as exc:
+                raise reg.GatewayError(str(exc)) from exc
         raise reg.GatewayError(f"Unknown tool {name}")
     except reg.GatewayError as exc:
         return {"content": [{"type": "text", "text": str(exc)}], "isError": True}

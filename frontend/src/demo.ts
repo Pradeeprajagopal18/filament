@@ -2,7 +2,7 @@
 // simulated agents. Used only when the UI is built with VITE_DEMO=1 (the interactive preview).
 import type {
   AgentSetting, Artifact, Check, Gap, Health, Link, McpServer, McpServerInput, Memory, Project, Readiness, Run,
-  Endpoint, GatewayCall, GatewayServer, GatewayTool, Impact, JsonSchema, RepoAnalysis, RepoDetail, RepoScan, Runner, ScanChanges, SystemMap, TraceEvent, UsageRow, Workspace,
+  ChangeImpact, CodeExplain, CodeGraphView, CodeLookup, CodePath, CodeSym, Endpoint, GatewayCall, GatewayServer, GatewayTool, Impact, JsonSchema, RepoAnalysis, RepoDetail, RepoScan, Runner, ScanChanges, SystemMap, TraceEvent, UsageRow, Workspace,
 } from './api'
 import demoRepos from './demo-repos.json'
 
@@ -12,7 +12,10 @@ interface RepoSample {
   drafts: Record<string, { title: string; content: string; data: Record<string, unknown> }>
   scans: { trigger: string; status: string; grade: string; score: number; hours_ago: number; changes: ScanChanges }[]
   diagrams: string[]
+  code_graph: { nodes: GNode[]; edges: GEdge[] } | null
 }
+interface GNode { id: string; label: string; kind: string; file: string | null; line: number | null; community: number | null; callable: boolean }
+interface GEdge { source: string; target: string; relation: string; confidence: string; file: string | null; line: number | null }
 const DIAGRAM_TYPE: Record<string, string> = { request_flows: 'flow', user_flow: 'flow', component_view: 'component_view' }
 type DemoSystem = SystemMap & { consumers: Record<string, Record<string, { repo_id: string; repo: string; file: string; line: number }[]>> }
 const DEMO_DATA = demoRepos as unknown as { repos: RepoSample[]; system: DemoSystem }
@@ -146,6 +149,47 @@ function redact(v: unknown): [unknown, number] {
   return [walk(v), n]
 }
 const AUTONOMY = ['L0', 'L1', 'L2', 'L3', 'L4']
+
+// -- code graph (preview): same queries as the server over the sample repos' Graphify graphs -----
+const plural = (k: number, w: string) => `${k} ${w}${k === 1 ? '' : 's'}`
+const STRUCTURAL = new Set(['contains', 'rationale_for'])
+function graphOf(rid: string) {
+  const r = db.repos.find(x => x.id === rid)
+  const g = r && r.ref === SAMPLES[r.sample].analysis.repo ? SAMPLES[r.sample].code_graph : null
+  if (!r || !g) throw new Error('404: No code graph for this repo in the preview')
+  const nodes = new Map(g.nodes.map(n => [n.id, n]))
+  const out = new Map<string, GEdge[]>(), inc = new Map<string, GEdge[]>()
+  for (const e of g.edges) { (out.get(e.source) ?? out.set(e.source, []).get(e.source)!).push(e); (inc.get(e.target) ?? inc.set(e.target, []).get(e.target)!).push(e) }
+  return { r, g, nodes, out, inc }
+}
+const symBrief = (n: GNode): CodeSym => ({ id: n.id, label: n.label, kind: n.kind, file: n.file, line: n.line })
+const norm = (s: string) => s.toLowerCase().replace('()', '').replace(/[^a-z0-9_.]/g, '')
+function resolveSym(nodes: Map<string, GNode>, name: string): CodeLookup<GNode> {
+  if (nodes.has(name)) return { ok: true, data: nodes.get(name)! }
+  const [filePart, sym] = name.includes(':') ? name.split(':') : ['', name]
+  let hits = [...nodes.values()].filter(n => norm(n.label) === norm(sym) && (!filePart || (n.file ?? '').endsWith(filePart)))
+  const code = hits.filter(n => n.kind === 'code'); if (code.length) hits = code
+  if (hits.length === 1) return { ok: true, data: hits[0] }
+  if (hits.length > 1) return { ok: false, ambiguous: true, candidates: hits.slice(0, 20).map(symBrief), detail: `'${name}' matches ${hits.length} symbols; pick one` }
+  const key = norm(name)
+  const sugg = [...nodes.values()].filter(n => n.kind === 'code' && norm(n.label).includes(key.slice(0, 4))).slice(0, 8).map(symBrief)
+  return { ok: false, suggestions: sugg, detail: `No symbol matches '${name}'` }
+}
+function ranges(nodes: Map<string, GNode>) {
+  const byFile = new Map<string, GNode[]>()
+  for (const n of nodes.values()) if (n.file && n.line && n.kind === 'code' && n.callable) (byFile.get(n.file) ?? byFile.set(n.file, []).get(n.file)!).push(n)
+  const out = new Map<string, [string, number, number]>()
+  for (const [f, ns] of byFile) { ns.sort((a, b) => a.line! - b.line!); ns.forEach((n, i) => out.set(n.id, [f, n.line!, i + 1 < ns.length ? ns[i + 1].line! - 1 : n.line! + 400])) }
+  return out
+}
+function parseDiff(diff: string): Record<string, [number, number][]> {
+  const out: Record<string, [number, number][]> = {}
+  for (const chunk of diff.split(/(?=^diff --git )/m)) {
+    const f = /^\+\+\+ b\/(.+)$/m.exec(chunk); if (!f) continue
+    out[f[1]] = [...chunk.matchAll(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/gm)].map(h => [Number(h[1]), Number(h[1]) + Math.max(Number(h[2] ?? 1), 1) - 1] as [number, number])
+  }
+  return out
+}
 
 function pickSample(ref: string): number {
   const r = ref.toLowerCase()
@@ -748,6 +792,88 @@ export const demoApi = {
   artifact: async (aid: string) => {
     const a = db.artifacts.find(x => x.id === aid); if (!a) throw new Error('404: Artifact not found')
     return clone(a)
+  },
+  repoCodeGraph: async (rid: string, community?: number): Promise<CodeGraphView> => {
+    const { r, g, nodes } = graphOf(rid)
+    const names = Object.fromEntries((r.analysis.code?.communities ?? []).map(c => [c.id, c.name]))
+    const shown = new Set(Object.keys(names).map(Number))
+    if (community == null) {
+      const size = new Map<number, number>()
+      for (const n of g.nodes) if (n.kind === 'code' && n.community != null && shown.has(n.community)) size.set(n.community, (size.get(n.community) ?? 0) + 1)
+      const links = new Map<string, number>()
+      for (const e of g.edges) {
+        if (STRUCTURAL.has(e.relation)) continue
+        const a = nodes.get(e.source)?.community, b = nodes.get(e.target)?.community
+        if (a == null || b == null || a === b || !size.has(a) || !size.has(b)) continue
+        const k = [a, b].sort((x, y) => x - y).join('|'); links.set(k, (links.get(k) ?? 0) + 1)
+      }
+      return { mode: 'subsystems', nodes: [...size].map(([c, s]) => ({ id: `c${c}`, community: c, label: names[c] ?? `group ${c}`, size: s })),
+        edges: [...links].map(([k, w]) => ({ source: `c${k.split('|')[0]}`, target: `c${k.split('|')[1]}`, weight: w })) }
+    }
+    const ids = new Set(g.nodes.filter(n => n.community === community && n.kind === 'code').map(n => n.id))
+    const edges = g.edges.filter(e => (ids.has(e.source) || ids.has(e.target)) && e.relation !== 'rationale_for')
+    const keep = new Set([...ids, ...edges.flatMap(e => [e.source, e.target]).filter(x => ['code', 'external', 'concept'].includes(nodes.get(x)?.kind ?? ''))])
+    return { mode: 'symbols', community, name: names[community], nodes: [...keep].map(i => { const n = nodes.get(i)!; return { id: n.id, label: n.label, kind: n.kind, file: n.file ?? undefined, line: n.line ?? undefined, callable: n.callable, inside: ids.has(i) } }),
+      edges: edges.filter(e => keep.has(e.source) && keep.has(e.target)).map(e => ({ source: e.source, target: e.target, relation: e.relation, confidence: e.confidence })) }
+  },
+  codeExplain: async (rid: string, name: string): Promise<CodeLookup<CodeExplain>> => {
+    const { r, nodes, out, inc } = graphOf(rid)
+    const hit = resolveSym(nodes, name); if (!hit.ok) return hit
+    const n = hit.data
+    const ref = (e: GEdge, other: string, dir: string) => ({ relation: e.relation, direction: dir, confidence: e.confidence, node: symBrief(nodes.get(other)!), at: e.line ? `${e.file}:${e.line}` : e.file })
+    const o = (out.get(n.id) ?? []).filter(e => e.relation !== 'rationale_for' && nodes.has(e.target)).map(e => ref(e, e.target, 'out'))
+    const i = (inc.get(n.id) ?? []).filter(e => e.relation !== 'rationale_for' && nodes.has(e.source)).map(e => ref(e, e.source, 'in'))
+    const eps = Object.entries(r.analysis.code?.endpoints ?? {}).filter(([, v]) => v.node === n.id)
+    return { ok: true, data: { symbol: symBrief(n), calls: o.filter(x => x.relation === 'calls'), called_by: i.filter(x => x.relation === 'calls'),
+      other: [...o, ...i].filter(x => x.relation !== 'calls').slice(0, 30), notes: (inc.get(n.id) ?? []).filter(e => e.relation === 'rationale_for').map(e => nodes.get(e.source)?.label ?? '').filter(Boolean),
+      serves_endpoints: eps.map(([k]) => k), uses_services: eps[0]?.[1].services ?? [] } }
+  },
+  codePath: async (rid: string, a: string, b: string): Promise<CodeLookup<CodePath>> => {
+    const { g, nodes } = graphOf(rid)
+    const s = resolveSym(nodes, a); if (!s.ok) return s
+    const d = resolveSym(nodes, b); if (!d.ok) return d
+    const adj = new Map<string, [string, GEdge][]>()
+    for (const e of g.edges) { if (e.relation === 'rationale_for') continue; (adj.get(e.source) ?? adj.set(e.source, []).get(e.source)!).push([e.target, e]); (adj.get(e.target) ?? adj.set(e.target, []).get(e.target)!).push([e.source, e]) }
+    const prev = new Map<string, [string, GEdge]>(); const q = [s.data.id]; const seen = new Set(q)
+    while (q.length) { const cur = q.shift()!; if (cur === d.data.id) break; for (const [nx, e] of adj.get(cur) ?? []) if (!seen.has(nx)) { seen.add(nx); prev.set(nx, [cur, e]); q.push(nx) } }
+    if (!prev.has(d.data.id)) return { ok: true, data: { from: symBrief(s.data), to: symBrief(d.data), found: false, hops: [] } }
+    const hops: CodePath['hops'] = []; let cur = d.data.id
+    while (cur !== s.data.id) { const [p, e] = prev.get(cur)!; hops.unshift({ from: nodes.get(p)!.label, relation: e.relation, to: nodes.get(cur)!.label, confidence: e.confidence, forward: e.source === p, at: `${e.file}:${e.line}` }); cur = p }
+    return { ok: true, data: { from: symBrief(s.data), to: symBrief(d.data), found: true, hops, confidence: hops.some(h => h.confidence === 'inferred') ? 'inferred' : 'extracted' } }
+  },
+  codeChanges: async (rid: string, body: { files?: string[]; diff?: string; pr?: string }): Promise<ChangeImpact> => {
+    await sleep(400)
+    if (body.pr) throw new Error('Preview: pull request impact reads the PR from GitHub on the real server. Paste the changed files or a diff here instead.')
+    const { r, g, nodes, inc, out } = graphOf(rid)
+    const changes: Record<string, [number, number][] | null> = Object.fromEntries((body.files ?? []).map(f => [f, null]))
+    Object.assign(changes, parseDiff(body.diff ?? ''))
+    const rg = ranges(nodes)
+    const changed: string[] = []
+    for (const [f, spans] of Object.entries(changes)) {
+      const inFile = g.nodes.filter(n => n.file === f && n.kind === 'code')
+      if (!spans) { changed.push(...inFile.map(n => n.id)); continue }
+      const hit = [...rg].filter(([, [rf, s, e]]) => rf === f && spans.some(([a, b]) => a <= e && b >= s)).map(([id]) => id)
+      changed.push(...(hit.length ? hit : inFile.filter(n => !n.callable).map(n => n.id)))
+    }
+    const dist = new Map(changed.map(i => [i, 0])); const q = [...changed]; const seeds = new Set(changed)
+    while (q.length) {
+      const cur = q.shift()!; const d = dist.get(cur)!; if (d >= 3) continue
+      for (const e of inc.get(cur) ?? []) if (!STRUCTURAL.has(e.relation) && !dist.has(e.source)) { dist.set(e.source, d + 1); q.push(e.source) }
+      const n = nodes.get(cur)
+      if (n && seeds.has(cur) && !n.callable && n.kind === 'code') for (const e of out.get(cur) ?? []) if (e.relation === 'contains' && !dist.has(e.target)) { dist.set(e.target, d); q.push(e.target) }
+    }
+    const byNode = Object.fromEntries(Object.entries(r.analysis.code?.endpoints ?? {}).map(([k, v]) => [v.node, k]))
+    const eps = [...new Set([...dist.keys()].filter(i => byNode[i]).map(i => byNode[i]))].sort()
+    const imp = demoImpact(rid)
+    const users = new Map<string, string[]>()
+    for (const ep of eps) for (const u of imp.endpoint_consumers[ep] ?? []) users.set(u.repo, [...new Set([...(users.get(u.repo) ?? []), ep])])
+    const hot = new Set((r.analysis.code?.hotspots ?? []).map(h => h.id))
+    const risky = changed.filter(i => hot.has(i)).map(i => nodes.get(i)!.label)
+    const affected = [...dist].filter(([i]) => nodes.get(i)?.kind === 'code' && nodes.get(i)?.callable).sort((a, b) => a[1] - b[1]).map(([i, d]) => ({ ...symBrief(nodes.get(i)!), distance: d }))
+    return { files: Object.keys(changes), changed: changed.map(i => symBrief(nodes.get(i)!)), affected, endpoints: eps,
+      consumers: [...users].map(([repo, endpoints]) => ({ repo, endpoints })), communities: [], hotspots_touched: risky,
+      risk: users.size || risky.length ? 'high' : eps.length ? 'medium' : 'low',
+      summary: `${plural(changed.length, 'symbol')} changed, ${affected.length} affected, ${plural(eps.length, 'endpoint')}, ${plural(users.size, 'consuming repo')}` }
   },
   gatewayRegistry: async (ws: string, q = ''): Promise<GatewayServer[]> => {
     const qw = words(q)

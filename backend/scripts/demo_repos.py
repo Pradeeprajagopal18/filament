@@ -61,15 +61,20 @@ REPOS: dict[str, dict[str, str]] = {
         "app/auth.py": "def get_current_user():\n    ...\n",
         "app/routers/carts.py": (
             "from fastapi import APIRouter, HTTPException\nfrom app.models import AddItem, Cart\n"
+            "from app.cache import cached_cart, invalidate_cart\n"
             "router = APIRouter(prefix='/carts', tags=['carts'])\n\n"
             "@router.post('', response_model=Cart, status_code=201)\ndef create_cart():\n"
             "    \"\"\"Start a cart for a shopper.\"\"\"\n\n"
             "@router.get('/{cart_id}')\ndef get_cart(cart_id: str) -> Cart:\n"
             "    \"\"\"Read a cart with line items.\"\"\"\n"
-            "    raise HTTPException(status_code=404, detail='cart not found')\n\n"
+            "    cart = cached_cart(cart_id)\n"
+            "    if cart is None:\n"
+            "        raise HTTPException(status_code=404, detail='cart not found')\n"
+            "    return cart\n\n"
             "@router.post('/{cart_id}/items', response_model=Cart)\n"
             "def add_item(cart_id: str, body: AddItem) -> Cart:\n"
             "    \"\"\"Add a product to the cart.\"\"\"\n"
+            "    invalidate_cart(cart_id)\n"
             "    raise HTTPException(status_code=409, detail='out of stock')\n\n"
             "@router.delete('/{cart_id}/items/{item_id}', status_code=204)\n"
             "def remove_item(cart_id: str, item_id: str):\n    \"\"\"Remove a line item.\"\"\"\n"
@@ -77,12 +82,15 @@ REPOS: dict[str, dict[str, str]] = {
         "app/routers/orders.py": (
             "import os\nfrom fastapi import APIRouter, Depends, HTTPException\n"
             "from app.auth import get_current_user\nfrom app.models import Order, PlaceOrder\n"
+            "from app.events import publish_order_event\nfrom app.db import save_order\n"
             "router = APIRouter(prefix='/orders', tags=['orders'])\n"
             "KAFKA = os.environ['KAFKA_BROKERS']\n\n"
             "@router.post('', response_model=Order, status_code=201)\n"
             "def place_order(body: PlaceOrder, user=Depends(get_current_user)):\n"
             "    \"\"\"Turn a cart into an order and emit order.placed.\"\"\"\n"
-            "    raise HTTPException(status_code=400, detail='cart is empty')\n\n"
+            "    order = save_order(body.cart_id)\n"
+            "    publish_order_event('order.placed', order)\n"
+            "    return order\n\n"
             "@router.get('')\ndef list_orders(customer_id: str, limit: int = 20, user=Depends(get_current_user)) -> list[Order]:\n"
             "    \"\"\"Orders for a customer.\"\"\"\n\n"
             "@router.get('/{order_id}')\ndef get_order(order_id: str, user=Depends(get_current_user)) -> Order:\n"
@@ -90,6 +98,7 @@ REPOS: dict[str, dict[str, str]] = {
             "@router.post('/{order_id}/cancel', response_model=Order)\n"
             "def cancel_order(order_id: str, user=Depends(get_current_user)):\n"
             "    \"\"\"Cancel before fulfilment.\"\"\"\n"
+            "    publish_order_event('order.cancelled', {'id': order_id})\n"
             "    raise HTTPException(status_code=409, detail='already shipped')\n"
         ),
         "app/routers/payments.py": (
@@ -100,16 +109,33 @@ REPOS: dict[str, dict[str, str]] = {
             "@router.post('/intents', response_model=PaymentIntent, status_code=201)\n"
             "def create_intent(body: PaymentIntentIn, user=Depends(get_current_user)):\n"
             "    \"\"\"Create a Stripe payment intent for an order.\"\"\"\n"
-            "    raise HTTPException(status_code=402, detail='card declined')\n\n"
+            "    # NOTE: card data never touches our servers; Stripe holds it (ADR-7).\n"
+            "    return stripe.PaymentIntent.create(amount=1000, currency='usd')\n\n"
             "@router.post('/webhooks/stripe')\ndef stripe_webhook():\n"
             "    \"\"\"Payment status from Stripe.\"\"\"\n\n"
             "@router.post('/{payment_id}/refund', response_model=PaymentIntent)\n"
             "def refund(payment_id: str, user=Depends(get_current_user)):\n"
             "    \"\"\"Refund a captured payment.\"\"\"\n"
+            "    return stripe.Refund.create(payment_intent=payment_id)\n"
         ),
-        "app/db.py": "import os\nfrom sqlalchemy import create_engine\n"
-                     "engine = create_engine(os.environ['DATABASE_URL'])\n",
-        "app/cache.py": "import os, redis\nr = redis.from_url(os.environ['REDIS_URL'])\n",
+        "app/db.py": "import os\nfrom sqlalchemy import create_engine, text\n"
+                     "engine = create_engine(os.environ['DATABASE_URL'])\n\n"
+                     "def save_order(cart_id):\n"
+                     "    with engine.begin() as conn:\n"
+                     "        conn.execute(text('insert into orders (cart_id) values (:c)'), {'c': cart_id})\n"
+                     "    return {'id': cart_id}\n",
+        "app/cache.py": "import os\nimport redis\nr = redis.from_url(os.environ['REDIS_URL'])\n\n"
+                        "def cached_cart(cart_id):\n    return r.get(f'cart:{cart_id}')\n\n"
+                        "def invalidate_cart(cart_id):\n    r.delete(f'cart:{cart_id}')\n",
+        "app/events.py": "import os\nfrom aiokafka import AIOKafkaProducer\n"
+                         "producer = AIOKafkaProducer(bootstrap_servers=os.environ['KAFKA_BROKERS'])\n\n"
+                         "def publish_order_event(topic, order):\n"
+                         "    # WHY: fulfilment and email both listen on order.* topics; keep events small.\n"
+                         "    producer.send(topic, order)\n",
+        "migrations/001_orders.sql": "CREATE TABLE carts (id uuid PRIMARY KEY, customer_id uuid, created_at timestamptz NOT NULL);\n"
+                                     "CREATE TABLE orders (id uuid PRIMARY KEY, cart_id uuid NOT NULL REFERENCES carts(id), status text NOT NULL, total numeric(10,2));\n"
+                                     "CREATE TABLE order_items (id serial PRIMARY KEY, order_id uuid NOT NULL REFERENCES orders(id), sku text NOT NULL, quantity int NOT NULL);\n"
+                                     "CREATE TABLE payments (id text PRIMARY KEY, order_id uuid NOT NULL REFERENCES orders(id), status text, amount numeric(10,2));\n",
         "tests/test_carts.py": "def test_create_cart():\n    assert True\n",
     },
     "github.com/acme/web-storefront": {
@@ -270,14 +296,20 @@ def analyze_files(ref: str, files: dict[str, str]) -> dict:
         write(root, files)
         a = analyze_path(root, ref)
     a["repo"] = ref
+    graph = a.pop("_code_graph", None)
+    a["_graph"] = {"nodes": graph["nodes"], "edges": graph["edges"]} if graph else None
     return a
 
 
 def main(out: Path) -> None:
+    import os
+
+    os.environ.setdefault("FILAMENT_DATA_DIR", tempfile.mkdtemp(prefix="filament-demo-"))
     results = []
     analyses = {}
     for ref, files in REPOS.items():
         a = analyze_files(ref, files)
+        graph = a.pop("_graph")
         analyses[ref] = a
         drafts = {}
         for c in a["readiness"]["checks"]:
@@ -290,7 +322,7 @@ def main(out: Path) -> None:
             built = build(g, a)
             drafts[g] = {"title": built[0], "content": built[1], "data": built[2]}
         spec = a["api"].get("openapi")
-        results.append({"analysis": a, "drafts": drafts, "diagrams": diagrams_for(a), "conventions": conventions(a),
+        results.append({"analysis": a, "code_graph": graph, "drafts": drafts, "diagrams": diagrams_for(a), "conventions": conventions(a),
                         "openapi_yaml": yaml.safe_dump(spec, sort_keys=False) if spec else None,
                         "scans": [{"trigger": "onboard", "status": "ok",
                                    "grade": a["readiness"]["grade"],
@@ -306,6 +338,7 @@ def main(out: Path) -> None:
                                  x["readiness"]["grade"], x) for x in an.values()]
     api_ref = "github.com/acme/checkout-api"
     old = analyze_files(api_ref, older_checkout(REPOS[api_ref]))
+    old.pop("_graph", None)
     old_system = build_system(views({**analyses, api_ref: old}))
     changes = diff_compare(old, analyses[api_ref])
     consumers = old_system["consumers"].get("checkout-api", {})

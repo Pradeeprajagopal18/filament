@@ -3,6 +3,7 @@ import os
 os.environ["FILAMENT_DATABASE_URL"] = "sqlite://"  # in-memory per test session
 os.environ.pop("ANTHROPIC_API_KEY", None)  # tests always run offline
 os.environ["FILAMENT_REPO_SCHEDULER_ENABLED"] = "false"  # tests trigger scans explicitly
+os.environ.setdefault("FILAMENT_DATA_DIR", __import__("tempfile").mkdtemp(prefix="filament-test-"))
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

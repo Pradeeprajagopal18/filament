@@ -47,6 +47,7 @@ flowchart TB
 | `repos` | Onboarded repos: kinds, latest analysis (readiness, API, UI, components, outbound calls), `generated` (generator → reference artifact), scan interval and next scan |
 | `mcp_tools` | Gateway registry: one row per tool (enabled, write, status new/active/changed/removed, version, history, pending change, allowed agents, rate limit) |
 | `mcp_calls` | Every gateway call: actor, status, latency, bytes before/after projection, redactions |
+| `code_graphs` | One per repo: the normalized code graph (symbols, links with relation and confidence), engine version and commit |
 | `repo_scans` | Scan history: trigger, grade, commit and the diff against the previous scan (breaking changes, drift, reference refresh) |
 
 ## How a run works
@@ -118,6 +119,17 @@ Missing items (agent instructions, overview, architecture, ownership, API contra
 - **Agents**: `build_context_pack` adds compact repo summaries (the project's own repo, then the best keyword matches); `search_repos` and `get_repo` tools return capped, code-derived facts.
 - **Kept current** (`repos/service.py`): an in-process scheduler (`FILAMENT_REPO_SCAN_INTERVAL_HOURS`, default 24; per repo via `PATCH /repos/{id}`) and `POST /webhooks/github` rescan repos. Each scan is diffed with the previous (`repos/diff.py`): removed endpoints, new required parameters or fields, removed response fields and new auth are breaking and raise `breaking_change` signals naming consumers. References refresh: drafts update in place; approved references get a pending update a person accepts (`POST /repos/{id}/references/{item}/accept`). Private repos clone with `FILAMENT_GIT_TOKEN` / `GITHUB_TOKEN` from the environment.
 - **Contracts** (`repos/api_enrich.py`): request/response models (Pydantic, Java DTOs), query params, auth and error codes from code, plus examples that power the mock server (`/repos/{id}/mock/...`). Checked-in contracts are compared with routes in code (drift). `POST /repos/{id}/enrich-api` runs an optional model pass; only endpoints that exist are updated and the tokens are recorded as an `api-enricher` run.
+
+### Code graph
+
+- **Build** (`repos/codegraph.py`): each scan runs `graphify extract --code-only` into Filament's data dir (`FILAMENT_DATA_DIR/codegraph/<hash>`, never the repo), with no model (`GRAPHIFY_BACKEND=none`, no API key in its environment) and an incremental cache, so rescans are fast. The output is normalized behind a schema-version guard into nodes (symbol, kind, file:line, community) and edges (`calls`, `imports`, `uses`, `inherits`, `contains`, … with `extracted` or `inferred` confidence) and stored in `code_graphs`. `FILAMENT_CODE_GRAPH=false` turns it off.
+- **Summary**: named subsystems (communities), hotspots (most-called functions), import cycles (deferred in-function imports ignored), design notes, and for every endpoint its handler and the services it reaches. Service attribution: a function that uses an alias imported from a known client library (or a module-level client built from one) uses that service; it follows `calls` edges so `place_order → save_order → SQLAlchemy` attributes PostgreSQL to the endpoint. Services are aligned to component view nodes.
+- **Confidence everywhere**: code graph links, component view nodes (env var or host guesses are inferred) and system map edges (endpoint-matched calls are extracted, name-only links are inferred and dashed).
+- **Queries** (`repos/codequery.py`, `api/code.py`): explain, path (BFS, reports the weakest hop), keyword query, change impact (files or diff hunks → changed symbols by line range → reverse traversal → endpoints → consumers from the system map → risk) and conflicts between change sets. Name resolution is strict: ambiguous → 409 with candidates, unknown → 404 with suggestions.
+- **Agents** (`repos/code_tools.py`): `code_query`, `code_explain`, `code_path`, `code_impact` are read tools for agents and on the Omni endpoint; generated AGENTS.md references point agents at them.
+- **Memory**: design-note comments become *proposed* project memory (decision or fact), linked to ADR artifacts whose titles match the refs; at most 20 per scan.
+- **Data model** (`repos/datamodel.py`): entities and relationships from SQL, SQLAlchemy, Django and Prisma → ER diagram reference.
+- **Scheduled scans** compare the remote HEAD (`git ls-remote`) with the last scanned commit and skip unchanged repos.
 
 ## Next (from the roadmap)
 

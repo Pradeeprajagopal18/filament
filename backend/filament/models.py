@@ -357,3 +357,19 @@ class McpCallLog(Base):
     redactions: Mapped[int] = mapped_column(Integer, default=0)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)
+
+
+class CodeGraph(Base):
+    """A repo's symbol-level code graph (functions, classes, modules and their relations),
+    kept apart from the analysis because it can be large."""
+
+    __tablename__ = "code_graphs"
+
+    repo_id: Mapped[str] = mapped_column(ForeignKey("repos.id", ondelete="CASCADE"),
+                                         primary_key=True)
+    engine: Mapped[str] = mapped_column(String(40), default="graphify")
+    engine_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    schema_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    commit: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    graph: Mapped[dict] = mapped_column(JSON, default=dict)  # {nodes, edges}
+    built_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)

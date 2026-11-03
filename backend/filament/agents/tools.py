@@ -153,6 +153,17 @@ def get_repo(agent: Agent, inp: dict) -> dict:
     return out
 
 
+def _code_tool(name: str):
+    def handler(agent: Agent, inp: dict) -> dict:
+        from filament.repos import code_tools
+
+        try:
+            return code_tools.run(agent.session, agent.project.workspace_id, name, inp)
+        except code_tools.CodeToolError as exc:
+            raise ToolError(str(exc)) from exc
+    return handler
+
+
 # -- write tools ------------------------------------------------------------------------
 def _not_saved() -> dict:
     return {"saved": False,
@@ -275,7 +286,14 @@ _ARTIFACT_INPUT = {
         ["target_id", "kind"])},
 }
 
-TOOLS: dict[str, Tool] = {t.name: t for t in [
+def _code_tools() -> list[Tool]:
+    from filament.repos.code_tools import SPECS
+
+    return [Tool(s["name"], s["description"], s["input_schema"], _code_tool(s["name"]))
+            for s in SPECS]
+
+
+TOOLS: dict[str, Tool] = {t.name: t for t in [*_code_tools(),
     Tool("search_graph", "Search this project's artifacts (PRDs, stories, flows, ADRs, ...). "
          "Empty query lists them. Use before creating anything to avoid duplicates.",
          _obj({"query": {"type": "string"},
@@ -324,7 +342,8 @@ TOOLS: dict[str, Tool] = {t.name: t for t in [
               ["agent", "goal"]), delegate),
 ]}
 
-READ_TOOLS = ["search_graph", "read_artifact", "search_memory", "search_repos", "get_repo"]
+READ_TOOLS = ["search_graph", "read_artifact", "search_memory", "search_repos", "get_repo",
+              "code_query", "code_explain", "code_path", "code_impact"]
 SPECIALIST_TOOLS = READ_TOOLS + ["create_artifact", "update_artifact", "link_artifacts",
                                  "propose_memory", "ask_human", "finish"]
 ORCHESTRATOR_TOOLS = READ_TOOLS + ["delegate", "ask_human", "finish"]

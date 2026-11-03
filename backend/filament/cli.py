@@ -35,6 +35,9 @@ app.add_typer(config_app, name="config")
 repo_app = typer.Typer(help="Launchpad repos: type, readiness, API docs, UI, components",
                        no_args_is_help=True)
 app.add_typer(repo_app, name="repo")
+code_app = typer.Typer(help="Code graph: explain, path, query, change and PR impact",
+                       no_args_is_help=True)
+app.add_typer(code_app, name="code")
 
 console = Console()
 API = os.environ.get("FIL_API", "http://localhost:8000/api")
@@ -742,6 +745,117 @@ def mcp_metrics(hours: int = typer.Option(24), ws: str | None = typer.Option(Non
                       str(t["denied"]), str(t["p50_ms"]), str(t["p95_ms"]),
                       ", ".join(t["actors"]))
     console.print(table)
+
+
+# -- code graph ---------------------------------------------------------------------------------
+def _code_get(repo_id: str, path: str, **params):
+    resp = httpx.get(f"{API}/repos/{repo_id}/code{path}", params=params, timeout=120)
+    data = resp.json()
+    if resp.status_code == 409:
+        console.print(f"[yellow]{data['detail']}[/yellow]")
+        for c in data["candidates"]:
+            console.print(f"  {c['id']}  {c['label']}  {c.get('file')}:{c.get('line')}")
+        raise typer.Exit(3)
+    if resp.status_code == 404:
+        console.print(f"[red]{data['detail']}[/red]")
+        for s in data.get("suggestions") or []:
+            console.print(f"  did you mean {s['label']} ({s['id']})?")
+        raise typer.Exit(4)
+    if resp.status_code >= 400:
+        console.print(f"[red]{resp.status_code}: {data}[/red]")
+        raise typer.Exit(1)
+    return data
+
+
+@code_app.command("summary")
+def code_summary(repo_id: str):
+    s = _call("GET", f"/repos/{repo_id}/code")
+    if not s.get("engine") or s.get("error"):
+        console.print(s.get("error") or s.get("reason") or "No code graph")
+        return
+    console.print(f"{s['symbols']} symbols in {s['files']} files · {s['edges']} links "
+                  f"({s['extracted_pct']}% read from code, {s['inferred_pct']}% inferred)")
+    subs = ", ".join(f"{c['name']} ({c['size']})" for c in s["communities"][:8])
+    console.print(f"Subsystems: {subs}")
+    console.print("Hotspots: " + ", ".join(f"{h['label']} (fan-in {h['fan_in']})"
+                                           for h in s["hotspots"][:5]))
+    for cyc in s.get("cycles") or []:
+        console.print(f"[yellow]Import cycle:[/yellow] {' → '.join(cyc)}")
+
+
+@code_app.command("explain")
+def code_explain(repo_id: str, name: str):
+    """What a symbol calls, who calls it, endpoints it serves and services it reaches."""
+    d = _code_get(repo_id, "/explain", name=name)
+    s = d["symbol"]
+    console.print(f"[bold]{s['label']}[/bold]  {s.get('file')}:{s.get('line')}")
+    if d.get("serves_endpoints"):
+        console.print("Serves: " + ", ".join(d["serves_endpoints"]))
+    for sv in d.get("uses_services") or []:
+        how = "directly" if sv["via"] == "direct" else f"via {sv['via']}"
+        console.print(f"Uses {sv['label']} ({how})")
+    for c in d["calls"]:
+        console.print(f"  → {c['node']['label']}  \\[{c['confidence']}]")
+    for c in d["called_by"]:
+        console.print(f"  ← {c['node']['label']}  \\[{c['confidence']}]")
+    for n in d.get("notes") or []:
+        console.print(f"  note: {n}")
+
+
+@code_app.command("path")
+def code_path(repo_id: str, a: str, b: str):
+    d = _code_get(repo_id, "/path", a=a, b=b)
+    if not d["found"]:
+        console.print("No path found.")
+        raise typer.Exit(4)
+    for h in d["hops"]:
+        arrow = "→" if h["forward"] else "←"
+        hop = f"{h['from']} {arrow}{h['relation']}{arrow} {h['to']}"
+        console.print(f"  {hop}  \\[{h['confidence']}]")
+
+
+@code_app.command("query")
+def code_query(repo_id: str, question: str):
+    d = _code_get(repo_id, "/query", q=question)
+    for n in d["seeds"]:
+        console.print(f"  {n['label']}  {n.get('file')}:{n.get('line')}")
+
+
+@code_app.command("impact")
+def code_impact(
+    repo_id: str,
+    files: list[str] = typer.Argument(None, help="Changed files"),
+    git_diff: str | None = typer.Option(None, "--git-diff", help="Diff against a ref, e.g. main"),
+    pr: str | None = typer.Option(None, help="GitHub pull request URL"),
+):
+    """What a change affects: symbols, endpoints and the repos that consume them."""
+    import subprocess
+
+    body: dict = {"files": files or []}
+    if git_diff:
+        body["diff"] = subprocess.run(["git", "diff", "-U0", git_diff], capture_output=True,
+                                      text=True, check=True).stdout
+    if pr:
+        body["pr"] = pr
+    r = _call("POST", f"/repos/{repo_id}/code/changes", json=body)
+    color = {"high": "red", "medium": "yellow", "low": "green"}[r["risk"]]
+    console.print(f"[{color}]{r['risk']} risk[/{color}] · {r['summary']}")
+    for ep in r["endpoints"]:
+        console.print(f"  endpoint {ep}")
+    for c in r["consumers"]:
+        console.print(f"  [bold]{c['repo']}[/bold] uses {', '.join(c['endpoints'])}")
+    if r["hotspots_touched"]:
+        console.print("  touches hotspots: " + ", ".join(r["hotspots_touched"]))
+
+
+@code_app.command("conflicts")
+def code_conflicts(repo_id: str, change: list[str] = typer.Option(
+        ..., "--change", help="name=file1,file2 (repeat for each PR or branch)")):
+    sets = [{"name": c.split("=", 1)[0], "files": c.split("=", 1)[1].split(",")} for c in change]
+    for x in _call("POST", f"/repos/{repo_id}/code/conflicts", json={"changes": sets}):
+        what = ", ".join(x["same_symbols"] or x["adjacent_symbols"]) or "same subsystem"
+        console.print(f"{x['severity']}: {x['a']} × {x['b']}  {what}")
+
 
 if __name__ == "__main__":
     app()

@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api, DEMO } from './api'
 import type { Artifact, Check, Endpoint, Impact, JsonSchema, RepoDetail, RepoScan, RepoSummary, SystemMap, UiElement } from './api'
+import { CodeTab, DataTab } from './code'
 import { Content, ErrorLine, Mermaid } from './components'
 
 const KIND_LABEL: Record<string, string> = {
@@ -141,6 +142,7 @@ function SystemMapView({ ws, repos, onOpen }: { ws: string; repos: RepoSummary[]
                 <button className="link" onClick={() => onOpen(e.source)}>{names[e.source]}</button>
                 <span className={`edge edge-${e.kind}`}>{e.kind}</span>
                 <button className="link" onClick={() => onOpen(e.target)}>{names[e.target]}</button>
+                {(e as { confidence?: string }).confidence === 'inferred' && <span className="badge badge-draft" title="Linked by name, not by a call in the code">inferred</span>}
               </div>
               {e.endpoints.length > 0 && <div className="small">{e.endpoints.map(ep => <code key={ep} className="ep-chip">{ep}</code>)}</div>}
               <div className="muted small">{e.evidence.slice(0, 2).map((ev, j) => <span key={j}>{ev.file}{ev.line ? `:${ev.line}` : ''} {ev.detail}{j === 0 && e.evidence.length > 1 ? ' · ' : ''}</span>)}</div>
@@ -153,7 +155,7 @@ function SystemMapView({ ws, repos, onOpen }: { ws: string; repos: RepoSummary[]
   )
 }
 
-type Tab = 'readiness' | 'api' | 'ui' | 'components' | 'history' | 'filament'
+type Tab = 'readiness' | 'api' | 'ui' | 'code' | 'data' | 'components' | 'history' | 'filament'
 
 function RepoView({ repo, onBack, onChange, onOpen }: {
   repo: RepoDetail; onBack: () => void; onChange: (r: RepoDetail) => void; onOpen: (id: string) => void
@@ -174,6 +176,8 @@ function RepoView({ repo, onBack, onChange, onOpen }: {
     ['readiness', 'Readiness', a.readiness.checks.filter(c => c.status === 'fail').length],
     ['api', 'API', a.api.endpoints.length || null],
     ['ui', 'UI', a.ui.pages.length || null],
+    ['code', 'Code', a.code?.symbols || null],
+    ['data', 'Data', a.data_model?.entities.length || null],
     ['components', 'Components', (a.components.nodes.filter(n => n.category !== 'self').length + (impact?.dependents.length ?? 0)) || null],
     ['history', 'History', breaking || null],
     ['filament', 'In Filament', pending || null],
@@ -235,6 +239,8 @@ function RepoView({ repo, onBack, onChange, onOpen }: {
       {tab === 'readiness' && <ReadinessTab repo={repo} busy={busy} generate={generate} openFilament={() => setTab('filament')} />}
       {tab === 'api' && <ApiTab repo={repo} busy={busy} generate={generate} impact={impact} onChange={onChange} />}
       {tab === 'ui' && <UiTab repo={repo} />}
+      {tab === 'code' && <CodeTab repo={repo} />}
+      {tab === 'data' && <DataTab repo={repo} />}
       {tab === 'components' && <ComponentsTab repo={repo} impact={impact} onOpen={onOpen} />}
       {tab === 'history' && <HistoryTab scans={scans} />}
       {tab === 'filament' && <FilamentTab repo={repo} />}
@@ -404,7 +410,7 @@ function ApiTab({ repo, busy, generate, impact, onChange }: {
                     {e.auth && <span title="Requires authentication" aria-label="Requires authentication">🔒</span>}
                     <span className="muted small grow">{e.summary}{users.length > 0 && <span className="used-by"> · used by {[...new Set(users.map(u => u.repo))].join(', ')}</span>}</span>
                   </button>
-                  {openEp === key && <EndpointDetail repoId={repo.id} ep={e} users={users} />}
+                  {openEp === key && <EndpointDetail repoId={repo.id} ep={e} users={users} reaches={repo.analysis.code?.endpoints?.[key]?.services} />}
                 </li>
               )
             })}
@@ -432,7 +438,7 @@ function ApiTab({ repo, busy, generate, impact, onChange }: {
   )
 }
 
-function EndpointDetail({ repoId, ep, users }: { repoId: string; ep: Endpoint; users: { repo: string; file: string; line: number }[] }) {
+function EndpointDetail({ repoId, ep, users, reaches }: { repoId: string; ep: Endpoint; users: { repo: string; file: string; line: number }[]; reaches?: { label: string; via: string }[] }) {
   const [tryResult, setTryResult] = useState<{ status: number; body: unknown } | null>(null)
   const [trying, setTrying] = useState(false)
   const query = ep.params.filter(p => p.in === 'query')
@@ -447,6 +453,7 @@ function EndpointDetail({ repoId, ep, users }: { repoId: string; ep: Endpoint; u
   return (
     <div className="endpoint-detail small">
       {ep.description && <p>{ep.description}</p>}
+      {reaches && reaches.length > 0 && <div><b>Reaches</b> {reaches.map(s => <span key={s.label} className="cat cat-external">{s.label}{s.via === 'direct' ? '' : ` via ${s.via}`}</span>)}</div>}
       <div className="muted">
         {ep.handler && <>Handler <code>{ep.handler}</code>{ep.framework && <> · {ep.framework}</>} · </>}
         {ep.file}{ep.line ? `:${ep.line}` : ''}{ep.auth && <> · requires {ep.auth} auth</>}
@@ -571,7 +578,7 @@ function ComponentsTab({ repo, impact, onOpen }: { repo: RepoDetail; impact: Imp
             <tbody>
               {nodes.map(n => (
                 <tr key={n.id}>
-                  <td>{n.label}</td>
+                  <td>{n.label}{(n as { confidence?: string }).confidence === 'inferred' && <span className="badge badge-draft" title="Worked out from a name, not stated in the code">inferred</span>}</td>
                   <td><span className={`cat cat-${n.category}`}>{CAT_LABEL[n.category] ?? n.category}</span></td>
                   <td className="muted small">
                     {n.evidence.slice(0, 2).map((ev, i) => <div key={i}><code>{ev.file}{ev.line ? `:${ev.line}` : ''}</code> {ev.detail}</div>)}

@@ -39,6 +39,11 @@ work in the same place, and every agent output is linked, cited and reviewable.
 | Kept current | Repos are rescanned on a schedule (and on GitHub push webhooks). Each scan is diffed against the last: breaking API changes are flagged to the repos that consume them, and Filament's references refresh (approved ones wait for review) |
 | MCP gateway | One registry and policy point for every tool agents can call: third-party MCP servers plus servers generated from onboarded repos' APIs (one tool per endpoint, call the real service or simulate from the contract). Tools start disabled until an owner enables them; re-syncs and description edits wait for review, with version history and rollback. Per-tool agent policy, rate limits, autonomy-gated writes, response projection (`fields`), PII/secret redaction, call logs and metrics. Agents switch to progressive discovery above a threshold, and the whole gateway is exposed as one MCP endpoint (Omni) for Claude Code and other clients |
 | Component view | Maps what a repo connects to (databases, caches, queues, SaaS, internal services, cloud resources) from manifests, env vars, connection strings, compose, k8s and Terraform, each with file:line evidence |
+| Code graph | Every scan builds a graph of the repo's functions, classes, imports and calls (with [Graphify](https://github.com/Graphify-Labs/graphify), code only, no model) kept in Filament, not in the repo. Each link says whether it was read from the code or inferred. Shows subsystems, hotspots, import cycles and which datastore, queue or SaaS each endpoint reaches and through which function |
+| Explain, path, query | Look up any function or class: what it calls, what calls it, the endpoints it serves and the services it reaches; find how two symbols connect. Ambiguous names return the candidates instead of a guess. Available to agents, the CLI and the Omni MCP endpoint |
+| Change impact | From changed files, a diff or a GitHub PR: the symbols changed, code affected, endpoints touched, other repos that call them, and a risk level; also checks two change sets for overlap |
+| Design notes | `WHY:`, `NOTE:`, `DECISION:` and similar comments are proposed to project memory, linked to the ADRs they cite |
+| Data model | Tables, fields and relationships from SQL migrations, SQLAlchemy, Django and Prisma models, as an ER diagram |
 | `fil` CLI | Every capability from the terminal |
 
 ## Quick start
@@ -79,6 +84,11 @@ fil repo map                                     # how repos connect
 fil repo impact <id>                             # who depends on this repo
 fil repo rescan <id> | --due                     # rescan and show what changed
 fil repo schedule <id> 24                        # rescan interval in hours (0 = manual)
+fil code summary <repo-id>                       # subsystems, hotspots, cycles, design notes
+fil code explain <repo-id> place_order           # calls, callers, endpoints, services reached
+fil code path <repo-id> place_order save_order   # how two symbols connect
+fil code impact <repo-id> --git-diff main        # or: app/events.py | --pr <url>
+fil code conflicts <repo-id> --change a=app/x.py --change b=app/x.py,app/y.py
 fil mcp search "cart"                             # gateway registry (Code Mode)
 fil mcp enable api-checkout-api get_cart         # tools start disabled
 fil mcp call api-checkout-api get_cart --arg cart_id=c1 --fields id,total -o cart.json

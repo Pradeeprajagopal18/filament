@@ -166,8 +166,11 @@ def build(repos: list[RepoView]) -> dict:
         nodes.append({"id": s["id"], "label": s["label"], "kind": s["category"],
                       "shared_by": len(s["repos"])})
         ext_edges += [{"source": rid, "target": s["id"], "kind": "uses", "evidence": [],
-                       "endpoints": []} for rid in s["repos"]]
+                       "endpoints": [], "confidence": "extracted"} for rid in s["repos"]]
+    # A call matched to a real endpoint is read from the code; links made from names (a service
+    # URL variable, a config file or infrastructure resource named after a repo) are inferred.
     out_edges = [{"source": e.source, "target": e.target, "kind": e.kind,
+                  "confidence": "extracted" if e.endpoints else "inferred",
                   "evidence": _dedupe(e.evidence)[:8], "endpoints": e.endpoints[:30]}
                  for e in edges.values()] + ext_edges
     return {"nodes": nodes, "edges": out_edges, "consumers": consumers, "unresolved": unresolved,
@@ -197,7 +200,8 @@ def impact(system: dict, repo_id: str) -> dict:
     """Who depends on this repo (and how), and what it depends on."""
     names = {n["id"]: n["label"] for n in system["nodes"]}
     dependents = [{"repo_id": e["source"], "repo": names.get(e["source"]), "kind": e["kind"],
-                   "endpoints": e["endpoints"], "evidence": e["evidence"]}
+                   "endpoints": e["endpoints"], "evidence": e["evidence"],
+                   "confidence": e.get("confidence", "extracted")}
                   for e in system["edges"] if e["target"] == repo_id and
                   not e["source"].startswith("x:")]
     dependencies = [{"id": e["target"], "name": names.get(e["target"]), "kind": e["kind"],
@@ -227,7 +231,7 @@ def mermaid(nodes: list[dict], edges: list[dict], by_id: dict) -> str:
         n_eps = len(e["endpoints"])
         lbl = verbs.get(e["kind"], e["kind"]) + (f" · {n_eps} endpoint{'s' * (n_eps > 1)}"
                                                 if n_eps else "")
-        arrow = "-.->" if e["kind"] == "uses" else "-->"
+        arrow = "-.->" if e["kind"] == "uses" or e.get("confidence") == "inferred" else "-->"
         lines.append(f'  {nid(e["source"])} {arrow}|{lbl}| {nid(e["target"])}')
     styles = {"frontend": "#f3e8ff", "api": "#e6f0ff", "backend": "#e6f7ef",
               "infrastructure": "#fff1e0", "config": "#fdf6d8"}
