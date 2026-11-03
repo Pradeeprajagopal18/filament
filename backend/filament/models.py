@@ -367,7 +367,7 @@ class CodeGraph(Base):
 
     repo_id: Mapped[str] = mapped_column(ForeignKey("repos.id", ondelete="CASCADE"),
                                          primary_key=True)
-    engine: Mapped[str] = mapped_column(String(40), default="graphify")
+    engine: Mapped[str] = mapped_column(String(40), default="filament")
     engine_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
     schema_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
     commit: Mapped[str | None] = mapped_column(String(64), nullable=True)

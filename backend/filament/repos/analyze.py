@@ -61,7 +61,7 @@ def layout(repo: Repo) -> list[dict]:
 
 
 def code_dir(repo_ref: str):
-    """Per-repo folder for Graphify's output and incremental cache (outside the repo)."""
+    """Per-repo folder for the code graph's incremental cache (outside the repo)."""
     import hashlib
     from pathlib import Path
 
@@ -78,14 +78,15 @@ def _code_graph(indexed, root, repo_ref: str, endpoints: list[dict], build: bool
     settings = get_settings()
     if not build or not settings.code_graph:
         return {"engine": None, "reason": "disabled"}, None
-    if not codegraph.engine_path():
-        return {"engine": None, "reason": "Graphify is not installed (pip install graphifyy)"}, None
+    if not codegraph.available():
+        return {"engine": None,
+                "reason": "Code parsing isn't installed (pip install -e '.[code]')"}, None
     try:
-        path = codegraph.build(root, code_dir(repo_ref), settings.code_graph_timeout_s)
-        graph = codegraph.load_file(path)
+        files = [str(p).replace("\\", "/") for p in indexed.files]
+        graph = codegraph.build(root, files, code_dir(repo_ref))
         return codegraph.summary(graph, endpoints, indexed.read), graph
     except codegraph.CodeGraphError as exc:
-        return {"engine": "graphify", "error": str(exc)}, None
+        return {"engine": "filament", "error": str(exc)}, None
 
 
 def analyze_path(root, repo_ref: str, code_graph: bool = True) -> dict:

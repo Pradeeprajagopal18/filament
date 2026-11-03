@@ -1,4 +1,4 @@
-// Code tab: the repo's symbol-level graph (built with Graphify, code-only, no model). Subsystems
+// Code tab: the repo's symbol-level graph (Filament's tree-sitter extractor, no model). Subsystems
 // you can drill into, explain-by-click, hotspots, design notes and change / PR impact.
 import cytoscape from 'cytoscape'
 import { useEffect, useRef, useState } from 'react'
@@ -96,7 +96,7 @@ export function CodeTab({ repo }: { repo: RepoDetail }) {
   const pick = (id: string, isCommunity: boolean) => { if (isCommunity) loadView(Number(id)); else explain(id) }
 
   if (!code?.engine || code.error || !code.symbols) {
-    return <section className="card muted">{code?.error ?? code?.reason ?? 'No code graph yet.'} The code graph is built with Graphify (tree-sitter, no model) on each scan; install it with <code>pip install graphifyy</code> and rescan.</section>
+    return <section className="card muted">{code?.error ?? code?.reason ?? 'No code graph yet.'} The code graph is built from the source on each scan (Python, JavaScript, TypeScript, Java, Go); no model is involved.</section>
   }
   const names = Object.fromEntries(code.communities.map(c => [c.id, c.name]))
   return (
@@ -158,7 +158,7 @@ export function CodeTab({ repo }: { repo: RepoDetail }) {
           ))}</ul>
         </section>
       )}
-      <p className="muted small">Built with Graphify {code.engine_version ?? ''} from the code only; nothing is sent to a model.</p>
+      <p className="muted small">Built from the code only{code.languages ? ` (${Object.entries(code.languages).map(([l, n]) => `${n} ${l}`).join(', ')} files)` : ''}; nothing is sent to a model.</p>
     </>
   )
 }

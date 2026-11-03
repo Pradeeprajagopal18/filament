@@ -1,114 +1,44 @@
-"""Symbol-level code graph for onboarded repos, built with Graphify (tree-sitter, no LLM).
+"""Symbol-level code graph for onboarded repos: analysis over the graph `codeindex` builds.
 
-Graphify parses ~40 languages into functions, classes, modules and their calls, imports,
-inheritance and references, tags every edge EXTRACTED (in the source) or INFERRED (resolved),
-clusters the graph into subsystems and turns NOTE/WHY comments and docstrings into rationale
-nodes. Filament runs it in code-only mode into a per-repo output folder (never into the repo),
-so its cache makes rescans incremental, and reads graph.json through this adapter.
+The graph comes from Filament's own extractor (`codeparse` + `codeindex`: tree-sitter, no
+model, cached per file). It holds modules, classes, functions and methods with exact line
+ranges, and their calls, imports, inheritance and references, each tagged `extracted` (resolved
+from the code) or `inferred` (name match only), plus notes from docstrings and NOTE/WHY
+comments and Louvain subsystems.
 
 Everything downstream (handler-level request flows, function -> endpoint -> consumer impact,
-query/path/explain tools, PR impact) works on the normalized graph returned here.
+query/path/explain tools, PR impact) works on that graph through this module.
 """
 
 from __future__ import annotations
 
-import json
-import os
 import re
-import shutil
-import subprocess
-import sys
 from collections import Counter, defaultdict, deque
 from pathlib import Path
 
-KNOWN_SCHEMAS = {1}
 CODE_KINDS = {"code"}
 NON_SOURCE = (".yml", ".yaml", ".json", ".toml", ".lock", ".md", ".ini", ".cfg", ".txt", ".xml")
 STRUCTURAL = {"contains", "rationale_for"}
-DEP_RELATIONS = {"calls", "imports", "imports_from", "references", "uses", "inherits",
-                 "mixes_in", "method"}
+DEP_RELATIONS = {"calls", "imports", "imports_from", "references", "uses", "inherits", "method"}
 
 
 class CodeGraphError(RuntimeError):
     pass
 
 
-# -- engine ------------------------------------------------------------------------------------
-def engine_path() -> str | None:
-    found = shutil.which("graphify")
-    if found:
-        return found
-    sibling = Path(sys.executable).with_name("graphify")
-    return str(sibling) if sibling.exists() else None
+def available() -> bool:
+    from filament.repos import codeparse
+
+    return codeparse.available()
 
 
-def engine_version(binary: str | None = None) -> str | None:
-    try:
-        from importlib.metadata import version
+def build(root: Path, files: list[str], cache_dir: Path | None = None) -> dict:
+    """Parse the repo's source files and return the resolved code graph."""
+    from filament.repos import codeindex
 
-        return version("graphifyy")
-    except Exception:  # noqa: BLE001 - not installed as a package
-        return None
-
-
-def build(root: Path, out_dir: Path, timeout: int = 600) -> Path:
-    """Run Graphify code-only extraction into out_dir; returns the graph.json path.
-
-    out_dir persists between scans of the same repo, so unchanged files come from the cache.
-    """
-    binary = engine_path()
-    if not binary:
-        raise CodeGraphError("Graphify is not installed (pip install graphifyy)")
-    out_dir.mkdir(parents=True, exist_ok=True)
-    env = {**os.environ, "GRAPHIFY_BACKEND": "none", "GRAPHIFY_NO_TELEMETRY": "1"}
-    env.pop("ANTHROPIC_API_KEY", None)  # code-only: never send code to a model
-    try:
-        proc = subprocess.run([binary, "extract", str(root), "--code-only", "--out", str(out_dir)],
-                              capture_output=True, text=True, timeout=timeout, env=env)
-    except subprocess.TimeoutExpired as exc:
-        raise CodeGraphError(f"Graphify timed out after {timeout}s") from exc
-    graph = out_dir / "graphify-out" / "graph.json"
-    if proc.returncode != 0 or not graph.exists():
-        raise CodeGraphError(f"Graphify failed: {(proc.stderr or proc.stdout)[-400:]}")
-    return graph
-
-
-# -- adapter -------------------------------------------------------------------------------------
-def _line(loc) -> int | None:
-    m = re.match(r"L?(\d+)", str(loc or ""))
-    return int(m.group(1)) if m else None
-
-
-def normalize(raw: dict) -> dict:
-    """graph.json -> Filament's code graph. Unknown fields are dropped; a schema version we
-    haven't seen is accepted best-effort and flagged."""
-    meta = raw.get("graph") or {}
-    schema = meta.get("schema_version")
-    warnings = [] if schema in KNOWN_SCHEMAS else [
-        f"graph.json schema_version {schema!r} is newer than this adapter knows; read best-effort"]
-    nodes = []
-    for n in raw.get("nodes") or []:
-        if not isinstance(n, dict) or "id" not in n:
-            continue
-        kind = n.get("file_type") or n.get("type") or "code"
-        nodes.append({"id": str(n["id"]), "label": str(n.get("label") or n["id"]), "kind": kind,
-                      "file": n.get("source_file"), "line": _line(n.get("source_location")),
-                      "community": n.get("community"),
-                      "callable": bool(n.get("_callable")),
-                      "is_class": bool(n.get("_callable_class"))})
-    ids = {n["id"] for n in nodes}
-    edges = []
-    for e in raw.get("links") or raw.get("edges") or []:
-        s, t = str(e.get("source")), str(e.get("target"))
-        if s not in ids or t not in ids:
-            continue
-        edges.append({"source": s, "target": t, "relation": e.get("relation") or "related",
-                      "confidence": (e.get("confidence") or "EXTRACTED").lower(),
-                      "score": e.get("confidence_score", 1.0), "context": e.get("context"),
-                      "file": e.get("source_file"), "line": _line(e.get("source_location"))})
-    return {"nodes": nodes, "edges": edges, "schema_version": schema,
-            "engine": "graphify", "engine_version": meta.get("graphify_version"),
-            "directed": raw.get("directed", False), "warnings": warnings}
+    if not available():
+        raise CodeGraphError("tree-sitter grammars are not installed (pip install -e '.[code]')")
+    return codeindex.build(root, files, cache_dir)
 
 
 # -- analysis ------------------------------------------------------------------------------------
@@ -133,7 +63,7 @@ class Index:
 
 
 def name_communities(g: dict) -> list[dict]:
-    """Subsystems: Graphify's communities, named after their dominant directory or file."""
+    """Subsystems (Louvain communities), named after their dominant file or directory."""
     members: dict[int, list[dict]] = defaultdict(list)
     for n in g["nodes"]:
         if n.get("community") is not None and n["kind"] in CODE_KINDS and not (
@@ -195,7 +125,7 @@ def hotspots(g: dict, top: int = 10) -> list[dict]:
 
 def import_cycles(g: dict, limit: int = 10) -> list[list[str]]:
     """Module import cycles. Imports inside a function body (deferred on purpose, usually to
-    break a cycle) don't count."""
+    break a cycle) and type-only imports (`import type`, `if TYPE_CHECKING:`) don't count."""
     idx = Index(g)
     graph: dict[str, set[str]] = defaultdict(set)
     module = {n["id"]: n["file"] for n in g["nodes"] if n.get("file")}
@@ -203,7 +133,7 @@ def import_cycles(g: dict, limit: int = 10) -> list[list[str]]:
     for _, (f, start, end) in _ranges(idx).items():
         spans[f].append((start, end))
     for e in g["edges"]:
-        if e["relation"] in {"imports", "imports_from"}:
+        if e["relation"] in {"imports", "imports_from"} and e.get("context") != "type":
             if e.get("line") and any(s < e["line"] <= end for s, end in spans.get(e.get("file"), [])):
                 continue
             a, b = module.get(e["source"]), module.get(e["target"])
@@ -256,13 +186,15 @@ def rationale(g: dict) -> list[dict]:
 
 # -- handler -> service attribution ------------------------------------------------------------------
 def _ranges(idx: Index) -> dict[str, tuple[str, int, int]]:
-    """Approximate line ranges of callables: start line to the next symbol in the same file."""
+    """Line ranges of callables. The extractor records exact end lines; graphs without them
+    fall back to "until the next symbol in the same file"."""
     out = {}
     for file, ns in idx.by_file().items():
         starts = sorted((n["line"], n["id"]) for n in ns if n.get("line") and n["kind"] in CODE_KINDS
                         and n["callable"])
         for i, (line, nid) in enumerate(starts):
-            end = starts[i + 1][0] - 1 if i + 1 < len(starts) else line + 400
+            end = idx.nodes[nid].get("end") or (
+                starts[i + 1][0] - 1 if i + 1 < len(starts) else line + 400)
             out[nid] = (file, line, end)
     return out
 
@@ -337,8 +269,18 @@ def attribute(g: dict, read) -> dict[str, list[dict]]:
         return texts[f]
 
     direct: dict[str, list[dict]] = defaultdict(list)
+    nested: dict[str, list[tuple[int, int]]] = defaultdict(list)
+    per_file: dict[str, list[tuple[str, int, int]]] = defaultdict(list)
+    for nid, (f, start, end) in ranges.items():
+        per_file[f].append((nid, start, end))
+    for items in per_file.values():
+        for nid, start, end in items:
+            nested[nid] = [(s2, e2) for oid, s2, e2 in items if oid != nid and start < s2 and e2 <= end]
     for nid, (f, start, end) in ranges.items():
         body_lines = text(f).splitlines()[start - 1:end]
+        # a class's own lines, not its methods' (they get their own entries)
+        body_lines = [ln if not any(a <= start + i <= b for a, b in nested[nid]) else ""
+                      for i, ln in enumerate(body_lines)]
         body = "\n".join(body_lines[1:]) if len(body_lines) > 1 else ""
         for alias, pkg in aliases[f].items():
             hit = lib_node(pkg)
@@ -403,6 +345,7 @@ def summary(g: dict, endpoints: list[dict], read) -> dict:
             ep_map[f"{ep['method']} {ep['path']}"] = {"node": nid, "services": services.get(nid, [])}
     return {"engine": g["engine"], "engine_version": g.get("engine_version"),
             "schema_version": g.get("schema_version"), "warnings": g.get("warnings", []),
+            "languages": g.get("languages", {}),
             "nodes": len(g["nodes"]), "edges": len(g["edges"]),
             "symbols": sum(1 for n in g["nodes"] if n["kind"] in CODE_KINDS and n["callable"]),
             "files": len({n["file"] for n in g["nodes"] if n.get("file")}),
@@ -423,7 +366,3 @@ def align_services(code: dict, components: dict) -> None:
                 s["service"], s["label"] = stores[0]["id"], stores[0]["label"]
             elif s["service"] in nodes:
                 s["label"] = nodes[s["service"]]["label"]
-
-
-def load_file(path: Path) -> dict:
-    return normalize(json.loads(path.read_text()))

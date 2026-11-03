@@ -1966,239 +1966,230 @@
     },
     "client_calls": [],
     "code": {
-     "engine": "graphify",
-     "engine_version": "0.9.101",
+     "engine": "filament",
+     "engine_version": "1.2",
      "schema_version": 1,
      "warnings": [],
-     "nodes": 83,
-     "edges": 124,
+     "languages": {
+      "python": 10
+     },
+     "nodes": 60,
+     "edges": 97,
      "symbols": 25,
-     "files": 13,
+     "files": 10,
      "kinds": {
-      "code": 62,
-      "rationale": 11,
-      "concept": 10
+      "code": 35,
+      "external": 11,
+      "rationale": 14
      },
      "relations": {
-      "calls": 5,
-      "references": 12,
-      "imports": 20,
+      "contains": 25,
+      "imports": 8,
       "imports_from": 20,
-      "contains": 41,
       "inherits": 7,
-      "rationale_for": 11,
-      "uses": 8
+      "rationale_for": 14,
+      "references": 18,
+      "calls": 5
      },
-     "extracted_pct": 94,
-     "inferred_pct": 6,
+     "extracted_pct": 100,
+     "inferred_pct": 0,
      "communities": [
       {
-       "id": 1,
-       "name": "carts + cache",
+       "id": 0,
+       "name": "app",
        "size": 13,
-       "files": 3,
-       "cohesion": 0.67,
+       "files": 4,
+       "cohesion": 0.41,
        "key_symbols": [
-        "carts.py",
+        "main.py",
         "Cart",
-        "add_item()",
-        "AddItem",
-        "get_cart()"
+        "carts.py",
+        "cache.py",
+        "LineItem"
        ]
       },
       {
-       "id": 0,
+       "id": 1,
        "name": "models + payments",
-       "size": 12,
+       "size": 7,
        "files": 3,
-       "cohesion": 0.48,
+       "cohesion": 0.25,
        "key_symbols": [
-        "payments.py",
-        "BaseModel",
         "models.py",
-        "PaymentIntent",
-        "PaymentIntentIn"
+        "payments.py",
+        "auth.py",
+        "PaymentIntentIn",
+        "PaymentIntent"
        ]
       },
       {
        "id": 2,
-       "name": "app",
-       "size": 9,
+       "name": "app (get_current_user())",
+       "size": 7,
+       "files": 6,
+       "cohesion": 0.64,
+       "key_symbols": [
+        "get_current_user()",
+        "place_order()",
+        "publish_order_event()",
+        "PlaceOrder",
+        "cancel_order()"
+       ]
+      },
+      {
+       "id": 3,
+       "name": "orders",
+       "size": 6,
        "files": 4,
-       "cohesion": 0.48,
+       "cohesion": 0.28,
        "key_symbols": [
         "orders.py",
-        "place_order()",
-        "PlaceOrder",
-        "publish_order_event()",
-        "db.py"
-       ]
-      },
-      {
-       "id": 6,
-       "name": "orders",
-       "size": 4,
-       "files": 2,
-       "cohesion": 0.67,
-       "key_symbols": [
         "Order",
-        "get_order()",
-        "list_orders()",
-        "get"
+        "db.py",
+        "events.py",
+        "list_orders()"
        ]
       },
       {
-       "id": 5,
-       "name": "main",
-       "size": 3,
-       "files": 1,
-       "cohesion": 0.14,
-       "key_symbols": [
-        "main.py",
-        "health()",
-        "get"
-       ]
-      },
-      {
-       "id": 7,
+       "id": 4,
        "name": "test_carts",
        "size": 2,
        "files": 1,
        "cohesion": 0.0,
        "key_symbols": [
-        "test_create_cart()",
-        "test_carts.py"
+        "test_carts.py",
+        "test_create_cart()"
        ]
       }
      ],
      "hotspots": [
       {
-       "id": "app_models_cart",
+       "id": "app/auth.py#get_current_user",
+       "label": "get_current_user()",
+       "file": "app/auth.py",
+       "line": 1,
+       "fan_in": 6,
+       "fan_out": 0,
+       "degree": 6
+      },
+      {
+       "id": "app/models.py#Cart",
        "label": "Cart",
        "file": "app/models.py",
        "line": 11,
        "fan_in": 3,
-       "fan_out": 1,
-       "degree": 4
+       "fan_out": 2,
+       "degree": 5
       },
       {
-       "id": "app_models_order",
+       "id": "app/models.py#Order",
        "label": "Order",
        "file": "app/models.py",
        "line": 27,
        "fan_in": 3,
-       "fan_out": 1,
-       "degree": 4
+       "fan_out": 2,
+       "degree": 5
       },
       {
-       "id": "app_events_publish_order_event",
+       "id": "app/models.py#LineItem",
+       "label": "LineItem",
+       "file": "app/models.py",
+       "line": 5,
+       "fan_in": 2,
+       "fan_out": 1,
+       "degree": 3
+      },
+      {
+       "id": "app/events.py#publish_order_event",
        "label": "publish_order_event()",
        "file": "app/events.py",
        "line": 5,
-       "fan_in": 3,
+       "fan_in": 2,
        "fan_out": 0,
-       "degree": 3
+       "degree": 2
       },
       {
-       "id": "app_models_paymentintent",
-       "label": "PaymentIntent",
-       "file": "app/models.py",
-       "line": 39,
-       "fan_in": 2,
-       "fan_out": 1,
-       "degree": 3
-      },
-      {
-       "id": "app_models_paymentintentin",
-       "label": "PaymentIntentIn",
-       "file": "app/models.py",
-       "line": 35,
-       "fan_in": 2,
-       "fan_out": 1,
-       "degree": 3
-      },
-      {
-       "id": "app_models_additem",
+       "id": "app/models.py#AddItem",
        "label": "AddItem",
        "file": "app/models.py",
        "line": 18,
-       "fan_in": 2,
+       "fan_in": 1,
        "fan_out": 1,
-       "degree": 3
+       "degree": 2
       },
       {
-       "id": "app_models_placeorder",
+       "id": "app/models.py#PlaceOrder",
        "label": "PlaceOrder",
        "file": "app/models.py",
        "line": 22,
-       "fan_in": 2,
+       "fan_in": 1,
        "fan_out": 1,
-       "degree": 3
-      },
-      {
-       "id": "app_auth_get_current_user",
-       "label": "get_current_user()",
-       "file": "app/auth.py",
-       "line": 1,
-       "fan_in": 2,
-       "fan_out": 0,
        "degree": 2
       },
       {
-       "id": "app_cache_cached_cart",
+       "id": "app/models.py#PaymentIntentIn",
+       "label": "PaymentIntentIn",
+       "file": "app/models.py",
+       "line": 35,
+       "fan_in": 1,
+       "fan_out": 1,
+       "degree": 2
+      },
+      {
+       "id": "app/models.py#PaymentIntent",
+       "label": "PaymentIntent",
+       "file": "app/models.py",
+       "line": 39,
+       "fan_in": 1,
+       "fan_out": 1,
+       "degree": 2
+      },
+      {
+       "id": "app/cache.py#cached_cart",
        "label": "cached_cart()",
        "file": "app/cache.py",
        "line": 5,
-       "fan_in": 2,
+       "fan_in": 1,
        "fan_out": 0,
-       "degree": 2
-      },
-      {
-       "id": "app_cache_invalidate_cart",
-       "label": "invalidate_cart()",
-       "file": "app/cache.py",
-       "line": 8,
-       "fan_in": 2,
-       "fan_out": 0,
-       "degree": 2
+       "degree": 1
       }
      ],
      "cycles": [],
      "rationale": [
       {
-       "id": "app_routers_payments_rationale_11",
-       "tag": "NOTE",
-       "text": "card data never touches our servers; Stripe holds it (ADR-7).",
-       "file": "app/routers/payments.py",
-       "line": 11,
-       "about": "payments.py",
-       "about_id": "app_routers_payments",
-       "refs": [
-        "ADR-7"
-       ]
-      },
-      {
-       "id": "app_events_rationale_6",
+       "id": "app/events.py#L6",
        "tag": "WHY",
        "text": "fulfilment and email both listen on order.* topics; keep events small.",
        "file": "app/events.py",
        "line": 6,
-       "about": "events.py",
-       "about_id": "app_events",
+       "about": "publish_order_event()",
+       "about_id": "app/events.py#publish_order_event",
        "refs": []
+      },
+      {
+       "id": "app/routers/payments.py#L11",
+       "tag": "NOTE",
+       "text": "card data never touches our servers; Stripe holds it (ADR-7).",
+       "file": "app/routers/payments.py",
+       "line": 11,
+       "about": "create_intent()",
+       "about_id": "app/routers/payments.py#create_intent",
+       "refs": [
+        "ADR-7"
+       ]
       }
      ],
      "endpoints": {
       "GET /health": {
-       "node": "app_main_health",
+       "node": "app/main.py#health",
        "services": []
       },
       "POST /v1/carts": {
-       "node": "app_routers_carts_create_cart",
+       "node": "app/routers/carts.py#create_cart",
        "services": []
       },
       "GET /v1/carts/{cart_id}": {
-       "node": "app_routers_carts_get_cart",
+       "node": "app/routers/carts.py#get_cart",
        "services": [
         {
          "service": "redis",
@@ -2212,7 +2203,7 @@
        ]
       },
       "POST /v1/carts/{cart_id}/items": {
-       "node": "app_routers_carts_add_item",
+       "node": "app/routers/carts.py#add_item",
        "services": [
         {
          "service": "redis",
@@ -2226,25 +2217,16 @@
        ]
       },
       "DELETE /v1/carts/{cart_id}/items/{item_id}": {
-       "node": "app_routers_carts_remove_item",
+       "node": "app/routers/carts.py#remove_item",
        "services": []
       },
       "GET /v1/orders": {
-       "node": "app_routers_orders_list_orders",
+       "node": "app/routers/orders.py#list_orders",
        "services": []
       },
       "POST /v1/orders": {
-       "node": "app_routers_orders_place_order",
+       "node": "app/routers/orders.py#place_order",
        "services": [
-        {
-         "service": "kafka",
-         "label": "Kafka",
-         "category": "queue",
-         "via": "publish_order_event()",
-         "confidence": "extracted",
-         "file": "app/events.py",
-         "line": 7
-        },
         {
          "service": "postgres",
          "label": "PostgreSQL",
@@ -2253,15 +2235,24 @@
          "confidence": "extracted",
          "file": "app/db.py",
          "line": 7
+        },
+        {
+         "service": "kafka",
+         "label": "Kafka",
+         "category": "queue",
+         "via": "publish_order_event()",
+         "confidence": "extracted",
+         "file": "app/events.py",
+         "line": 7
         }
        ]
       },
       "GET /v1/orders/{order_id}": {
-       "node": "app_routers_orders_get_order",
+       "node": "app/routers/orders.py#get_order",
        "services": []
       },
       "POST /v1/orders/{order_id}/cancel": {
-       "node": "app_routers_orders_cancel_order",
+       "node": "app/routers/orders.py#cancel_order",
        "services": [
         {
          "service": "kafka",
@@ -2275,7 +2266,7 @@
        ]
       },
       "POST /v1/payments/intents": {
-       "node": "app_routers_payments_create_intent",
+       "node": "app/routers/payments.py#create_intent",
        "services": [
         {
          "service": "stripe",
@@ -2289,11 +2280,11 @@
        ]
       },
       "POST /v1/payments/webhooks/stripe": {
-       "node": "app_routers_payments_stripe_webhook",
+       "node": "app/routers/payments.py#stripe_webhook",
        "services": []
       },
       "POST /v1/payments/{payment_id}/refund": {
-       "node": "app_routers_payments_refund",
+       "node": "app/routers/payments.py#refund",
        "services": [
         {
          "service": "stripe",
@@ -2522,1410 +2513,670 @@
    "code_graph": {
     "nodes": [
      {
-      "id": "app_models_lineitem",
-      "label": "LineItem",
-      "kind": "code",
-      "file": "app/models.py",
-      "line": 5,
-      "community": 0,
-      "callable": true,
-      "is_class": true
-     },
-     {
-      "id": "app_models_paymentintent",
-      "label": "PaymentIntent",
-      "kind": "code",
-      "file": "app/models.py",
-      "line": 39,
-      "community": 0,
-      "callable": true,
-      "is_class": true
-     },
-     {
-      "id": "app_models_paymentintentin",
-      "label": "PaymentIntentIn",
-      "kind": "code",
-      "file": "app/models.py",
-      "line": 35,
-      "community": 0,
-      "callable": true,
-      "is_class": true
-     },
-     {
-      "id": "app_models_additem",
-      "label": "AddItem",
-      "kind": "code",
-      "file": "app/models.py",
-      "line": 18,
-      "community": 1,
-      "callable": true,
-      "is_class": true
-     },
-     {
-      "id": "app_models_cart",
-      "label": "Cart",
-      "kind": "code",
-      "file": "app/models.py",
-      "line": 11,
-      "community": 1,
-      "callable": true,
-      "is_class": true
-     },
-     {
-      "id": "app_models_placeorder",
-      "label": "PlaceOrder",
-      "kind": "code",
-      "file": "app/models.py",
-      "line": 22,
-      "community": 2,
-      "callable": true,
-      "is_class": true
-     },
-     {
-      "id": "app_models_order",
-      "label": "Order",
-      "kind": "code",
-      "file": "app/models.py",
-      "line": 27,
-      "community": 6,
-      "callable": true,
-      "is_class": true
-     },
-     {
-      "id": "app_routers_carts_add_item",
-      "label": "add_item()",
-      "kind": "code",
-      "file": "app/routers/carts.py",
-      "line": 19,
-      "community": 1,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "app_routers_carts_get_cart",
-      "label": "get_cart()",
-      "kind": "code",
-      "file": "app/routers/carts.py",
-      "line": 11,
-      "community": 1,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "app_routers_orders_get_order",
-      "label": "get_order()",
-      "kind": "code",
-      "file": "app/routers/orders.py",
-      "line": 22,
-      "community": 6,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "app_auth_get_current_user",
-      "label": "get_current_user()",
-      "kind": "code",
-      "file": "app/auth.py",
-      "line": 1,
-      "community": 0,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "app_routers_payments_create_intent",
-      "label": "create_intent()",
-      "kind": "code",
-      "file": "app/routers/payments.py",
-      "line": 9,
-      "community": 0,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "app_routers_payments_refund",
-      "label": "refund()",
-      "kind": "code",
-      "file": "app/routers/payments.py",
-      "line": 19,
-      "community": 0,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "app_routers_payments_stripe_webhook",
-      "label": "stripe_webhook()",
-      "kind": "code",
-      "file": "app/routers/payments.py",
-      "line": 15,
-      "community": 0,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "app_cache_cached_cart",
-      "label": "cached_cart()",
-      "kind": "code",
-      "file": "app/cache.py",
-      "line": 5,
-      "community": 1,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "app_cache_invalidate_cart",
-      "label": "invalidate_cart()",
-      "kind": "code",
-      "file": "app/cache.py",
-      "line": 8,
-      "community": 1,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "app_routers_carts_create_cart",
-      "label": "create_cart()",
-      "kind": "code",
-      "file": "app/routers/carts.py",
-      "line": 7,
-      "community": 1,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "app_routers_carts_remove_item",
-      "label": "remove_item()",
-      "kind": "code",
-      "file": "app/routers/carts.py",
-      "line": 25,
-      "community": 1,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "app_db_save_order",
-      "label": "save_order()",
-      "kind": "code",
-      "file": "app/db.py",
-      "line": 5,
-      "community": 2,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "app_events_publish_order_event",
-      "label": "publish_order_event()",
-      "kind": "code",
-      "file": "app/events.py",
-      "line": 5,
-      "community": 2,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "app_routers_orders_cancel_order",
-      "label": "cancel_order()",
-      "kind": "code",
-      "file": "app/routers/orders.py",
-      "line": 27,
-      "community": 2,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "app_routers_orders_place_order",
-      "label": "place_order()",
-      "kind": "code",
-      "file": "app/routers/orders.py",
-      "line": 11,
-      "community": 2,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "app_main_health",
-      "label": "health()",
-      "kind": "code",
-      "file": "app/main.py",
-      "line": 13,
-      "community": 5,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "app_routers_orders_list_orders",
-      "label": "list_orders()",
-      "kind": "code",
-      "file": "app/routers/orders.py",
-      "line": 18,
-      "community": 6,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "tests_test_carts_test_create_cart",
-      "label": "test_create_cart()",
-      "kind": "code",
-      "file": "tests/test_carts.py",
-      "line": 1,
-      "community": 7,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "app_auth",
+      "id": "app/auth.py",
       "label": "auth.py",
       "kind": "code",
       "file": "app/auth.py",
       "line": 1,
-      "community": 0,
+      "end": null,
+      "community": 1,
       "callable": false,
       "is_class": false
      },
      {
-      "id": "app_models",
-      "label": "models.py",
+      "id": "app/auth.py#get_current_user",
+      "label": "get_current_user()",
       "kind": "code",
-      "file": "app/models.py",
+      "file": "app/auth.py",
       "line": 1,
-      "community": 0,
-      "callable": false,
+      "end": 2,
+      "community": 2,
+      "callable": true,
       "is_class": false
      },
      {
-      "id": "app_routers_payments",
-      "label": "payments.py",
-      "kind": "code",
-      "file": "app/routers/payments.py",
-      "line": 1,
-      "community": 0,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "app_routers_payments_py_post",
-      "label": "post",
-      "kind": "code",
-      "file": "",
-      "line": null,
-      "community": 0,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "basemodel",
-      "label": "BaseModel",
-      "kind": "code",
-      "file": "",
-      "line": null,
-      "community": 0,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "app_routers_payments_rationale_10",
-      "label": "Create a Stripe payment intent for an order.",
-      "kind": "rationale",
-      "file": "app/routers/payments.py",
-      "line": 10,
-      "community": 0,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "app_routers_payments_rationale_11",
-      "label": "# NOTE: card data never touches our servers; Stripe holds it (ADR-7).",
-      "kind": "rationale",
-      "file": "app/routers/payments.py",
-      "line": 11,
-      "community": 0,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "app_routers_payments_rationale_16",
-      "label": "Payment status from Stripe.",
-      "kind": "rationale",
-      "file": "app/routers/payments.py",
-      "line": 16,
-      "community": 0,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "app_routers_payments_rationale_20",
-      "label": "Refund a captured payment.",
-      "kind": "rationale",
-      "file": "app/routers/payments.py",
-      "line": 20,
-      "community": 0,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "app_cache",
+      "id": "app/cache.py",
       "label": "cache.py",
       "kind": "code",
       "file": "app/cache.py",
       "line": 1,
-      "community": 1,
+      "end": null,
+      "community": 0,
       "callable": false,
       "is_class": false
      },
      {
-      "id": "app_routers_carts",
-      "label": "carts.py",
+      "id": "app/cache.py#cached_cart",
+      "label": "cached_cart()",
       "kind": "code",
-      "file": "app/routers/carts.py",
-      "line": 1,
-      "community": 1,
-      "callable": false,
+      "file": "app/cache.py",
+      "line": 5,
+      "end": 6,
+      "community": 0,
+      "callable": true,
       "is_class": false
      },
      {
-      "id": "app_routers_carts_py_get",
-      "label": "get",
+      "id": "app/cache.py#invalidate_cart",
+      "label": "invalidate_cart()",
       "kind": "code",
-      "file": "",
-      "line": null,
-      "community": 1,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "app_routers_carts_py_post",
-      "label": "post",
-      "kind": "code",
-      "file": "",
-      "line": null,
-      "community": 1,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "delete",
-      "label": "delete",
-      "kind": "code",
-      "file": "",
-      "line": null,
-      "community": 1,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "app_routers_carts_rationale_12",
-      "label": "Read a cart with line items.",
-      "kind": "rationale",
-      "file": "app/routers/carts.py",
-      "line": 12,
-      "community": 1,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "app_routers_carts_rationale_20",
-      "label": "Add a product to the cart.",
-      "kind": "rationale",
-      "file": "app/routers/carts.py",
-      "line": 20,
-      "community": 1,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "app_routers_carts_rationale_8",
-      "label": "Start a cart for a shopper.",
-      "kind": "rationale",
-      "file": "app/routers/carts.py",
+      "file": "app/cache.py",
       "line": 8,
-      "community": 1,
-      "callable": false,
+      "end": 9,
+      "community": 0,
+      "callable": true,
       "is_class": false
      },
      {
-      "id": "app_db",
+      "id": "app/db.py",
       "label": "db.py",
       "kind": "code",
       "file": "app/db.py",
       "line": 1,
-      "community": 2,
+      "end": null,
+      "community": 3,
       "callable": false,
       "is_class": false
      },
      {
-      "id": "app_events",
+      "id": "app/db.py#save_order",
+      "label": "save_order()",
+      "kind": "code",
+      "file": "app/db.py",
+      "line": 5,
+      "end": 8,
+      "community": 2,
+      "callable": true,
+      "is_class": false
+     },
+     {
+      "id": "app/events.py",
       "label": "events.py",
       "kind": "code",
       "file": "app/events.py",
       "line": 1,
-      "community": 2,
+      "end": null,
+      "community": 3,
       "callable": false,
       "is_class": false
      },
      {
-      "id": "app_routers_orders",
-      "label": "orders.py",
+      "id": "app/events.py#publish_order_event",
+      "label": "publish_order_event()",
       "kind": "code",
-      "file": "app/routers/orders.py",
-      "line": 1,
-      "community": 2,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "app_routers_orders_py_post",
-      "label": "post",
-      "kind": "code",
-      "file": "",
-      "line": null,
-      "community": 2,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "app_events_rationale_6",
-      "label": "# WHY: fulfilment and email both listen on order.* topics; keep events small.",
-      "kind": "rationale",
       "file": "app/events.py",
-      "line": 6,
-      "community": 2,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "app_routers_orders_rationale_12",
-      "label": "Turn a cart into an order and emit order.placed.",
-      "kind": "rationale",
-      "file": "app/routers/orders.py",
-      "line": 12,
-      "community": 2,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "app_routers_orders_rationale_28",
-      "label": "Cancel before fulfilment.",
-      "kind": "rationale",
-      "file": "app/routers/orders.py",
-      "line": 28,
-      "community": 2,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "docker_compose",
-      "label": "docker-compose.yml",
-      "kind": "code",
-      "file": "docker-compose.yml",
-      "line": 1,
-      "community": 3,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "docker_compose_api_build",
-      "label": "build",
-      "kind": "code",
-      "file": "docker-compose.yml",
-      "line": 3,
-      "community": 3,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "docker_compose_api_depends_on",
-      "label": "depends_on",
-      "kind": "code",
-      "file": "docker-compose.yml",
-      "line": 4,
-      "community": 3,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "docker_compose_api_environment",
-      "label": "environment",
-      "kind": "code",
-      "file": "docker-compose.yml",
       "line": 5,
-      "community": 3,
-      "callable": false,
+      "end": 7,
+      "community": 2,
+      "callable": true,
       "is_class": false
      },
      {
-      "id": "docker_compose_cache_image",
-      "label": "image",
-      "kind": "code",
-      "file": "docker-compose.yml",
-      "line": 10,
-      "community": 3,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "docker_compose_db_image",
-      "label": "image",
-      "kind": "code",
-      "file": "docker-compose.yml",
-      "line": 8,
-      "community": 3,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "docker_compose_environment_inventory_service_url",
-      "label": "INVENTORY_SERVICE_URL",
-      "kind": "code",
-      "file": "docker-compose.yml",
-      "line": 6,
-      "community": 3,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "docker_compose_services",
-      "label": "services",
-      "kind": "code",
-      "file": "docker-compose.yml",
-      "line": 1,
-      "community": 3,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "docker_compose_services_api",
-      "label": "api",
-      "kind": "code",
-      "file": "docker-compose.yml",
-      "line": 2,
-      "community": 3,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "docker_compose_services_cache",
-      "label": "cache",
-      "kind": "code",
-      "file": "docker-compose.yml",
-      "line": 9,
-      "community": 3,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "docker_compose_services_db",
-      "label": "db",
-      "kind": "code",
-      "file": "docker-compose.yml",
-      "line": 7,
-      "community": 3,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "github_workflows_ci",
-      "label": "ci.yml",
-      "kind": "code",
-      "file": ".github/workflows/ci.yml",
-      "line": 1,
-      "community": 4,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "github_workflows_ci_jobs",
-      "label": "jobs",
-      "kind": "code",
-      "file": ".github/workflows/ci.yml",
-      "line": 2,
-      "community": 4,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "github_workflows_ci_jobs_test",
-      "label": "test",
-      "kind": "code",
-      "file": ".github/workflows/ci.yml",
-      "line": 3,
-      "community": 4,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "github_workflows_ci_on",
-      "label": "on",
-      "kind": "code",
-      "file": ".github/workflows/ci.yml",
-      "line": 1,
-      "community": 4,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "github_workflows_ci_steps_run",
-      "label": "run",
-      "kind": "code",
-      "file": ".github/workflows/ci.yml",
-      "line": 6,
-      "community": 4,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "github_workflows_ci_test_runs_on",
-      "label": "runs-on",
-      "kind": "code",
-      "file": ".github/workflows/ci.yml",
-      "line": 4,
-      "community": 4,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "github_workflows_ci_test_steps",
-      "label": "steps",
-      "kind": "code",
-      "file": ".github/workflows/ci.yml",
-      "line": 5,
-      "community": 4,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "app_main",
+      "id": "app/main.py",
       "label": "main.py",
       "kind": "code",
       "file": "app/main.py",
       "line": 1,
-      "community": 5,
+      "end": null,
+      "community": 0,
       "callable": false,
       "is_class": false
      },
      {
-      "id": "app_main_py_get",
-      "label": "get",
+      "id": "app/main.py#health",
+      "label": "health()",
       "kind": "code",
-      "file": "",
-      "line": null,
-      "community": 5,
-      "callable": false,
+      "file": "app/main.py",
+      "line": 13,
+      "end": 15,
+      "community": 0,
+      "callable": true,
       "is_class": false
      },
      {
-      "id": "app_routers_orders_py_get",
-      "label": "get",
+      "id": "app/models.py",
+      "label": "models.py",
       "kind": "code",
-      "file": "",
-      "line": null,
-      "community": 6,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "app_routers_orders_rationale_19",
-      "label": "Orders for a customer.",
-      "kind": "rationale",
-      "file": "app/routers/orders.py",
-      "line": 19,
-      "community": 6,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "tests_test_carts",
-      "label": "test_carts.py",
-      "kind": "code",
-      "file": "tests/test_carts.py",
+      "file": "app/models.py",
       "line": 1,
-      "community": 7,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "pkg_checkout_api",
-      "label": "checkout-api",
-      "kind": "code",
-      "file": "pyproject.toml",
-      "line": 1,
-      "community": 8,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "datetime",
-      "label": "datetime",
-      "kind": "concept",
-      "file": "",
-      "line": null,
-      "community": 0,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "pydantic",
-      "label": "pydantic",
-      "kind": "concept",
-      "file": "",
-      "line": null,
-      "community": 0,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "stripe",
-      "label": "stripe",
-      "kind": "concept",
-      "file": "",
-      "line": null,
-      "community": 0,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "typing",
-      "label": "typing",
-      "kind": "concept",
-      "file": "",
-      "line": null,
-      "community": 0,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "redis",
-      "label": "redis",
-      "kind": "concept",
-      "file": "",
-      "line": null,
+      "end": null,
       "community": 1,
       "callable": false,
       "is_class": false
      },
      {
-      "id": "aiokafka",
-      "label": "aiokafka",
-      "kind": "concept",
-      "file": "",
-      "line": null,
+      "id": "app/models.py#LineItem",
+      "label": "LineItem",
+      "kind": "code",
+      "file": "app/models.py",
+      "line": 5,
+      "end": 9,
+      "community": 0,
+      "callable": true,
+      "is_class": true
+     },
+     {
+      "id": "app/models.py#Cart",
+      "label": "Cart",
+      "kind": "code",
+      "file": "app/models.py",
+      "line": 11,
+      "end": 16,
+      "community": 0,
+      "callable": true,
+      "is_class": true
+     },
+     {
+      "id": "app/models.py#AddItem",
+      "label": "AddItem",
+      "kind": "code",
+      "file": "app/models.py",
+      "line": 18,
+      "end": 20,
+      "community": 0,
+      "callable": true,
+      "is_class": true
+     },
+     {
+      "id": "app/models.py#PlaceOrder",
+      "label": "PlaceOrder",
+      "kind": "code",
+      "file": "app/models.py",
+      "line": 22,
+      "end": 25,
       "community": 2,
+      "callable": true,
+      "is_class": true
+     },
+     {
+      "id": "app/models.py#Order",
+      "label": "Order",
+      "kind": "code",
+      "file": "app/models.py",
+      "line": 27,
+      "end": 33,
+      "community": 3,
+      "callable": true,
+      "is_class": true
+     },
+     {
+      "id": "app/models.py#PaymentIntentIn",
+      "label": "PaymentIntentIn",
+      "kind": "code",
+      "file": "app/models.py",
+      "line": 35,
+      "end": 37,
+      "community": 1,
+      "callable": true,
+      "is_class": true
+     },
+     {
+      "id": "app/models.py#PaymentIntent",
+      "label": "PaymentIntent",
+      "kind": "code",
+      "file": "app/models.py",
+      "line": 39,
+      "end": 43,
+      "community": 1,
+      "callable": true,
+      "is_class": true
+     },
+     {
+      "id": "app/routers/carts.py",
+      "label": "carts.py",
+      "kind": "code",
+      "file": "app/routers/carts.py",
+      "line": 1,
+      "end": null,
+      "community": 0,
       "callable": false,
       "is_class": false
      },
      {
-      "id": "os",
+      "id": "app/routers/carts.py#create_cart",
+      "label": "create_cart()",
+      "kind": "code",
+      "file": "app/routers/carts.py",
+      "line": 7,
+      "end": 8,
+      "community": 0,
+      "callable": true,
+      "is_class": false
+     },
+     {
+      "id": "app/routers/carts.py#get_cart",
+      "label": "get_cart()",
+      "kind": "code",
+      "file": "app/routers/carts.py",
+      "line": 11,
+      "end": 16,
+      "community": 0,
+      "callable": true,
+      "is_class": false
+     },
+     {
+      "id": "app/routers/carts.py#add_item",
+      "label": "add_item()",
+      "kind": "code",
+      "file": "app/routers/carts.py",
+      "line": 19,
+      "end": 22,
+      "community": 0,
+      "callable": true,
+      "is_class": false
+     },
+     {
+      "id": "app/routers/carts.py#remove_item",
+      "label": "remove_item()",
+      "kind": "code",
+      "file": "app/routers/carts.py",
+      "line": 25,
+      "end": 26,
+      "community": 0,
+      "callable": true,
+      "is_class": false
+     },
+     {
+      "id": "app/routers/orders.py",
+      "label": "orders.py",
+      "kind": "code",
+      "file": "app/routers/orders.py",
+      "line": 1,
+      "end": null,
+      "community": 3,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "app/routers/orders.py#place_order",
+      "label": "place_order()",
+      "kind": "code",
+      "file": "app/routers/orders.py",
+      "line": 11,
+      "end": 15,
+      "community": 2,
+      "callable": true,
+      "is_class": false
+     },
+     {
+      "id": "app/routers/orders.py#list_orders",
+      "label": "list_orders()",
+      "kind": "code",
+      "file": "app/routers/orders.py",
+      "line": 18,
+      "end": 19,
+      "community": 3,
+      "callable": true,
+      "is_class": false
+     },
+     {
+      "id": "app/routers/orders.py#get_order",
+      "label": "get_order()",
+      "kind": "code",
+      "file": "app/routers/orders.py",
+      "line": 22,
+      "end": 24,
+      "community": 3,
+      "callable": true,
+      "is_class": false
+     },
+     {
+      "id": "app/routers/orders.py#cancel_order",
+      "label": "cancel_order()",
+      "kind": "code",
+      "file": "app/routers/orders.py",
+      "line": 27,
+      "end": 30,
+      "community": 2,
+      "callable": true,
+      "is_class": false
+     },
+     {
+      "id": "app/routers/payments.py",
+      "label": "payments.py",
+      "kind": "code",
+      "file": "app/routers/payments.py",
+      "line": 1,
+      "end": null,
+      "community": 1,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "app/routers/payments.py#create_intent",
+      "label": "create_intent()",
+      "kind": "code",
+      "file": "app/routers/payments.py",
+      "line": 9,
+      "end": 12,
+      "community": 1,
+      "callable": true,
+      "is_class": false
+     },
+     {
+      "id": "app/routers/payments.py#stripe_webhook",
+      "label": "stripe_webhook()",
+      "kind": "code",
+      "file": "app/routers/payments.py",
+      "line": 15,
+      "end": 16,
+      "community": 1,
+      "callable": true,
+      "is_class": false
+     },
+     {
+      "id": "app/routers/payments.py#refund",
+      "label": "refund()",
+      "kind": "code",
+      "file": "app/routers/payments.py",
+      "line": 19,
+      "end": 21,
+      "community": 2,
+      "callable": true,
+      "is_class": false
+     },
+     {
+      "id": "tests/test_carts.py",
+      "label": "test_carts.py",
+      "kind": "code",
+      "file": "tests/test_carts.py",
+      "line": 1,
+      "end": null,
+      "community": 4,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "tests/test_carts.py#test_create_cart",
+      "label": "test_create_cart()",
+      "kind": "code",
+      "file": "tests/test_carts.py",
+      "line": 1,
+      "end": 2,
+      "community": 4,
+      "callable": true,
+      "is_class": false
+     },
+     {
+      "id": "ext:os",
       "label": "os",
-      "kind": "concept",
-      "file": "",
+      "kind": "external",
+      "file": null,
       "line": null,
-      "community": 2,
+      "end": null,
+      "community": null,
       "callable": false,
       "is_class": false
      },
      {
-      "id": "sqlalchemy",
+      "id": "ext:redis",
+      "label": "redis",
+      "kind": "external",
+      "file": null,
+      "line": null,
+      "end": null,
+      "community": null,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "ext:sqlalchemy",
       "label": "sqlalchemy",
-      "kind": "concept",
-      "file": "",
+      "kind": "external",
+      "file": null,
       "line": null,
+      "end": null,
+      "community": null,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "ext:aiokafka",
+      "label": "aiokafka",
+      "kind": "external",
+      "file": null,
+      "line": null,
+      "end": null,
+      "community": null,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "ext:sentry_sdk",
+      "label": "sentry_sdk",
+      "kind": "external",
+      "file": null,
+      "line": null,
+      "end": null,
+      "community": null,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "ext:fastapi",
+      "label": "fastapi",
+      "kind": "external",
+      "file": null,
+      "line": null,
+      "end": null,
+      "community": null,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "ext:datetime",
+      "label": "datetime",
+      "kind": "external",
+      "file": null,
+      "line": null,
+      "end": null,
+      "community": null,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "ext:typing",
+      "label": "typing",
+      "kind": "external",
+      "file": null,
+      "line": null,
+      "end": null,
+      "community": null,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "ext:pydantic",
+      "label": "pydantic",
+      "kind": "external",
+      "file": null,
+      "line": null,
+      "end": null,
+      "community": null,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "ext:stripe",
+      "label": "stripe",
+      "kind": "external",
+      "file": null,
+      "line": null,
+      "end": null,
+      "community": null,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "ext:pydantic.BaseModel",
+      "label": "BaseModel",
+      "kind": "external",
+      "file": null,
+      "line": null,
+      "end": null,
+      "community": null,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "app/events.py#L6",
+      "label": "# WHY: fulfilment and email both listen on order.* topics; keep events small.",
+      "kind": "rationale",
+      "file": "app/events.py",
+      "line": 6,
+      "end": null,
       "community": 2,
       "callable": false,
       "is_class": false
      },
      {
-      "id": "fastapi",
-      "label": "fastapi",
-      "kind": "concept",
-      "file": "",
-      "line": null,
-      "community": 5,
+      "id": "app/main.py#L14",
+      "label": "Liveness probe.",
+      "kind": "rationale",
+      "file": "app/main.py",
+      "line": 14,
+      "end": null,
+      "community": 0,
       "callable": false,
       "is_class": false
      },
      {
-      "id": "sentry_sdk",
-      "label": "sentry_sdk",
-      "kind": "concept",
-      "file": "",
-      "line": null,
-      "community": 5,
+      "id": "app/routers/carts.py#L8",
+      "label": "Start a cart for a shopper.",
+      "kind": "rationale",
+      "file": "app/routers/carts.py",
+      "line": 8,
+      "end": null,
+      "community": 0,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "app/routers/carts.py#L12",
+      "label": "Read a cart with line items.",
+      "kind": "rationale",
+      "file": "app/routers/carts.py",
+      "line": 12,
+      "end": null,
+      "community": 0,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "app/routers/carts.py#L20",
+      "label": "Add a product to the cart.",
+      "kind": "rationale",
+      "file": "app/routers/carts.py",
+      "line": 20,
+      "end": null,
+      "community": 0,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "app/routers/carts.py#L26",
+      "label": "Remove a line item.",
+      "kind": "rationale",
+      "file": "app/routers/carts.py",
+      "line": 26,
+      "end": null,
+      "community": 0,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "app/routers/orders.py#L12",
+      "label": "Turn a cart into an order and emit order.placed.",
+      "kind": "rationale",
+      "file": "app/routers/orders.py",
+      "line": 12,
+      "end": null,
+      "community": 2,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "app/routers/orders.py#L19",
+      "label": "Orders for a customer.",
+      "kind": "rationale",
+      "file": "app/routers/orders.py",
+      "line": 19,
+      "end": null,
+      "community": 3,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "app/routers/orders.py#L23",
+      "label": "Read one order.",
+      "kind": "rationale",
+      "file": "app/routers/orders.py",
+      "line": 23,
+      "end": null,
+      "community": 3,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "app/routers/orders.py#L28",
+      "label": "Cancel before fulfilment.",
+      "kind": "rationale",
+      "file": "app/routers/orders.py",
+      "line": 28,
+      "end": null,
+      "community": 2,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "app/routers/payments.py#L10",
+      "label": "Create a Stripe payment intent for an order.",
+      "kind": "rationale",
+      "file": "app/routers/payments.py",
+      "line": 10,
+      "end": null,
+      "community": 1,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "app/routers/payments.py#L11",
+      "label": "# NOTE: card data never touches our servers; Stripe holds it (ADR-7).",
+      "kind": "rationale",
+      "file": "app/routers/payments.py",
+      "line": 11,
+      "end": null,
+      "community": 1,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "app/routers/payments.py#L16",
+      "label": "Payment status from Stripe.",
+      "kind": "rationale",
+      "file": "app/routers/payments.py",
+      "line": 16,
+      "end": null,
+      "community": 1,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "app/routers/payments.py#L20",
+      "label": "Refund a captured payment.",
+      "kind": "rationale",
+      "file": "app/routers/payments.py",
+      "line": 20,
+      "end": null,
+      "community": 2,
       "callable": false,
       "is_class": false
      }
     ],
     "edges": [
      {
-      "source": "app_routers_carts_add_item",
-      "target": "app_cache_invalidate_cart",
-      "relation": "calls",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "call",
-      "file": "app/routers/carts.py",
-      "line": 21
-     },
-     {
-      "source": "app_routers_carts_get_cart",
-      "target": "app_cache_cached_cart",
-      "relation": "calls",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "call",
-      "file": "app/routers/carts.py",
-      "line": 13
-     },
-     {
-      "source": "app_routers_orders_cancel_order",
-      "target": "app_events_publish_order_event",
-      "relation": "calls",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "call",
-      "file": "app/routers/orders.py",
-      "line": 29
-     },
-     {
-      "source": "app_routers_orders_place_order",
-      "target": "app_db_save_order",
-      "relation": "calls",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "call",
-      "file": "app/routers/orders.py",
-      "line": 13
-     },
-     {
-      "source": "app_routers_orders_place_order",
-      "target": "app_events_publish_order_event",
-      "relation": "calls",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "call",
-      "file": "app/routers/orders.py",
-      "line": 14
-     },
-     {
-      "source": "app_main_health",
-      "target": "app_main_py_get",
-      "relation": "references",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "decorator",
-      "file": "app/main.py",
-      "line": 12
-     },
-     {
-      "source": "app_routers_carts_add_item",
-      "target": "app_routers_carts_py_post",
-      "relation": "references",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "decorator",
-      "file": "app/routers/carts.py",
-      "line": 18
-     },
-     {
-      "source": "app_routers_carts_create_cart",
-      "target": "app_routers_carts_py_post",
-      "relation": "references",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "decorator",
-      "file": "app/routers/carts.py",
-      "line": 6
-     },
-     {
-      "source": "app_routers_carts_get_cart",
-      "target": "app_routers_carts_py_get",
-      "relation": "references",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "decorator",
-      "file": "app/routers/carts.py",
-      "line": 10
-     },
-     {
-      "source": "app_routers_carts_remove_item",
-      "target": "delete",
-      "relation": "references",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "decorator",
-      "file": "app/routers/carts.py",
-      "line": 24
-     },
-     {
-      "source": "app_routers_orders_cancel_order",
-      "target": "app_routers_orders_py_post",
-      "relation": "references",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "decorator",
-      "file": "app/routers/orders.py",
-      "line": 26
-     },
-     {
-      "source": "app_routers_orders_get_order",
-      "target": "app_routers_orders_py_get",
-      "relation": "references",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "decorator",
-      "file": "app/routers/orders.py",
-      "line": 21
-     },
-     {
-      "source": "app_routers_orders_list_orders",
-      "target": "app_routers_orders_py_get",
-      "relation": "references",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "decorator",
-      "file": "app/routers/orders.py",
-      "line": 17
-     },
-     {
-      "source": "app_routers_orders_place_order",
-      "target": "app_routers_orders_py_post",
-      "relation": "references",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "decorator",
-      "file": "app/routers/orders.py",
-      "line": 10
-     },
-     {
-      "source": "app_routers_payments_create_intent",
-      "target": "app_routers_payments_py_post",
-      "relation": "references",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "decorator",
-      "file": "app/routers/payments.py",
-      "line": 8
-     },
-     {
-      "source": "app_routers_payments_refund",
-      "target": "app_routers_payments_py_post",
-      "relation": "references",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "decorator",
-      "file": "app/routers/payments.py",
-      "line": 18
-     },
-     {
-      "source": "app_routers_payments_stripe_webhook",
-      "target": "app_routers_payments_py_post",
-      "relation": "references",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "decorator",
-      "file": "app/routers/payments.py",
-      "line": 14
-     },
-     {
-      "source": "app_cache",
-      "target": "os",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/cache.py",
-      "line": 1
-     },
-     {
-      "source": "app_cache",
-      "target": "redis",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/cache.py",
-      "line": 2
-     },
-     {
-      "source": "app_db",
-      "target": "os",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/db.py",
-      "line": 1
-     },
-     {
-      "source": "app_events",
-      "target": "os",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/events.py",
-      "line": 1
-     },
-     {
-      "source": "app_main",
-      "target": "os",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/main.py",
-      "line": 1
-     },
-     {
-      "source": "app_main",
-      "target": "sentry_sdk",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/main.py",
-      "line": 2
-     },
-     {
-      "source": "app_routers_carts",
-      "target": "app_models_additem",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/routers/carts.py",
-      "line": 2
-     },
-     {
-      "source": "app_routers_carts",
-      "target": "app_models_cart",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/routers/carts.py",
-      "line": 2
-     },
-     {
-      "source": "app_routers_carts",
-      "target": "app_cache_cached_cart",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/routers/carts.py",
-      "line": 3
-     },
-     {
-      "source": "app_routers_carts",
-      "target": "app_cache_invalidate_cart",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/routers/carts.py",
-      "line": 3
-     },
-     {
-      "source": "app_routers_orders",
-      "target": "os",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/routers/orders.py",
-      "line": 1
-     },
-     {
-      "source": "app_routers_orders",
-      "target": "app_auth_get_current_user",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/routers/orders.py",
-      "line": 3
-     },
-     {
-      "source": "app_routers_orders",
-      "target": "app_models_order",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/routers/orders.py",
-      "line": 4
-     },
-     {
-      "source": "app_routers_orders",
-      "target": "app_models_placeorder",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/routers/orders.py",
-      "line": 4
-     },
-     {
-      "source": "app_routers_orders",
-      "target": "app_events_publish_order_event",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/routers/orders.py",
-      "line": 5
-     },
-     {
-      "source": "app_routers_orders",
-      "target": "app_db_save_order",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/routers/orders.py",
-      "line": 6
-     },
-     {
-      "source": "app_routers_payments",
-      "target": "stripe",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/routers/payments.py",
-      "line": 1
-     },
-     {
-      "source": "app_routers_payments",
-      "target": "app_auth_get_current_user",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/routers/payments.py",
-      "line": 3
-     },
-     {
-      "source": "app_routers_payments",
-      "target": "app_models_paymentintent",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/routers/payments.py",
-      "line": 4
-     },
-     {
-      "source": "app_routers_payments",
-      "target": "app_models_paymentintentin",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/routers/payments.py",
-      "line": 4
-     },
-     {
-      "source": "app_db",
-      "target": "sqlalchemy",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/db.py",
-      "line": 2
-     },
-     {
-      "source": "app_events",
-      "target": "aiokafka",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/events.py",
-      "line": 2
-     },
-     {
-      "source": "app_main",
-      "target": "fastapi",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/main.py",
-      "line": 3
-     },
-     {
-      "source": "app_models",
-      "target": "datetime",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/models.py",
-      "line": 1
-     },
-     {
-      "source": "app_models",
-      "target": "typing",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/models.py",
-      "line": 2
-     },
-     {
-      "source": "app_models",
-      "target": "pydantic",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/models.py",
-      "line": 3
-     },
-     {
-      "source": "app_routers_carts",
-      "target": "fastapi",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/routers/carts.py",
-      "line": 1
-     },
-     {
-      "source": "app_routers_carts",
-      "target": "app_models",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/routers/carts.py",
-      "line": 2
-     },
-     {
-      "source": "app_routers_carts",
-      "target": "app_cache",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/routers/carts.py",
-      "line": 3
-     },
-     {
-      "source": "app_routers_orders",
-      "target": "fastapi",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/routers/orders.py",
-      "line": 2
-     },
-     {
-      "source": "app_routers_orders",
-      "target": "app_auth",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/routers/orders.py",
-      "line": 3
-     },
-     {
-      "source": "app_routers_orders",
-      "target": "app_models",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/routers/orders.py",
-      "line": 4
-     },
-     {
-      "source": "app_routers_orders",
-      "target": "app_events",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/routers/orders.py",
-      "line": 5
-     },
-     {
-      "source": "app_routers_orders",
-      "target": "app_db",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/routers/orders.py",
-      "line": 6
-     },
-     {
-      "source": "app_routers_payments",
-      "target": "fastapi",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/routers/payments.py",
-      "line": 2
-     },
-     {
-      "source": "app_routers_payments",
-      "target": "app_auth",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/routers/payments.py",
-      "line": 3
-     },
-     {
-      "source": "app_routers_payments",
-      "target": "app_models",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "app/routers/payments.py",
-      "line": 4
-     },
-     {
-      "source": "app_main",
-      "target": "app_routers_carts",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "submodule_import",
-      "file": "app/main.py",
-      "line": 4
-     },
-     {
-      "source": "app_main",
-      "target": "app_routers_orders",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "submodule_import",
-      "file": "app/main.py",
-      "line": 4
-     },
-     {
-      "source": "app_main",
-      "target": "app_routers_payments",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "submodule_import",
-      "file": "app/main.py",
-      "line": 4
-     },
-     {
-      "source": "app_auth",
-      "target": "app_auth_get_current_user",
+      "source": "app/auth.py",
+      "target": "app/auth.py#get_current_user",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -3934,8 +3185,8 @@
       "line": 1
      },
      {
-      "source": "app_cache",
-      "target": "app_cache_cached_cart",
+      "source": "app/cache.py",
+      "target": "app/cache.py#cached_cart",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -3944,8 +3195,8 @@
       "line": 5
      },
      {
-      "source": "app_cache",
-      "target": "app_cache_invalidate_cart",
+      "source": "app/cache.py",
+      "target": "app/cache.py#invalidate_cart",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -3954,8 +3205,8 @@
       "line": 8
      },
      {
-      "source": "app_db",
-      "target": "app_db_save_order",
+      "source": "app/db.py",
+      "target": "app/db.py#save_order",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -3964,8 +3215,8 @@
       "line": 5
      },
      {
-      "source": "app_events",
-      "target": "app_events_publish_order_event",
+      "source": "app/events.py",
+      "target": "app/events.py#publish_order_event",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -3974,8 +3225,8 @@
       "line": 5
      },
      {
-      "source": "app_main",
-      "target": "app_main_health",
+      "source": "app/main.py",
+      "target": "app/main.py#health",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -3984,8 +3235,18 @@
       "line": 13
      },
      {
-      "source": "app_models",
-      "target": "app_models_cart",
+      "source": "app/models.py",
+      "target": "app/models.py#LineItem",
+      "relation": "contains",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/models.py",
+      "line": 5
+     },
+     {
+      "source": "app/models.py",
+      "target": "app/models.py#Cart",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -3994,8 +3255,8 @@
       "line": 11
      },
      {
-      "source": "app_models",
-      "target": "app_models_additem",
+      "source": "app/models.py",
+      "target": "app/models.py#AddItem",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -4004,8 +3265,8 @@
       "line": 18
      },
      {
-      "source": "app_models",
-      "target": "app_models_placeorder",
+      "source": "app/models.py",
+      "target": "app/models.py#PlaceOrder",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -4014,8 +3275,8 @@
       "line": 22
      },
      {
-      "source": "app_models",
-      "target": "app_models_order",
+      "source": "app/models.py",
+      "target": "app/models.py#Order",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -4024,8 +3285,8 @@
       "line": 27
      },
      {
-      "source": "app_models",
-      "target": "app_models_paymentintentin",
+      "source": "app/models.py",
+      "target": "app/models.py#PaymentIntentIn",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -4034,8 +3295,8 @@
       "line": 35
      },
      {
-      "source": "app_models",
-      "target": "app_models_paymentintent",
+      "source": "app/models.py",
+      "target": "app/models.py#PaymentIntent",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -4044,18 +3305,18 @@
       "line": 39
      },
      {
-      "source": "app_models",
-      "target": "app_models_lineitem",
+      "source": "app/routers/carts.py",
+      "target": "app/routers/carts.py#create_cart",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
       "context": null,
-      "file": "app/models.py",
-      "line": 5
+      "file": "app/routers/carts.py",
+      "line": 7
      },
      {
-      "source": "app_routers_carts",
-      "target": "app_routers_carts_get_cart",
+      "source": "app/routers/carts.py",
+      "target": "app/routers/carts.py#get_cart",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -4064,8 +3325,8 @@
       "line": 11
      },
      {
-      "source": "app_routers_carts",
-      "target": "app_routers_carts_add_item",
+      "source": "app/routers/carts.py",
+      "target": "app/routers/carts.py#add_item",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -4074,8 +3335,8 @@
       "line": 19
      },
      {
-      "source": "app_routers_carts",
-      "target": "app_routers_carts_remove_item",
+      "source": "app/routers/carts.py",
+      "target": "app/routers/carts.py#remove_item",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -4084,18 +3345,8 @@
       "line": 25
      },
      {
-      "source": "app_routers_carts",
-      "target": "app_routers_carts_create_cart",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "app/routers/carts.py",
-      "line": 7
-     },
-     {
-      "source": "app_routers_orders",
-      "target": "app_routers_orders_place_order",
+      "source": "app/routers/orders.py",
+      "target": "app/routers/orders.py#place_order",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -4104,8 +3355,8 @@
       "line": 11
      },
      {
-      "source": "app_routers_orders",
-      "target": "app_routers_orders_list_orders",
+      "source": "app/routers/orders.py",
+      "target": "app/routers/orders.py#list_orders",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -4114,8 +3365,8 @@
       "line": 18
      },
      {
-      "source": "app_routers_orders",
-      "target": "app_routers_orders_get_order",
+      "source": "app/routers/orders.py",
+      "target": "app/routers/orders.py#get_order",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -4124,8 +3375,8 @@
       "line": 22
      },
      {
-      "source": "app_routers_orders",
-      "target": "app_routers_orders_cancel_order",
+      "source": "app/routers/orders.py",
+      "target": "app/routers/orders.py#cancel_order",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -4134,8 +3385,18 @@
       "line": 27
      },
      {
-      "source": "app_routers_payments",
-      "target": "app_routers_payments_stripe_webhook",
+      "source": "app/routers/payments.py",
+      "target": "app/routers/payments.py#create_intent",
+      "relation": "contains",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/payments.py",
+      "line": 9
+     },
+     {
+      "source": "app/routers/payments.py",
+      "target": "app/routers/payments.py#stripe_webhook",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -4144,8 +3405,8 @@
       "line": 15
      },
      {
-      "source": "app_routers_payments",
-      "target": "app_routers_payments_refund",
+      "source": "app/routers/payments.py",
+      "target": "app/routers/payments.py#refund",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -4154,178 +3415,8 @@
       "line": 19
      },
      {
-      "source": "app_routers_payments",
-      "target": "app_routers_payments_create_intent",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "app/routers/payments.py",
-      "line": 9
-     },
-     {
-      "source": "docker_compose",
-      "target": "docker_compose_services",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "docker-compose.yml",
-      "line": 1
-     },
-     {
-      "source": "docker_compose_api_environment",
-      "target": "docker_compose_environment_inventory_service_url",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "docker-compose.yml",
-      "line": 6
-     },
-     {
-      "source": "docker_compose_services",
-      "target": "docker_compose_services_api",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "docker-compose.yml",
-      "line": 2
-     },
-     {
-      "source": "docker_compose_services",
-      "target": "docker_compose_services_db",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "docker-compose.yml",
-      "line": 7
-     },
-     {
-      "source": "docker_compose_services",
-      "target": "docker_compose_services_cache",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "docker-compose.yml",
-      "line": 9
-     },
-     {
-      "source": "docker_compose_services_api",
-      "target": "docker_compose_api_build",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "docker-compose.yml",
-      "line": 3
-     },
-     {
-      "source": "docker_compose_services_api",
-      "target": "docker_compose_api_depends_on",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "docker-compose.yml",
-      "line": 4
-     },
-     {
-      "source": "docker_compose_services_api",
-      "target": "docker_compose_api_environment",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "docker-compose.yml",
-      "line": 5
-     },
-     {
-      "source": "docker_compose_services_cache",
-      "target": "docker_compose_cache_image",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "docker-compose.yml",
-      "line": 10
-     },
-     {
-      "source": "docker_compose_services_db",
-      "target": "docker_compose_db_image",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "docker-compose.yml",
-      "line": 8
-     },
-     {
-      "source": "github_workflows_ci",
-      "target": "github_workflows_ci_on",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": ".github/workflows/ci.yml",
-      "line": 1
-     },
-     {
-      "source": "github_workflows_ci",
-      "target": "github_workflows_ci_jobs",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": ".github/workflows/ci.yml",
-      "line": 2
-     },
-     {
-      "source": "github_workflows_ci_jobs",
-      "target": "github_workflows_ci_jobs_test",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": ".github/workflows/ci.yml",
-      "line": 3
-     },
-     {
-      "source": "github_workflows_ci_jobs_test",
-      "target": "github_workflows_ci_test_runs_on",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": ".github/workflows/ci.yml",
-      "line": 4
-     },
-     {
-      "source": "github_workflows_ci_jobs_test",
-      "target": "github_workflows_ci_test_steps",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": ".github/workflows/ci.yml",
-      "line": 5
-     },
-     {
-      "source": "github_workflows_ci_test_steps",
-      "target": "github_workflows_ci_steps_run",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": ".github/workflows/ci.yml",
-      "line": 6
-     },
-     {
-      "source": "tests_test_carts",
-      "target": "tests_test_carts_test_create_cart",
+      "source": "tests/test_carts.py",
+      "target": "tests/test_carts.py#test_create_cart",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -4334,28 +3425,288 @@
       "line": 1
      },
      {
-      "source": "app_models_additem",
-      "target": "basemodel",
-      "relation": "inherits",
+      "source": "app/cache.py",
+      "target": "ext:os",
+      "relation": "imports",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/cache.py",
+      "line": 1
+     },
+     {
+      "source": "app/cache.py",
+      "target": "ext:redis",
+      "relation": "imports",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/cache.py",
+      "line": 2
+     },
+     {
+      "source": "app/db.py",
+      "target": "ext:os",
+      "relation": "imports",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/db.py",
+      "line": 1
+     },
+     {
+      "source": "app/db.py",
+      "target": "ext:sqlalchemy",
+      "relation": "imports_from",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/db.py",
+      "line": 2
+     },
+     {
+      "source": "app/events.py",
+      "target": "ext:os",
+      "relation": "imports",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/events.py",
+      "line": 1
+     },
+     {
+      "source": "app/events.py",
+      "target": "ext:aiokafka",
+      "relation": "imports_from",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/events.py",
+      "line": 2
+     },
+     {
+      "source": "app/main.py",
+      "target": "ext:os",
+      "relation": "imports",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/main.py",
+      "line": 1
+     },
+     {
+      "source": "app/main.py",
+      "target": "ext:sentry_sdk",
+      "relation": "imports",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/main.py",
+      "line": 2
+     },
+     {
+      "source": "app/main.py",
+      "target": "ext:fastapi",
+      "relation": "imports_from",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/main.py",
+      "line": 3
+     },
+     {
+      "source": "app/main.py",
+      "target": "app/routers/carts.py",
+      "relation": "imports_from",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/main.py",
+      "line": 4
+     },
+     {
+      "source": "app/main.py",
+      "target": "app/routers/orders.py",
+      "relation": "imports_from",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/main.py",
+      "line": 4
+     },
+     {
+      "source": "app/main.py",
+      "target": "app/routers/payments.py",
+      "relation": "imports_from",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/main.py",
+      "line": 4
+     },
+     {
+      "source": "app/models.py",
+      "target": "ext:datetime",
+      "relation": "imports_from",
       "confidence": "extracted",
       "score": 1.0,
       "context": null,
       "file": "app/models.py",
-      "line": 18
+      "line": 1
      },
      {
-      "source": "app_models_cart",
-      "target": "basemodel",
-      "relation": "inherits",
+      "source": "app/models.py",
+      "target": "ext:typing",
+      "relation": "imports_from",
       "confidence": "extracted",
       "score": 1.0,
       "context": null,
       "file": "app/models.py",
-      "line": 11
+      "line": 2
      },
      {
-      "source": "app_models_lineitem",
-      "target": "basemodel",
+      "source": "app/models.py",
+      "target": "ext:pydantic",
+      "relation": "imports_from",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/models.py",
+      "line": 3
+     },
+     {
+      "source": "app/routers/carts.py",
+      "target": "ext:fastapi",
+      "relation": "imports_from",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/carts.py",
+      "line": 1
+     },
+     {
+      "source": "app/routers/carts.py",
+      "target": "app/models.py",
+      "relation": "imports_from",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/carts.py",
+      "line": 2
+     },
+     {
+      "source": "app/routers/carts.py",
+      "target": "app/cache.py",
+      "relation": "imports_from",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/carts.py",
+      "line": 3
+     },
+     {
+      "source": "app/routers/orders.py",
+      "target": "ext:os",
+      "relation": "imports",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/orders.py",
+      "line": 1
+     },
+     {
+      "source": "app/routers/orders.py",
+      "target": "ext:fastapi",
+      "relation": "imports_from",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/orders.py",
+      "line": 2
+     },
+     {
+      "source": "app/routers/orders.py",
+      "target": "app/auth.py",
+      "relation": "imports_from",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/orders.py",
+      "line": 3
+     },
+     {
+      "source": "app/routers/orders.py",
+      "target": "app/models.py",
+      "relation": "imports_from",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/orders.py",
+      "line": 4
+     },
+     {
+      "source": "app/routers/orders.py",
+      "target": "app/events.py",
+      "relation": "imports_from",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/orders.py",
+      "line": 5
+     },
+     {
+      "source": "app/routers/orders.py",
+      "target": "app/db.py",
+      "relation": "imports_from",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/orders.py",
+      "line": 6
+     },
+     {
+      "source": "app/routers/payments.py",
+      "target": "ext:stripe",
+      "relation": "imports",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/payments.py",
+      "line": 1
+     },
+     {
+      "source": "app/routers/payments.py",
+      "target": "ext:fastapi",
+      "relation": "imports_from",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/payments.py",
+      "line": 2
+     },
+     {
+      "source": "app/routers/payments.py",
+      "target": "app/auth.py",
+      "relation": "imports_from",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/payments.py",
+      "line": 3
+     },
+     {
+      "source": "app/routers/payments.py",
+      "target": "app/models.py",
+      "relation": "imports_from",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/payments.py",
+      "line": 4
+     },
+     {
+      "source": "app/models.py#LineItem",
+      "target": "ext:pydantic.BaseModel",
       "relation": "inherits",
       "confidence": "extracted",
       "score": 1.0,
@@ -4364,8 +3715,38 @@
       "line": 5
      },
      {
-      "source": "app_models_order",
-      "target": "basemodel",
+      "source": "app/models.py#Cart",
+      "target": "ext:pydantic.BaseModel",
+      "relation": "inherits",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/models.py",
+      "line": 11
+     },
+     {
+      "source": "app/models.py#AddItem",
+      "target": "ext:pydantic.BaseModel",
+      "relation": "inherits",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/models.py",
+      "line": 18
+     },
+     {
+      "source": "app/models.py#PlaceOrder",
+      "target": "ext:pydantic.BaseModel",
+      "relation": "inherits",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/models.py",
+      "line": 22
+     },
+     {
+      "source": "app/models.py#Order",
+      "target": "ext:pydantic.BaseModel",
       "relation": "inherits",
       "confidence": "extracted",
       "score": 1.0,
@@ -4374,18 +3755,8 @@
       "line": 27
      },
      {
-      "source": "app_models_paymentintent",
-      "target": "basemodel",
-      "relation": "inherits",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "app/models.py",
-      "line": 39
-     },
-     {
-      "source": "app_models_paymentintentin",
-      "target": "basemodel",
+      "source": "app/models.py#PaymentIntentIn",
+      "target": "ext:pydantic.BaseModel",
       "relation": "inherits",
       "confidence": "extracted",
       "score": 1.0,
@@ -4394,18 +3765,18 @@
       "line": 35
      },
      {
-      "source": "app_models_placeorder",
-      "target": "basemodel",
+      "source": "app/models.py#PaymentIntent",
+      "target": "ext:pydantic.BaseModel",
       "relation": "inherits",
       "confidence": "extracted",
       "score": 1.0,
       "context": null,
       "file": "app/models.py",
-      "line": 22
+      "line": 39
      },
      {
-      "source": "app_events_rationale_6",
-      "target": "app_events",
+      "source": "app/events.py#L6",
+      "target": "app/events.py#publish_order_event",
       "relation": "rationale_for",
       "confidence": "extracted",
       "score": 1.0,
@@ -4414,28 +3785,98 @@
       "line": 6
      },
      {
-      "source": "app_routers_carts_rationale_12",
-      "target": "app_routers_carts_get_cart",
+      "source": "app/main.py#L14",
+      "target": "app/main.py#health",
       "relation": "rationale_for",
       "confidence": "extracted",
       "score": 1.0,
       "context": null,
-      "file": "app/routers/carts.py",
-      "line": 12
+      "file": "app/main.py",
+      "line": 14
      },
      {
-      "source": "app_routers_carts_rationale_20",
-      "target": "app_routers_carts_add_item",
-      "relation": "rationale_for",
+      "source": "app/models.py#Cart",
+      "target": "app/models.py#LineItem",
+      "relation": "references",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/models.py",
+      "line": 14
+     },
+     {
+      "source": "app/models.py#Order",
+      "target": "app/models.py#LineItem",
+      "relation": "references",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/models.py",
+      "line": 31
+     },
+     {
+      "source": "app/routers/carts.py#get_cart",
+      "target": "app/cache.py#cached_cart",
+      "relation": "calls",
       "confidence": "extracted",
       "score": 1.0,
       "context": null,
       "file": "app/routers/carts.py",
-      "line": 20
+      "line": 13
      },
      {
-      "source": "app_routers_carts_rationale_8",
-      "target": "app_routers_carts_create_cart",
+      "source": "app/routers/carts.py#add_item",
+      "target": "app/cache.py#invalidate_cart",
+      "relation": "calls",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/carts.py",
+      "line": 21
+     },
+     {
+      "source": "app/routers/carts.py",
+      "target": "app/models.py#Cart",
+      "relation": "references",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/carts.py",
+      "line": 6
+     },
+     {
+      "source": "app/routers/carts.py#get_cart",
+      "target": "app/models.py#Cart",
+      "relation": "references",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/carts.py",
+      "line": 11
+     },
+     {
+      "source": "app/routers/carts.py#add_item",
+      "target": "app/models.py#AddItem",
+      "relation": "references",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/carts.py",
+      "line": 19
+     },
+     {
+      "source": "app/routers/carts.py#add_item",
+      "target": "app/models.py#Cart",
+      "relation": "references",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/carts.py",
+      "line": 19
+     },
+     {
+      "source": "app/routers/carts.py#L8",
+      "target": "app/routers/carts.py#create_cart",
       "relation": "rationale_for",
       "confidence": "extracted",
       "score": 1.0,
@@ -4444,8 +3885,148 @@
       "line": 8
      },
      {
-      "source": "app_routers_orders_rationale_12",
-      "target": "app_routers_orders_place_order",
+      "source": "app/routers/carts.py#L12",
+      "target": "app/routers/carts.py#get_cart",
+      "relation": "rationale_for",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/carts.py",
+      "line": 12
+     },
+     {
+      "source": "app/routers/carts.py#L20",
+      "target": "app/routers/carts.py#add_item",
+      "relation": "rationale_for",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/carts.py",
+      "line": 20
+     },
+     {
+      "source": "app/routers/carts.py#L26",
+      "target": "app/routers/carts.py#remove_item",
+      "relation": "rationale_for",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/carts.py",
+      "line": 26
+     },
+     {
+      "source": "app/routers/orders.py#place_order",
+      "target": "app/db.py#save_order",
+      "relation": "calls",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/orders.py",
+      "line": 13
+     },
+     {
+      "source": "app/routers/orders.py#place_order",
+      "target": "app/events.py#publish_order_event",
+      "relation": "calls",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/orders.py",
+      "line": 14
+     },
+     {
+      "source": "app/routers/orders.py#cancel_order",
+      "target": "app/events.py#publish_order_event",
+      "relation": "calls",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/orders.py",
+      "line": 29
+     },
+     {
+      "source": "app/routers/orders.py",
+      "target": "app/models.py#Order",
+      "relation": "references",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/orders.py",
+      "line": 10
+     },
+     {
+      "source": "app/routers/orders.py#place_order",
+      "target": "app/models.py#PlaceOrder",
+      "relation": "references",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/orders.py",
+      "line": 11
+     },
+     {
+      "source": "app/routers/orders.py#place_order",
+      "target": "app/auth.py#get_current_user",
+      "relation": "references",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/orders.py",
+      "line": 11
+     },
+     {
+      "source": "app/routers/orders.py#list_orders",
+      "target": "app/auth.py#get_current_user",
+      "relation": "references",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/orders.py",
+      "line": 18
+     },
+     {
+      "source": "app/routers/orders.py#list_orders",
+      "target": "app/models.py#Order",
+      "relation": "references",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/orders.py",
+      "line": 18
+     },
+     {
+      "source": "app/routers/orders.py#get_order",
+      "target": "app/auth.py#get_current_user",
+      "relation": "references",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/orders.py",
+      "line": 22
+     },
+     {
+      "source": "app/routers/orders.py#get_order",
+      "target": "app/models.py#Order",
+      "relation": "references",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/orders.py",
+      "line": 22
+     },
+     {
+      "source": "app/routers/orders.py#cancel_order",
+      "target": "app/auth.py#get_current_user",
+      "relation": "references",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/orders.py",
+      "line": 27
+     },
+     {
+      "source": "app/routers/orders.py#L12",
+      "target": "app/routers/orders.py#place_order",
       "relation": "rationale_for",
       "confidence": "extracted",
       "score": 1.0,
@@ -4454,8 +4035,8 @@
       "line": 12
      },
      {
-      "source": "app_routers_orders_rationale_19",
-      "target": "app_routers_orders_list_orders",
+      "source": "app/routers/orders.py#L19",
+      "target": "app/routers/orders.py#list_orders",
       "relation": "rationale_for",
       "confidence": "extracted",
       "score": 1.0,
@@ -4464,8 +4045,18 @@
       "line": 19
      },
      {
-      "source": "app_routers_orders_rationale_28",
-      "target": "app_routers_orders_cancel_order",
+      "source": "app/routers/orders.py#L23",
+      "target": "app/routers/orders.py#get_order",
+      "relation": "rationale_for",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/orders.py",
+      "line": 23
+     },
+     {
+      "source": "app/routers/orders.py#L28",
+      "target": "app/routers/orders.py#cancel_order",
       "relation": "rationale_for",
       "confidence": "extracted",
       "score": 1.0,
@@ -4474,8 +4065,48 @@
       "line": 28
      },
      {
-      "source": "app_routers_payments_rationale_10",
-      "target": "app_routers_payments_create_intent",
+      "source": "app/routers/payments.py",
+      "target": "app/models.py#PaymentIntent",
+      "relation": "references",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/payments.py",
+      "line": 8
+     },
+     {
+      "source": "app/routers/payments.py#create_intent",
+      "target": "app/models.py#PaymentIntentIn",
+      "relation": "references",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/payments.py",
+      "line": 9
+     },
+     {
+      "source": "app/routers/payments.py#create_intent",
+      "target": "app/auth.py#get_current_user",
+      "relation": "references",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/payments.py",
+      "line": 9
+     },
+     {
+      "source": "app/routers/payments.py#refund",
+      "target": "app/auth.py#get_current_user",
+      "relation": "references",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "app/routers/payments.py",
+      "line": 19
+     },
+     {
+      "source": "app/routers/payments.py#L10",
+      "target": "app/routers/payments.py#create_intent",
       "relation": "rationale_for",
       "confidence": "extracted",
       "score": 1.0,
@@ -4484,8 +4115,8 @@
       "line": 10
      },
      {
-      "source": "app_routers_payments_rationale_11",
-      "target": "app_routers_payments",
+      "source": "app/routers/payments.py#L11",
+      "target": "app/routers/payments.py#create_intent",
       "relation": "rationale_for",
       "confidence": "extracted",
       "score": 1.0,
@@ -4494,8 +4125,8 @@
       "line": 11
      },
      {
-      "source": "app_routers_payments_rationale_16",
-      "target": "app_routers_payments_stripe_webhook",
+      "source": "app/routers/payments.py#L16",
+      "target": "app/routers/payments.py#stripe_webhook",
       "relation": "rationale_for",
       "confidence": "extracted",
       "score": 1.0,
@@ -4504,94 +4135,14 @@
       "line": 16
      },
      {
-      "source": "app_routers_payments_rationale_20",
-      "target": "app_routers_payments_refund",
+      "source": "app/routers/payments.py#L20",
+      "target": "app/routers/payments.py#refund",
       "relation": "rationale_for",
       "confidence": "extracted",
       "score": 1.0,
       "context": null,
       "file": "app/routers/payments.py",
       "line": 20
-     },
-     {
-      "source": "app_routers_orders_list_orders",
-      "target": "app_models_order",
-      "relation": "uses",
-      "confidence": "inferred",
-      "score": 0.95,
-      "context": "generic_arg",
-      "file": "app/routers/orders.py",
-      "line": 18
-     },
-     {
-      "source": "app_routers_carts_add_item",
-      "target": "app_models_additem",
-      "relation": "uses",
-      "confidence": "inferred",
-      "score": 0.95,
-      "context": "parameter_type",
-      "file": "app/routers/carts.py",
-      "line": 19
-     },
-     {
-      "source": "app_routers_orders_place_order",
-      "target": "app_models_placeorder",
-      "relation": "uses",
-      "confidence": "inferred",
-      "score": 0.95,
-      "context": "parameter_type",
-      "file": "app/routers/orders.py",
-      "line": 11
-     },
-     {
-      "source": "app_routers_payments_create_intent",
-      "target": "app_models_paymentintentin",
-      "relation": "uses",
-      "confidence": "inferred",
-      "score": 0.95,
-      "context": "parameter_type",
-      "file": "app/routers/payments.py",
-      "line": 9
-     },
-     {
-      "source": "app_routers_carts_add_item",
-      "target": "app_models_cart",
-      "relation": "uses",
-      "confidence": "inferred",
-      "score": 0.95,
-      "context": "return_type",
-      "file": "app/routers/carts.py",
-      "line": 19
-     },
-     {
-      "source": "app_routers_carts_get_cart",
-      "target": "app_models_cart",
-      "relation": "uses",
-      "confidence": "inferred",
-      "score": 0.95,
-      "context": "return_type",
-      "file": "app/routers/carts.py",
-      "line": 11
-     },
-     {
-      "source": "app_routers_orders_get_order",
-      "target": "app_models_order",
-      "relation": "uses",
-      "confidence": "inferred",
-      "score": 0.95,
-      "context": "return_type",
-      "file": "app/routers/orders.py",
-      "line": 22
-     },
-     {
-      "source": "app_routers_payments_create_intent",
-      "target": "app_models_paymentintent",
-      "relation": "uses",
-      "confidence": "inferred",
-      "score": 0.95,
-      "context": null,
-      "file": "app/routers/payments.py",
-      "line": 12
      }
     ]
    },
@@ -4603,7 +4154,7 @@
     },
     "agents_md": {
      "title": "AGENTS.md draft: checkout-api",
-     "content": "# Agent instructions: checkout-api\n\nRepo type: backend, api. Frameworks: FastAPI. Languages: Python.\n\n## Commands\n- test: `make test`\n- lint: `make lint`\n- dev: `make dev`\n- install: `pip install -e .`\n\n## Layout\n- `app/` (9 files)\n- `migrations/` (1 files)\n- `tests/` (1 files)\n\n## Conventions\n- Follow the lint and format config (Found pyproject.toml [tool.ruff]).\n- The API has 12 endpoints; keep the contract in sync with every route change.\n\n## Navigating the code\n- Filament keeps a code graph of this repo (25 symbols, 6 subsystems). Before grepping, ask it: `code_query`, `code_explain`, `code_path` and `code_impact` through Filament's MCP endpoint, or `fil code explain <repo> <symbol>`.\n- Check `code_impact` before changing a shared function; it lists the endpoints and the repos that consume them.\n- Most-connected code (change with care): Cart, Order, publish_order_event(), PaymentIntent, PaymentIntentIn.\n- Every change ships with tests or validation appropriate to this repo.\n\n## Do not touch\n- Lockfiles by hand, generated code, and secrets.\n\n_Drafted by Filament from the repository. Review before relying on it._",
+     "content": "# Agent instructions: checkout-api\n\nRepo type: backend, api. Frameworks: FastAPI. Languages: Python.\n\n## Commands\n- test: `make test`\n- lint: `make lint`\n- dev: `make dev`\n- install: `pip install -e .`\n\n## Layout\n- `app/` (9 files)\n- `migrations/` (1 files)\n- `tests/` (1 files)\n\n## Conventions\n- Follow the lint and format config (Found pyproject.toml [tool.ruff]).\n- The API has 12 endpoints; keep the contract in sync with every route change.\n\n## Navigating the code\n- Filament keeps a code graph of this repo (25 symbols, 5 subsystems). Before grepping, ask it: `code_query`, `code_explain`, `code_path` and `code_impact` through Filament's MCP endpoint, or `fil code explain <repo> <symbol>`.\n- Check `code_impact` before changing a shared function; it lists the endpoints and the repos that consume them.\n- Most-connected code (change with care): get_current_user(), Cart, Order, LineItem, publish_order_event().\n- Every change ships with tests or validation appropriate to this repo.\n\n## Do not touch\n- Lockfiles by hand, generated code, and secrets.\n\n_Drafted by Filament from the repository. Review before relying on it._",
      "data": {}
     },
     "codeowners": {
@@ -5577,7 +5128,7 @@
     },
     "request_flows": {
      "title": "Request flows: checkout-api",
-     "content": "# Request flows: checkout-api\nDrawn from the code: each endpoint, its auth, the services its handler reaches (through its own calls when a code graph is available) and the responses it can return. Refreshed on every scan.\n## carts\n```mermaid\nsequenceDiagram\n  actor C as Client\n  participant S as checkout-api\n  participant redis as Redis\n  C->>S: POST /v1/carts\n  S-->>C: 201 Cart\n  C->>S: GET /v1/carts/cart_id\n  S->>redis: read/write via cached_cart()\n  S-->>C: 200 Cart\n  Note over C,S: or 404, 422\n  C->>S: POST /v1/carts/cart_id/items\n  S->>redis: read/write via invalidate_cart()\n  S-->>C: 201 Cart\n  Note over C,S: or 409, 422\n  C->>S: DELETE /v1/carts/cart_id/items/item_id\n  S-->>C: 204\n  Note over C,S: or 422\n```\n## orders\n```mermaid\nsequenceDiagram\n  actor C as Client\n  participant S as checkout-api\n  participant kafka as Kafka\n  participant postgres as PostgreSQL\n  C->>S: GET /v1/orders\n  S->>S: check auth\n  S-->>C: 200 Order[]\n  Note over C,S: or 401\n  C->>S: POST /v1/orders\n  S->>S: check auth\n  S->>kafka: publish via publish_order_event()\n  S->>postgres: query via save_order()\n  S-->>C: 201 Order\n  Note over C,S: or 401, 422\n  C->>S: GET /v1/orders/order_id\n  S->>S: check auth\n  S-->>C: 200 Order\n  Note over C,S: or 401, 404, 422\n  C->>S: POST /v1/orders/order_id/cancel\n  S->>S: check auth\n  S->>kafka: publish via publish_order_event()\n  S-->>C: 200 Order\n  Note over C,S: or 401, 409, 422\n```\n## payments\n```mermaid\nsequenceDiagram\n  actor C as Client\n  participant S as checkout-api\n  participant stripe as Stripe\n  C->>S: POST /v1/payments/intents\n  S->>S: check auth\n  S->>stripe: call\n  S-->>C: 201 PaymentIntent\n  Note over C,S: or 401, 422\n  C->>S: POST /v1/payments/webhooks/stripe\n  S-->>C: 200\n  C->>S: POST /v1/payments/payment_id/refund\n  S->>S: check auth\n  S->>stripe: call\n  S-->>C: 200 PaymentIntent\n  Note over C,S: or 401, 422\n```\n## health\n```mermaid\nsequenceDiagram\n  actor C as Client\n  participant S as checkout-api\n  participant sentry as Sentry\n  Note over S,sentry: health module uses Sentry (app/main.py:6)\n  C->>S: GET /health\n  S-->>C: 200\n```",
+     "content": "# Request flows: checkout-api\nDrawn from the code: each endpoint, its auth, the services its handler reaches (through its own calls when a code graph is available) and the responses it can return. Refreshed on every scan.\n## carts\n```mermaid\nsequenceDiagram\n  actor C as Client\n  participant S as checkout-api\n  participant redis as Redis\n  C->>S: POST /v1/carts\n  S-->>C: 201 Cart\n  C->>S: GET /v1/carts/cart_id\n  S->>redis: read/write via cached_cart()\n  S-->>C: 200 Cart\n  Note over C,S: or 404, 422\n  C->>S: POST /v1/carts/cart_id/items\n  S->>redis: read/write via invalidate_cart()\n  S-->>C: 201 Cart\n  Note over C,S: or 409, 422\n  C->>S: DELETE /v1/carts/cart_id/items/item_id\n  S-->>C: 204\n  Note over C,S: or 422\n```\n## orders\n```mermaid\nsequenceDiagram\n  actor C as Client\n  participant S as checkout-api\n  participant postgres as PostgreSQL\n  participant kafka as Kafka\n  C->>S: GET /v1/orders\n  S->>S: check auth\n  S-->>C: 200 Order[]\n  Note over C,S: or 401\n  C->>S: POST /v1/orders\n  S->>S: check auth\n  S->>postgres: query via save_order()\n  S->>kafka: publish via publish_order_event()\n  S-->>C: 201 Order\n  Note over C,S: or 401, 422\n  C->>S: GET /v1/orders/order_id\n  S->>S: check auth\n  S-->>C: 200 Order\n  Note over C,S: or 401, 404, 422\n  C->>S: POST /v1/orders/order_id/cancel\n  S->>S: check auth\n  S->>kafka: publish via publish_order_event()\n  S-->>C: 200 Order\n  Note over C,S: or 401, 409, 422\n```\n## payments\n```mermaid\nsequenceDiagram\n  actor C as Client\n  participant S as checkout-api\n  participant stripe as Stripe\n  C->>S: POST /v1/payments/intents\n  S->>S: check auth\n  S->>stripe: call\n  S-->>C: 201 PaymentIntent\n  Note over C,S: or 401, 422\n  C->>S: POST /v1/payments/webhooks/stripe\n  S-->>C: 200\n  C->>S: POST /v1/payments/payment_id/refund\n  S->>S: check auth\n  S->>stripe: call\n  S-->>C: 200 PaymentIntent\n  Note over C,S: or 401, 422\n```\n## health\n```mermaid\nsequenceDiagram\n  actor C as Client\n  participant S as checkout-api\n  participant sentry as Sentry\n  Note over S,sentry: health module uses Sentry (app/main.py:6)\n  C->>S: GET /health\n  S-->>C: 200\n```",
      "data": {
       "diagram": "sequence",
       "groups": 4
@@ -6554,24 +6105,27 @@
      }
     ],
     "code": {
-     "engine": "graphify",
-     "engine_version": "0.9.101",
+     "engine": "filament",
+     "engine_version": "1.2",
      "schema_version": 1,
      "warnings": [],
-     "nodes": 53,
-     "edges": 86,
+     "languages": {
+      "javascript": 1,
+      "tsx": 10,
+      "typescript": 1
+     },
+     "nodes": 28,
+     "edges": 40,
      "symbols": 14,
-     "files": 13,
+     "files": 12,
      "kinds": {
-      "code": 44,
-      "concept": 9
+      "code": 26,
+      "external": 2
      },
      "relations": {
-      "calls": 11,
-      "imports": 21,
+      "contains": 14,
       "imports_from": 14,
-      "contains": 31,
-      "declares": 9
+      "references": 12
      },
      "extracted_pct": 100,
      "inferred_pct": 0,
@@ -6579,33 +6133,47 @@
       {
        "id": 0,
        "name": "pages",
-       "size": 13,
+       "size": 7,
        "files": 7,
-       "cohesion": 0.76,
+       "cohesion": 0.64,
        "key_symbols": [
         "App.tsx",
-        "Header()",
-        "App()",
         "Header.tsx",
-        "Account()"
+        "main.tsx",
+        "Account.tsx",
+        "Cart.tsx"
        ]
       },
       {
-       "id": 3,
+       "id": 1,
        "name": "api",
        "size": 7,
        "files": 1,
        "cohesion": 0.0,
        "key_symbols": [
-        "addItem()",
-        "cartTotals()",
+        "api.ts",
         "getCart()",
-        "listOrders()",
-        "payIntent()"
+        "cartTotals()",
+        "addItem()",
+        "placeOrder()"
        ]
       },
       {
-       "id": 5,
+       "id": 2,
+       "name": "pages (App())",
+       "size": 6,
+       "files": 6,
+       "cohesion": 0.73,
+       "key_symbols": [
+        "App()",
+        "Header()",
+        "Account()",
+        "Cart()",
+        "Checkout()"
+       ]
+      },
+      {
+       "id": 3,
        "name": "ProductCard",
        "size": 4,
        "files": 2,
@@ -6613,22 +6181,12 @@
        "key_symbols": [
         "Home.tsx",
         "Home()",
-        "ProductCard()",
-        "ProductCard.tsx"
+        "ProductCard.tsx",
+        "ProductCard()"
        ]
       },
       {
-       "id": 10,
-       "name": "Home.test",
-       "size": 1,
-       "files": 1,
-       "cohesion": 0.0,
-       "key_symbols": [
-        "Home.test.tsx"
-       ]
-      },
-      {
-       "id": 9,
+       "id": 4,
        "name": "eslint.config",
        "size": 1,
        "files": 1,
@@ -6636,80 +6194,90 @@
        "key_symbols": [
         "eslint.config.js"
        ]
+      },
+      {
+       "id": 5,
+       "name": "Home.test",
+       "size": 1,
+       "files": 1,
+       "cohesion": 0.0,
+       "key_symbols": [
+        "Home.test.tsx"
+       ]
       }
      ],
      "hotspots": [
       {
-       "id": "src_components_header_header",
+       "id": "src/components/Header.tsx#Header",
        "label": "Header()",
        "file": "src/components/Header.tsx",
        "line": 1,
-       "fan_in": 10,
+       "fan_in": 5,
        "fan_out": 0,
-       "degree": 10
+       "degree": 5
       },
       {
-       "id": "src_pages_home_home",
-       "label": "Home()",
-       "file": "src/pages/Home.tsx",
-       "line": 3,
-       "fan_in": 2,
-       "fan_out": 2,
-       "degree": 4
-      },
-      {
-       "id": "src_pages_account_account",
-       "label": "Account()",
-       "file": "src/pages/Account.tsx",
-       "line": 2,
-       "fan_in": 2,
-       "fan_out": 1,
-       "degree": 3
-      },
-      {
-       "id": "src_pages_cart_cart",
-       "label": "Cart()",
-       "file": "src/pages/Cart.tsx",
-       "line": 2,
-       "fan_in": 2,
-       "fan_out": 1,
-       "degree": 3
-      },
-      {
-       "id": "src_pages_checkout_checkout",
-       "label": "Checkout()",
-       "file": "src/pages/Checkout.tsx",
-       "line": 2,
-       "fan_in": 2,
-       "fan_out": 1,
-       "degree": 3
-      },
-      {
-       "id": "src_pages_product_product",
-       "label": "Product()",
-       "file": "src/pages/Product.tsx",
-       "line": 2,
-       "fan_in": 2,
-       "fan_out": 1,
-       "degree": 3
-      },
-      {
-       "id": "src_components_productcard_productcard",
-       "label": "ProductCard()",
-       "file": "src/components/ProductCard.tsx",
-       "line": 1,
-       "fan_in": 2,
-       "fan_out": 0,
-       "degree": 2
-      },
-      {
-       "id": "src_app_app",
+       "id": "src/App.tsx#App",
        "label": "App()",
        "file": "src/App.tsx",
        "line": 8,
        "fan_in": 1,
        "fan_out": 5,
        "degree": 6
+      },
+      {
+       "id": "src/pages/Home.tsx#Home",
+       "label": "Home()",
+       "file": "src/pages/Home.tsx",
+       "line": 3,
+       "fan_in": 1,
+       "fan_out": 2,
+       "degree": 3
+      },
+      {
+       "id": "src/pages/Account.tsx#Account",
+       "label": "Account()",
+       "file": "src/pages/Account.tsx",
+       "line": 2,
+       "fan_in": 1,
+       "fan_out": 1,
+       "degree": 2
+      },
+      {
+       "id": "src/pages/Cart.tsx#Cart",
+       "label": "Cart()",
+       "file": "src/pages/Cart.tsx",
+       "line": 2,
+       "fan_in": 1,
+       "fan_out": 1,
+       "degree": 2
+      },
+      {
+       "id": "src/pages/Checkout.tsx#Checkout",
+       "label": "Checkout()",
+       "file": "src/pages/Checkout.tsx",
+       "line": 2,
+       "fan_in": 1,
+       "fan_out": 1,
+       "degree": 2
+      },
+      {
+       "id": "src/pages/Product.tsx#Product",
+       "label": "Product()",
+       "file": "src/pages/Product.tsx",
+       "line": 2,
+       "fan_in": 1,
+       "fan_out": 1,
+       "degree": 2
+      },
+      {
+       "id": "src/components/ProductCard.tsx#ProductCard",
+       "label": "ProductCard()",
+       "file": "src/components/ProductCard.tsx",
+       "line": 1,
+       "fan_in": 1,
+       "fan_out": 0,
+       "degree": 1
       }
      ],
      "cycles": [],
@@ -6782,1170 +6350,328 @@
    "code_graph": {
     "nodes": [
      {
-      "id": "src_app_app",
-      "label": "App()",
-      "kind": "code",
-      "file": "src/App.tsx",
-      "line": 8,
-      "community": 0,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "src_components_header_header",
-      "label": "Header()",
-      "kind": "code",
-      "file": "src/components/Header.tsx",
-      "line": 1,
-      "community": 0,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "src_pages_account_account",
-      "label": "Account()",
-      "kind": "code",
-      "file": "src/pages/Account.tsx",
-      "line": 2,
-      "community": 0,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "src_pages_cart_cart",
-      "label": "Cart()",
-      "kind": "code",
-      "file": "src/pages/Cart.tsx",
-      "line": 2,
-      "community": 0,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "src_pages_checkout_checkout",
-      "label": "Checkout()",
-      "kind": "code",
-      "file": "src/pages/Checkout.tsx",
-      "line": 2,
-      "community": 0,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "src_pages_product_product",
-      "label": "Product()",
-      "kind": "code",
-      "file": "src/pages/Product.tsx",
-      "line": 2,
-      "community": 0,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "src_api_additem",
-      "label": "addItem()",
-      "kind": "code",
-      "file": "src/api.ts",
-      "line": 4,
-      "community": 3,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "src_api_carttotals",
-      "label": "cartTotals()",
-      "kind": "code",
-      "file": "src/api.ts",
-      "line": 3,
-      "community": 3,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "src_api_getcart",
-      "label": "getCart()",
-      "kind": "code",
-      "file": "src/api.ts",
-      "line": 2,
-      "community": 3,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "src_api_listorders",
-      "label": "listOrders()",
-      "kind": "code",
-      "file": "src/api.ts",
-      "line": 8,
-      "community": 3,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "src_api_payintent",
-      "label": "payIntent()",
-      "kind": "code",
-      "file": "src/api.ts",
-      "line": 9,
-      "community": 3,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "src_api_placeorder",
-      "label": "placeOrder()",
-      "kind": "code",
-      "file": "src/api.ts",
-      "line": 6,
-      "community": 3,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "src_components_productcard_productcard",
-      "label": "ProductCard()",
-      "kind": "code",
-      "file": "src/components/ProductCard.tsx",
-      "line": 1,
-      "community": 5,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "src_pages_home_home",
-      "label": "Home()",
-      "kind": "code",
-      "file": "src/pages/Home.tsx",
-      "line": 3,
-      "community": 5,
-      "callable": true,
-      "is_class": false
-     },
-     {
-      "id": "src_app",
-      "label": "App.tsx",
-      "kind": "code",
-      "file": "src/App.tsx",
-      "line": 1,
-      "community": 0,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "src_components_header",
-      "label": "Header.tsx",
-      "kind": "code",
-      "file": "src/components/Header.tsx",
-      "line": 1,
-      "community": 0,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "src_main",
-      "label": "main.tsx",
-      "kind": "code",
-      "file": "src/main.tsx",
-      "line": 1,
-      "community": 0,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "src_pages_account",
-      "label": "Account.tsx",
-      "kind": "code",
-      "file": "src/pages/Account.tsx",
-      "line": 1,
-      "community": 0,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "src_pages_cart",
-      "label": "Cart.tsx",
-      "kind": "code",
-      "file": "src/pages/Cart.tsx",
-      "line": 1,
-      "community": 0,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "src_pages_checkout",
-      "label": "Checkout.tsx",
-      "kind": "code",
-      "file": "src/pages/Checkout.tsx",
-      "line": 1,
-      "community": 0,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "src_pages_product",
-      "label": "Product.tsx",
-      "kind": "code",
-      "file": "src/pages/Product.tsx",
-      "line": 1,
-      "community": 0,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "package",
-      "label": "package.json",
-      "kind": "code",
-      "file": "package.json",
-      "line": 1,
-      "community": 1,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "package_devdependencies",
-      "label": "devDependencies",
-      "kind": "code",
-      "file": "package.json",
-      "line": 1,
-      "community": 1,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "package_devdependencies_eslint",
-      "label": "eslint@9",
-      "kind": "code",
-      "file": "package.json",
-      "line": 1,
-      "community": 1,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "package_devdependencies_vite",
-      "label": "vite@6",
-      "kind": "code",
-      "file": "package.json",
-      "line": 1,
-      "community": 1,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "package_devdependencies_vitest",
-      "label": "vitest@2",
-      "kind": "code",
-      "file": "package.json",
-      "line": 1,
-      "community": 1,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "package_name",
-      "label": "name",
-      "kind": "code",
-      "file": "package.json",
-      "line": 1,
-      "community": 1,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "ref_eslint",
-      "label": "eslint",
-      "kind": "concept",
-      "file": "package.json",
-      "line": 1,
-      "community": 1,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "ref_vite",
-      "label": "vite",
-      "kind": "concept",
-      "file": "package.json",
-      "line": 1,
-      "community": 1,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "ref_vitest",
-      "label": "vitest",
-      "kind": "concept",
-      "file": "package.json",
-      "line": 1,
-      "community": 1,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "src_pages_home_test",
-      "label": "Home.test.tsx",
-      "kind": "code",
-      "file": "src/pages/Home.test.tsx",
-      "line": 1,
-      "community": 10,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "package_dependencies",
-      "label": "dependencies",
-      "kind": "code",
-      "file": "package.json",
-      "line": 1,
-      "community": 2,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "package_dependencies_react",
-      "label": "react@19",
-      "kind": "code",
-      "file": "package.json",
-      "line": 1,
-      "community": 2,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "package_dependencies_react_router_dom",
-      "label": "react-router-dom@7",
-      "kind": "code",
-      "file": "package.json",
-      "line": 1,
-      "community": 2,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "package_dependencies_stripe_stripe_js",
-      "label": "@stripe/stripe-js@4",
-      "kind": "code",
-      "file": "package.json",
-      "line": 1,
-      "community": 2,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "ref_react",
-      "label": "react",
-      "kind": "concept",
-      "file": "package.json",
-      "line": 1,
-      "community": 2,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "ref_react_router_dom",
-      "label": "react-router-dom",
-      "kind": "concept",
-      "file": "package.json",
-      "line": 1,
-      "community": 2,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "ref_stripe_stripe_js",
-      "label": "@stripe/stripe-js",
-      "kind": "concept",
-      "file": "package.json",
-      "line": 1,
-      "community": 2,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "src_api",
-      "label": "api.ts",
-      "kind": "code",
-      "file": "src/api.ts",
-      "line": 1,
-      "community": 3,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "package_scripts",
-      "label": "scripts",
-      "kind": "code",
-      "file": "package.json",
-      "line": 1,
-      "community": 4,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "package_scripts_build",
-      "label": "build",
-      "kind": "code",
-      "file": "package.json",
-      "line": 1,
-      "community": 4,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "package_scripts_dev",
-      "label": "dev",
-      "kind": "code",
-      "file": "package.json",
-      "line": 1,
-      "community": 4,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "package_scripts_lint",
-      "label": "lint",
-      "kind": "code",
-      "file": "package.json",
-      "line": 1,
-      "community": 4,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "package_scripts_test",
-      "label": "test",
-      "kind": "code",
-      "file": "package.json",
-      "line": 1,
-      "community": 4,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "src_components_productcard",
-      "label": "ProductCard.tsx",
-      "kind": "code",
-      "file": "src/components/ProductCard.tsx",
-      "line": 1,
-      "community": 5,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "src_pages_home",
-      "label": "Home.tsx",
-      "kind": "code",
-      "file": "src/pages/Home.tsx",
-      "line": 1,
-      "community": 5,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "package_dependencies_react_dom",
-      "label": "react-dom@19",
-      "kind": "code",
-      "file": "package.json",
-      "line": 1,
-      "community": 6,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "ref_react_dom",
-      "label": "react-dom",
-      "kind": "concept",
-      "file": "package.json",
-      "line": 1,
-      "community": 6,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "package_dependencies_sentry_react",
-      "label": "@sentry/react@8",
-      "kind": "code",
-      "file": "package.json",
-      "line": 1,
-      "community": 7,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "ref_sentry_react",
-      "label": "@sentry/react",
-      "kind": "concept",
-      "file": "package.json",
-      "line": 1,
-      "community": 7,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "package_devdependencies_typescript",
-      "label": "typescript@5",
-      "kind": "code",
-      "file": "package.json",
-      "line": 1,
-      "community": 8,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "ref_typescript",
-      "label": "typescript",
-      "kind": "concept",
-      "file": "package.json",
-      "line": 1,
-      "community": 8,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "eslint_config",
+      "id": "eslint.config.js",
       "label": "eslint.config.js",
       "kind": "code",
       "file": "eslint.config.js",
       "line": 1,
-      "community": 9,
+      "end": null,
+      "community": 4,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "src/App.tsx",
+      "label": "App.tsx",
+      "kind": "code",
+      "file": "src/App.tsx",
+      "line": 1,
+      "end": null,
+      "community": 0,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "src/App.tsx#App",
+      "label": "App()",
+      "kind": "code",
+      "file": "src/App.tsx",
+      "line": 8,
+      "end": 20,
+      "community": 2,
+      "callable": true,
+      "is_class": false
+     },
+     {
+      "id": "src/api.ts",
+      "label": "api.ts",
+      "kind": "code",
+      "file": "src/api.ts",
+      "line": 1,
+      "end": null,
+      "community": 1,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "src/api.ts#getCart",
+      "label": "getCart()",
+      "kind": "code",
+      "file": "src/api.ts",
+      "line": 2,
+      "end": 2,
+      "community": 1,
+      "callable": true,
+      "is_class": false
+     },
+     {
+      "id": "src/api.ts#cartTotals",
+      "label": "cartTotals()",
+      "kind": "code",
+      "file": "src/api.ts",
+      "line": 3,
+      "end": 3,
+      "community": 1,
+      "callable": true,
+      "is_class": false
+     },
+     {
+      "id": "src/api.ts#addItem",
+      "label": "addItem()",
+      "kind": "code",
+      "file": "src/api.ts",
+      "line": 4,
+      "end": 5,
+      "community": 1,
+      "callable": true,
+      "is_class": false
+     },
+     {
+      "id": "src/api.ts#placeOrder",
+      "label": "placeOrder()",
+      "kind": "code",
+      "file": "src/api.ts",
+      "line": 6,
+      "end": 7,
+      "community": 1,
+      "callable": true,
+      "is_class": false
+     },
+     {
+      "id": "src/api.ts#listOrders",
+      "label": "listOrders()",
+      "kind": "code",
+      "file": "src/api.ts",
+      "line": 8,
+      "end": 8,
+      "community": 1,
+      "callable": true,
+      "is_class": false
+     },
+     {
+      "id": "src/api.ts#payIntent",
+      "label": "payIntent()",
+      "kind": "code",
+      "file": "src/api.ts",
+      "line": 9,
+      "end": 10,
+      "community": 1,
+      "callable": true,
+      "is_class": false
+     },
+     {
+      "id": "src/components/Header.tsx",
+      "label": "Header.tsx",
+      "kind": "code",
+      "file": "src/components/Header.tsx",
+      "line": 1,
+      "end": null,
+      "community": 0,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "src/components/Header.tsx#Header",
+      "label": "Header()",
+      "kind": "code",
+      "file": "src/components/Header.tsx",
+      "line": 1,
+      "end": 12,
+      "community": 2,
+      "callable": true,
+      "is_class": false
+     },
+     {
+      "id": "src/components/ProductCard.tsx",
+      "label": "ProductCard.tsx",
+      "kind": "code",
+      "file": "src/components/ProductCard.tsx",
+      "line": 1,
+      "end": null,
+      "community": 3,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "src/components/ProductCard.tsx#ProductCard",
+      "label": "ProductCard()",
+      "kind": "code",
+      "file": "src/components/ProductCard.tsx",
+      "line": 1,
+      "end": 10,
+      "community": 3,
+      "callable": true,
+      "is_class": false
+     },
+     {
+      "id": "src/main.tsx",
+      "label": "main.tsx",
+      "kind": "code",
+      "file": "src/main.tsx",
+      "line": 1,
+      "end": null,
+      "community": 0,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "src/pages/Account.tsx",
+      "label": "Account.tsx",
+      "kind": "code",
+      "file": "src/pages/Account.tsx",
+      "line": 1,
+      "end": null,
+      "community": 0,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "src/pages/Account.tsx#Account",
+      "label": "Account()",
+      "kind": "code",
+      "file": "src/pages/Account.tsx",
+      "line": 2,
+      "end": 16,
+      "community": 2,
+      "callable": true,
+      "is_class": false
+     },
+     {
+      "id": "src/pages/Cart.tsx",
+      "label": "Cart.tsx",
+      "kind": "code",
+      "file": "src/pages/Cart.tsx",
+      "line": 1,
+      "end": null,
+      "community": 0,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "src/pages/Cart.tsx#Cart",
+      "label": "Cart()",
+      "kind": "code",
+      "file": "src/pages/Cart.tsx",
+      "line": 2,
+      "end": 15,
+      "community": 2,
+      "callable": true,
+      "is_class": false
+     },
+     {
+      "id": "src/pages/Checkout.tsx",
+      "label": "Checkout.tsx",
+      "kind": "code",
+      "file": "src/pages/Checkout.tsx",
+      "line": 1,
+      "end": null,
+      "community": 0,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "src/pages/Checkout.tsx#Checkout",
+      "label": "Checkout()",
+      "kind": "code",
+      "file": "src/pages/Checkout.tsx",
+      "line": 2,
+      "end": 19,
+      "community": 2,
+      "callable": true,
+      "is_class": false
+     },
+     {
+      "id": "src/pages/Home.test.tsx",
+      "label": "Home.test.tsx",
+      "kind": "code",
+      "file": "src/pages/Home.test.tsx",
+      "line": 1,
+      "end": null,
+      "community": 5,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "src/pages/Home.tsx",
+      "label": "Home.tsx",
+      "kind": "code",
+      "file": "src/pages/Home.tsx",
+      "line": 1,
+      "end": null,
+      "community": 3,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "src/pages/Home.tsx#Home",
+      "label": "Home()",
+      "kind": "code",
+      "file": "src/pages/Home.tsx",
+      "line": 3,
+      "end": 15,
+      "community": 3,
+      "callable": true,
+      "is_class": false
+     },
+     {
+      "id": "src/pages/Product.tsx",
+      "label": "Product.tsx",
+      "kind": "code",
+      "file": "src/pages/Product.tsx",
+      "line": 1,
+      "end": null,
+      "community": 0,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "src/pages/Product.tsx#Product",
+      "label": "Product()",
+      "kind": "code",
+      "file": "src/pages/Product.tsx",
+      "line": 2,
+      "end": 14,
+      "community": 2,
+      "callable": true,
+      "is_class": false
+     },
+     {
+      "id": "ext:react-router-dom",
+      "label": "react-router-dom",
+      "kind": "external",
+      "file": null,
+      "line": null,
+      "end": null,
+      "community": null,
+      "callable": false,
+      "is_class": false
+     },
+     {
+      "id": "ext:react-dom",
+      "label": "react-dom",
+      "kind": "external",
+      "file": null,
+      "line": null,
+      "end": null,
+      "community": null,
       "callable": false,
       "is_class": false
      }
     ],
     "edges": [
      {
-      "source": "src_app_app",
-      "target": "src_pages_home_home",
-      "relation": "calls",
+      "source": "src/App.tsx",
+      "target": "src/App.tsx#App",
+      "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
-      "context": "call",
+      "context": null,
       "file": "src/App.tsx",
-      "line": 12
+      "line": 8
      },
      {
-      "source": "src_app_app",
-      "target": "src_pages_product_product",
-      "relation": "calls",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "call",
-      "file": "src/App.tsx",
-      "line": 13
-     },
-     {
-      "source": "src_app_app",
-      "target": "src_pages_cart_cart",
-      "relation": "calls",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "call",
-      "file": "src/App.tsx",
-      "line": 14
-     },
-     {
-      "source": "src_app_app",
-      "target": "src_pages_checkout_checkout",
-      "relation": "calls",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "call",
-      "file": "src/App.tsx",
-      "line": 15
-     },
-     {
-      "source": "src_app_app",
-      "target": "src_pages_account_account",
-      "relation": "calls",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "call",
-      "file": "src/App.tsx",
-      "line": 16
-     },
-     {
-      "source": "src_pages_account_account",
-      "target": "src_components_header_header",
-      "relation": "calls",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "call",
-      "file": "src/pages/Account.tsx",
-      "line": 5
-     },
-     {
-      "source": "src_pages_cart_cart",
-      "target": "src_components_header_header",
-      "relation": "calls",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "call",
-      "file": "src/pages/Cart.tsx",
-      "line": 5
-     },
-     {
-      "source": "src_pages_checkout_checkout",
-      "target": "src_components_header_header",
-      "relation": "calls",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "call",
-      "file": "src/pages/Checkout.tsx",
-      "line": 5
-     },
-     {
-      "source": "src_pages_home_home",
-      "target": "src_components_productcard_productcard",
-      "relation": "calls",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "call",
-      "file": "src/pages/Home.tsx",
-      "line": 11
-     },
-     {
-      "source": "src_pages_home_home",
-      "target": "src_components_header_header",
-      "relation": "calls",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "call",
-      "file": "src/pages/Home.tsx",
-      "line": 6
-     },
-     {
-      "source": "src_pages_product_product",
-      "target": "src_components_header_header",
-      "relation": "calls",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "call",
-      "file": "src/pages/Product.tsx",
-      "line": 5
-     },
-     {
-      "source": "package",
-      "target": "ref_eslint",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "package.json",
-      "line": 1
-     },
-     {
-      "source": "package",
-      "target": "ref_react",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "package.json",
-      "line": 1
-     },
-     {
-      "source": "package",
-      "target": "ref_react_dom",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "package.json",
-      "line": 1
-     },
-     {
-      "source": "package",
-      "target": "ref_react_router_dom",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "package.json",
-      "line": 1
-     },
-     {
-      "source": "package",
-      "target": "ref_sentry_react",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "package.json",
-      "line": 1
-     },
-     {
-      "source": "package",
-      "target": "ref_stripe_stripe_js",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "package.json",
-      "line": 1
-     },
-     {
-      "source": "package",
-      "target": "ref_typescript",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "package.json",
-      "line": 1
-     },
-     {
-      "source": "package",
-      "target": "ref_vite",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "package.json",
-      "line": 1
-     },
-     {
-      "source": "package",
-      "target": "ref_vitest",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "package.json",
-      "line": 1
-     },
-     {
-      "source": "src_app",
-      "target": "src_pages_home_home",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "src/App.tsx",
-      "line": 2
-     },
-     {
-      "source": "src_app",
-      "target": "src_pages_product_product",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "src/App.tsx",
-      "line": 3
-     },
-     {
-      "source": "src_app",
-      "target": "src_pages_cart_cart",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "src/App.tsx",
-      "line": 4
-     },
-     {
-      "source": "src_app",
-      "target": "src_pages_checkout_checkout",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "src/App.tsx",
-      "line": 5
-     },
-     {
-      "source": "src_app",
-      "target": "src_pages_account_account",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "src/App.tsx",
-      "line": 6
-     },
-     {
-      "source": "src_main",
-      "target": "src_app_app",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "src/main.tsx",
-      "line": 2
-     },
-     {
-      "source": "src_pages_account",
-      "target": "src_components_header_header",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "src/pages/Account.tsx",
-      "line": 1
-     },
-     {
-      "source": "src_pages_cart",
-      "target": "src_components_header_header",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "src/pages/Cart.tsx",
-      "line": 1
-     },
-     {
-      "source": "src_pages_checkout",
-      "target": "src_components_header_header",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "src/pages/Checkout.tsx",
-      "line": 1
-     },
-     {
-      "source": "src_pages_home",
-      "target": "src_components_header_header",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "src/pages/Home.tsx",
-      "line": 1
-     },
-     {
-      "source": "src_pages_home",
-      "target": "src_components_productcard_productcard",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "src/pages/Home.tsx",
-      "line": 2
-     },
-     {
-      "source": "src_pages_product",
-      "target": "src_components_header_header",
-      "relation": "imports",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "src/pages/Product.tsx",
-      "line": 1
-     },
-     {
-      "source": "src_app",
-      "target": "ref_react_router_dom",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "src/App.tsx",
-      "line": 1
-     },
-     {
-      "source": "src_app",
-      "target": "src_pages_home",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "src/App.tsx",
-      "line": 2
-     },
-     {
-      "source": "src_app",
-      "target": "src_pages_product",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "src/App.tsx",
-      "line": 3
-     },
-     {
-      "source": "src_app",
-      "target": "src_pages_cart",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "src/App.tsx",
-      "line": 4
-     },
-     {
-      "source": "src_app",
-      "target": "src_pages_checkout",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "src/App.tsx",
-      "line": 5
-     },
-     {
-      "source": "src_app",
-      "target": "src_pages_account",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "src/App.tsx",
-      "line": 6
-     },
-     {
-      "source": "src_main",
-      "target": "ref_react_dom",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "src/main.tsx",
-      "line": 1
-     },
-     {
-      "source": "src_main",
-      "target": "src_app",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "src/main.tsx",
-      "line": 2
-     },
-     {
-      "source": "src_pages_account",
-      "target": "src_components_header",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "src/pages/Account.tsx",
-      "line": 1
-     },
-     {
-      "source": "src_pages_cart",
-      "target": "src_components_header",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "src/pages/Cart.tsx",
-      "line": 1
-     },
-     {
-      "source": "src_pages_checkout",
-      "target": "src_components_header",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "src/pages/Checkout.tsx",
-      "line": 1
-     },
-     {
-      "source": "src_pages_home",
-      "target": "src_components_header",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "src/pages/Home.tsx",
-      "line": 1
-     },
-     {
-      "source": "src_pages_home",
-      "target": "src_components_productcard",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "src/pages/Home.tsx",
-      "line": 2
-     },
-     {
-      "source": "src_pages_product",
-      "target": "src_components_header",
-      "relation": "imports_from",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": "import",
-      "file": "src/pages/Product.tsx",
-      "line": 1
-     },
-     {
-      "source": "package",
-      "target": "package_dependencies",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "package.json",
-      "line": 1
-     },
-     {
-      "source": "package",
-      "target": "package_devdependencies",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "package.json",
-      "line": 1
-     },
-     {
-      "source": "package",
-      "target": "package_name",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "package.json",
-      "line": 1
-     },
-     {
-      "source": "package",
-      "target": "package_scripts",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "package.json",
-      "line": 1
-     },
-     {
-      "source": "package_dependencies",
-      "target": "package_dependencies_react",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "package.json",
-      "line": 1
-     },
-     {
-      "source": "package_dependencies",
-      "target": "package_dependencies_react_dom",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "package.json",
-      "line": 1
-     },
-     {
-      "source": "package_dependencies",
-      "target": "package_dependencies_react_router_dom",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "package.json",
-      "line": 1
-     },
-     {
-      "source": "package_dependencies",
-      "target": "package_dependencies_sentry_react",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "package.json",
-      "line": 1
-     },
-     {
-      "source": "package_dependencies",
-      "target": "package_dependencies_stripe_stripe_js",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "package.json",
-      "line": 1
-     },
-     {
-      "source": "package_devdependencies",
-      "target": "package_devdependencies_eslint",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "package.json",
-      "line": 1
-     },
-     {
-      "source": "package_devdependencies",
-      "target": "package_devdependencies_typescript",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "package.json",
-      "line": 1
-     },
-     {
-      "source": "package_devdependencies",
-      "target": "package_devdependencies_vite",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "package.json",
-      "line": 1
-     },
-     {
-      "source": "package_devdependencies",
-      "target": "package_devdependencies_vitest",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "package.json",
-      "line": 1
-     },
-     {
-      "source": "package_scripts",
-      "target": "package_scripts_build",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "package.json",
-      "line": 1
-     },
-     {
-      "source": "package_scripts",
-      "target": "package_scripts_dev",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "package.json",
-      "line": 1
-     },
-     {
-      "source": "package_scripts",
-      "target": "package_scripts_lint",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "package.json",
-      "line": 1
-     },
-     {
-      "source": "package_scripts",
-      "target": "package_scripts_test",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "package.json",
-      "line": 1
-     },
-     {
-      "source": "src_api",
-      "target": "src_api_getcart",
+      "source": "src/api.ts",
+      "target": "src/api.ts#getCart",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -7954,8 +6680,8 @@
       "line": 2
      },
      {
-      "source": "src_api",
-      "target": "src_api_carttotals",
+      "source": "src/api.ts",
+      "target": "src/api.ts#cartTotals",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -7964,8 +6690,8 @@
       "line": 3
      },
      {
-      "source": "src_api",
-      "target": "src_api_additem",
+      "source": "src/api.ts",
+      "target": "src/api.ts#addItem",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -7974,8 +6700,8 @@
       "line": 4
      },
      {
-      "source": "src_api",
-      "target": "src_api_placeorder",
+      "source": "src/api.ts",
+      "target": "src/api.ts#placeOrder",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -7984,8 +6710,8 @@
       "line": 6
      },
      {
-      "source": "src_api",
-      "target": "src_api_listorders",
+      "source": "src/api.ts",
+      "target": "src/api.ts#listOrders",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -7994,8 +6720,8 @@
       "line": 8
      },
      {
-      "source": "src_api",
-      "target": "src_api_payintent",
+      "source": "src/api.ts",
+      "target": "src/api.ts#payIntent",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -8004,18 +6730,8 @@
       "line": 9
      },
      {
-      "source": "src_app",
-      "target": "src_app_app",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": "src/App.tsx",
-      "line": 8
-     },
-     {
-      "source": "src_components_header",
-      "target": "src_components_header_header",
+      "source": "src/components/Header.tsx",
+      "target": "src/components/Header.tsx#Header",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -8024,8 +6740,8 @@
       "line": 1
      },
      {
-      "source": "src_components_productcard",
-      "target": "src_components_productcard_productcard",
+      "source": "src/components/ProductCard.tsx",
+      "target": "src/components/ProductCard.tsx#ProductCard",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -8034,8 +6750,8 @@
       "line": 1
      },
      {
-      "source": "src_pages_account",
-      "target": "src_pages_account_account",
+      "source": "src/pages/Account.tsx",
+      "target": "src/pages/Account.tsx#Account",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -8044,8 +6760,8 @@
       "line": 2
      },
      {
-      "source": "src_pages_cart",
-      "target": "src_pages_cart_cart",
+      "source": "src/pages/Cart.tsx",
+      "target": "src/pages/Cart.tsx#Cart",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -8054,8 +6770,8 @@
       "line": 2
      },
      {
-      "source": "src_pages_checkout",
-      "target": "src_pages_checkout_checkout",
+      "source": "src/pages/Checkout.tsx",
+      "target": "src/pages/Checkout.tsx#Checkout",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -8064,8 +6780,8 @@
       "line": 2
      },
      {
-      "source": "src_pages_home",
-      "target": "src_pages_home_home",
+      "source": "src/pages/Home.tsx",
+      "target": "src/pages/Home.tsx#Home",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -8074,8 +6790,8 @@
       "line": 3
      },
      {
-      "source": "src_pages_product",
-      "target": "src_pages_product_product",
+      "source": "src/pages/Product.tsx",
+      "target": "src/pages/Product.tsx#Product",
       "relation": "contains",
       "confidence": "extracted",
       "score": 1.0,
@@ -8084,94 +6800,264 @@
       "line": 2
      },
      {
-      "source": "package_dependencies_react",
-      "target": "ref_react",
-      "relation": "declares",
+      "source": "src/App.tsx",
+      "target": "ext:react-router-dom",
+      "relation": "imports_from",
       "confidence": "extracted",
       "score": 1.0,
       "context": null,
-      "file": "package.json",
+      "file": "src/App.tsx",
       "line": 1
      },
      {
-      "source": "package_dependencies_react_dom",
-      "target": "ref_react_dom",
-      "relation": "declares",
+      "source": "src/App.tsx",
+      "target": "src/pages/Home.tsx",
+      "relation": "imports_from",
       "confidence": "extracted",
       "score": 1.0,
       "context": null,
-      "file": "package.json",
+      "file": "src/App.tsx",
+      "line": 2
+     },
+     {
+      "source": "src/App.tsx",
+      "target": "src/pages/Product.tsx",
+      "relation": "imports_from",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "src/App.tsx",
+      "line": 3
+     },
+     {
+      "source": "src/App.tsx",
+      "target": "src/pages/Cart.tsx",
+      "relation": "imports_from",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "src/App.tsx",
+      "line": 4
+     },
+     {
+      "source": "src/App.tsx",
+      "target": "src/pages/Checkout.tsx",
+      "relation": "imports_from",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "src/App.tsx",
+      "line": 5
+     },
+     {
+      "source": "src/App.tsx",
+      "target": "src/pages/Account.tsx",
+      "relation": "imports_from",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "src/App.tsx",
+      "line": 6
+     },
+     {
+      "source": "src/main.tsx",
+      "target": "ext:react-dom",
+      "relation": "imports_from",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "src/main.tsx",
       "line": 1
      },
      {
-      "source": "package_dependencies_react_router_dom",
-      "target": "ref_react_router_dom",
-      "relation": "declares",
+      "source": "src/main.tsx",
+      "target": "src/App.tsx",
+      "relation": "imports_from",
       "confidence": "extracted",
       "score": 1.0,
       "context": null,
-      "file": "package.json",
+      "file": "src/main.tsx",
+      "line": 2
+     },
+     {
+      "source": "src/pages/Account.tsx",
+      "target": "src/components/Header.tsx",
+      "relation": "imports_from",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "src/pages/Account.tsx",
       "line": 1
      },
      {
-      "source": "package_dependencies_sentry_react",
-      "target": "ref_sentry_react",
-      "relation": "declares",
+      "source": "src/pages/Cart.tsx",
+      "target": "src/components/Header.tsx",
+      "relation": "imports_from",
       "confidence": "extracted",
       "score": 1.0,
       "context": null,
-      "file": "package.json",
+      "file": "src/pages/Cart.tsx",
       "line": 1
      },
      {
-      "source": "package_dependencies_stripe_stripe_js",
-      "target": "ref_stripe_stripe_js",
-      "relation": "declares",
+      "source": "src/pages/Checkout.tsx",
+      "target": "src/components/Header.tsx",
+      "relation": "imports_from",
       "confidence": "extracted",
       "score": 1.0,
       "context": null,
-      "file": "package.json",
+      "file": "src/pages/Checkout.tsx",
       "line": 1
      },
      {
-      "source": "package_devdependencies_eslint",
-      "target": "ref_eslint",
-      "relation": "declares",
+      "source": "src/pages/Home.tsx",
+      "target": "src/components/Header.tsx",
+      "relation": "imports_from",
       "confidence": "extracted",
       "score": 1.0,
       "context": null,
-      "file": "package.json",
+      "file": "src/pages/Home.tsx",
       "line": 1
      },
      {
-      "source": "package_devdependencies_typescript",
-      "target": "ref_typescript",
-      "relation": "declares",
+      "source": "src/pages/Home.tsx",
+      "target": "src/components/ProductCard.tsx",
+      "relation": "imports_from",
       "confidence": "extracted",
       "score": 1.0,
       "context": null,
-      "file": "package.json",
+      "file": "src/pages/Home.tsx",
+      "line": 2
+     },
+     {
+      "source": "src/pages/Product.tsx",
+      "target": "src/components/Header.tsx",
+      "relation": "imports_from",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "src/pages/Product.tsx",
       "line": 1
      },
      {
-      "source": "package_devdependencies_vite",
-      "target": "ref_vite",
-      "relation": "declares",
+      "source": "src/App.tsx#App",
+      "target": "src/pages/Home.tsx#Home",
+      "relation": "references",
       "confidence": "extracted",
       "score": 1.0,
       "context": null,
-      "file": "package.json",
-      "line": 1
+      "file": "src/App.tsx",
+      "line": 12
      },
      {
-      "source": "package_devdependencies_vitest",
-      "target": "ref_vitest",
-      "relation": "declares",
+      "source": "src/App.tsx#App",
+      "target": "src/pages/Product.tsx#Product",
+      "relation": "references",
       "confidence": "extracted",
       "score": 1.0,
       "context": null,
-      "file": "package.json",
-      "line": 1
+      "file": "src/App.tsx",
+      "line": 13
+     },
+     {
+      "source": "src/App.tsx#App",
+      "target": "src/pages/Cart.tsx#Cart",
+      "relation": "references",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "src/App.tsx",
+      "line": 14
+     },
+     {
+      "source": "src/App.tsx#App",
+      "target": "src/pages/Checkout.tsx#Checkout",
+      "relation": "references",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "src/App.tsx",
+      "line": 15
+     },
+     {
+      "source": "src/App.tsx#App",
+      "target": "src/pages/Account.tsx#Account",
+      "relation": "references",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "src/App.tsx",
+      "line": 16
+     },
+     {
+      "source": "src/main.tsx",
+      "target": "src/App.tsx#App",
+      "relation": "references",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "src/main.tsx",
+      "line": 3
+     },
+     {
+      "source": "src/pages/Account.tsx#Account",
+      "target": "src/components/Header.tsx#Header",
+      "relation": "references",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "src/pages/Account.tsx",
+      "line": 5
+     },
+     {
+      "source": "src/pages/Cart.tsx#Cart",
+      "target": "src/components/Header.tsx#Header",
+      "relation": "references",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "src/pages/Cart.tsx",
+      "line": 5
+     },
+     {
+      "source": "src/pages/Checkout.tsx#Checkout",
+      "target": "src/components/Header.tsx#Header",
+      "relation": "references",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "src/pages/Checkout.tsx",
+      "line": 5
+     },
+     {
+      "source": "src/pages/Home.tsx#Home",
+      "target": "src/components/Header.tsx#Header",
+      "relation": "references",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "src/pages/Home.tsx",
+      "line": 6
+     },
+     {
+      "source": "src/pages/Home.tsx#Home",
+      "target": "src/components/ProductCard.tsx#ProductCard",
+      "relation": "references",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "src/pages/Home.tsx",
+      "line": 11
+     },
+     {
+      "source": "src/pages/Product.tsx#Product",
+      "target": "src/components/Header.tsx#Header",
+      "relation": "references",
+      "confidence": "extracted",
+      "score": 1.0,
+      "context": null,
+      "file": "src/pages/Product.tsx",
+      "line": 5
      }
     ]
    },
@@ -8183,7 +7069,7 @@
     },
     "agents_md": {
      "title": "AGENTS.md draft: web-storefront",
-     "content": "# Agent instructions: web-storefront\n\nRepo type: frontend. Frameworks: React. Languages: TypeScript, JavaScript.\n\n## Commands\n- build: `npm run build`\n- test: `npm test`\n- lint: `npm run lint`\n- dev: `npm run dev`\n- install: `npm ci`\n\n## Layout\n- `src/` (11 files)\n\n## Conventions\n- Follow the lint and format config (Found eslint.config.js).\n- Reuse existing components before adding new ones; keep pages accessible.\n\n## Navigating the code\n- Filament keeps a code graph of this repo (14 symbols, 5 subsystems). Before grepping, ask it: `code_query`, `code_explain`, `code_path` and `code_impact` through Filament's MCP endpoint, or `fil code explain <repo> <symbol>`.\n- Check `code_impact` before changing a shared function; it lists the endpoints and the repos that consume them.\n- Most-connected code (change with care): Header(), Home(), Account(), Cart(), Checkout().\n- Every change ships with tests or validation appropriate to this repo.\n\n## Do not touch\n- Lockfiles by hand, generated code, and secrets.\n\n_Drafted by Filament from the repository. Review before relying on it._",
+     "content": "# Agent instructions: web-storefront\n\nRepo type: frontend. Frameworks: React. Languages: TypeScript, JavaScript.\n\n## Commands\n- build: `npm run build`\n- test: `npm test`\n- lint: `npm run lint`\n- dev: `npm run dev`\n- install: `npm ci`\n\n## Layout\n- `src/` (11 files)\n\n## Conventions\n- Follow the lint and format config (Found eslint.config.js).\n- Reuse existing components before adding new ones; keep pages accessible.\n\n## Navigating the code\n- Filament keeps a code graph of this repo (14 symbols, 6 subsystems). Before grepping, ask it: `code_query`, `code_explain`, `code_path` and `code_impact` through Filament's MCP endpoint, or `fil code explain <repo> <symbol>`.\n- Check `code_impact` before changing a shared function; it lists the endpoints and the repos that consume them.\n- Most-connected code (change with care): Header(), App(), Home(), Account(), Cart().\n- Every change ships with tests or validation appropriate to this repo.\n\n## Do not touch\n- Lockfiles by hand, generated code, and secrets.\n\n_Drafted by Filament from the repository. Review before relying on it._",
      "data": {}
     },
     "codeowners": {
@@ -8895,21 +7781,18 @@
     },
     "client_calls": [],
     "code": {
-     "engine": "graphify",
-     "engine_version": "0.9.101",
+     "engine": "filament",
+     "engine_version": "1.2",
      "schema_version": 1,
      "warnings": [],
-     "nodes": 7,
-     "edges": 6,
+     "languages": {},
+     "nodes": 0,
+     "edges": 0,
      "symbols": 0,
-     "files": 1,
-     "kinds": {
-      "code": 7
-     },
-     "relations": {
-      "contains": 6
-     },
-     "extracted_pct": 100,
+     "files": 0,
+     "kinds": {},
+     "relations": {},
+     "extracted_pct": 0,
      "inferred_pct": 0,
      "communities": [],
      "hotspots": [],
@@ -8926,140 +7809,8 @@
     "dependencies": []
    },
    "code_graph": {
-    "nodes": [
-     {
-      "id": "github_workflows_plan",
-      "label": "plan.yml",
-      "kind": "code",
-      "file": ".github/workflows/plan.yml",
-      "line": 1,
-      "community": 0,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "github_workflows_plan_jobs",
-      "label": "jobs",
-      "kind": "code",
-      "file": ".github/workflows/plan.yml",
-      "line": 2,
-      "community": 0,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "github_workflows_plan_on",
-      "label": "on",
-      "kind": "code",
-      "file": ".github/workflows/plan.yml",
-      "line": 1,
-      "community": 0,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "github_workflows_plan_jobs_plan",
-      "label": "plan",
-      "kind": "code",
-      "file": ".github/workflows/plan.yml",
-      "line": 3,
-      "community": 1,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "github_workflows_plan_plan_runs_on",
-      "label": "runs-on",
-      "kind": "code",
-      "file": ".github/workflows/plan.yml",
-      "line": 4,
-      "community": 1,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "github_workflows_plan_plan_steps",
-      "label": "steps",
-      "kind": "code",
-      "file": ".github/workflows/plan.yml",
-      "line": 5,
-      "community": 2,
-      "callable": false,
-      "is_class": false
-     },
-     {
-      "id": "github_workflows_plan_steps_run",
-      "label": "run",
-      "kind": "code",
-      "file": ".github/workflows/plan.yml",
-      "line": 6,
-      "community": 2,
-      "callable": false,
-      "is_class": false
-     }
-    ],
-    "edges": [
-     {
-      "source": "github_workflows_plan_plan_steps",
-      "target": "github_workflows_plan_steps_run",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": ".github/workflows/plan.yml",
-      "line": 7
-     },
-     {
-      "source": "github_workflows_plan",
-      "target": "github_workflows_plan_on",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": ".github/workflows/plan.yml",
-      "line": 1
-     },
-     {
-      "source": "github_workflows_plan",
-      "target": "github_workflows_plan_jobs",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": ".github/workflows/plan.yml",
-      "line": 2
-     },
-     {
-      "source": "github_workflows_plan_jobs",
-      "target": "github_workflows_plan_jobs_plan",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": ".github/workflows/plan.yml",
-      "line": 3
-     },
-     {
-      "source": "github_workflows_plan_jobs_plan",
-      "target": "github_workflows_plan_plan_runs_on",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": ".github/workflows/plan.yml",
-      "line": 4
-     },
-     {
-      "source": "github_workflows_plan_jobs_plan",
-      "target": "github_workflows_plan_plan_steps",
-      "relation": "contains",
-      "confidence": "extracted",
-      "score": 1.0,
-      "context": null,
-      "file": ".github/workflows/plan.yml",
-      "line": 5
-     }
-    ]
+    "nodes": [],
+    "edges": []
    },
    "drafts": {
     "overview": {
@@ -9702,8 +8453,24 @@
     },
     "client_calls": [],
     "code": {
-     "engine": "graphify",
-     "error": "Graphify failed: [graphify extract] graph is empty \u2014 extraction produced no nodes. Possible causes: all files skipped, binary-only corpus, or LLM returned no edges.\n"
+     "engine": "filament",
+     "engine_version": "1.2",
+     "schema_version": 1,
+     "warnings": [],
+     "languages": {},
+     "nodes": 0,
+     "edges": 0,
+     "symbols": 0,
+     "files": 0,
+     "kinds": {},
+     "relations": {},
+     "extracted_pct": 0,
+     "inferred_pct": 0,
+     "communities": [],
+     "hotspots": [],
+     "cycles": [],
+     "rationale": [],
+     "endpoints": {}
     },
     "data_model": {
      "entities": [],
@@ -9719,7 +8486,10 @@
     ],
     "dependencies": []
    },
-   "code_graph": null,
+   "code_graph": {
+    "nodes": [],
+    "edges": []
+   },
    "drafts": {
     "overview": {
      "title": "Overview: service-config",

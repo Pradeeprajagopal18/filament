@@ -14,7 +14,7 @@ interface RepoSample {
   diagrams: string[]
   code_graph: { nodes: GNode[]; edges: GEdge[] } | null
 }
-interface GNode { id: string; label: string; kind: string; file: string | null; line: number | null; community: number | null; callable: boolean }
+interface GNode { id: string; label: string; kind: string; file: string | null; line: number | null; end?: number | null; community: number | null; callable: boolean }
 interface GEdge { source: string; target: string; relation: string; confidence: string; file: string | null; line: number | null }
 const DIAGRAM_TYPE: Record<string, string> = { request_flows: 'flow', user_flow: 'flow', component_view: 'component_view' }
 type DemoSystem = SystemMap & { consumers: Record<string, Record<string, { repo_id: string; repo: string; file: string; line: number }[]>> }
@@ -150,7 +150,7 @@ function redact(v: unknown): [unknown, number] {
 }
 const AUTONOMY = ['L0', 'L1', 'L2', 'L3', 'L4']
 
-// -- code graph (preview): same queries as the server over the sample repos' Graphify graphs -----
+// -- code graph (preview): same queries as the server over the sample repos' code graphs ---------
 const plural = (k: number, w: string) => `${k} ${w}${k === 1 ? '' : 's'}`
 const STRUCTURAL = new Set(['contains', 'rationale_for'])
 function graphOf(rid: string) {
@@ -179,7 +179,7 @@ function ranges(nodes: Map<string, GNode>) {
   const byFile = new Map<string, GNode[]>()
   for (const n of nodes.values()) if (n.file && n.line && n.kind === 'code' && n.callable) (byFile.get(n.file) ?? byFile.set(n.file, []).get(n.file)!).push(n)
   const out = new Map<string, [string, number, number]>()
-  for (const [f, ns] of byFile) { ns.sort((a, b) => a.line! - b.line!); ns.forEach((n, i) => out.set(n.id, [f, n.line!, i + 1 < ns.length ? ns[i + 1].line! - 1 : n.line! + 400])) }
+  for (const [f, ns] of byFile) { ns.sort((a, b) => a.line! - b.line!); ns.forEach((n, i) => out.set(n.id, [f, n.line!, n.end ?? (i + 1 < ns.length ? ns[i + 1].line! - 1 : n.line! + 400)])) }
   return out
 }
 function parseDiff(diff: string): Record<string, [number, number][]> {
@@ -852,7 +852,12 @@ export const demoApi = {
     for (const [f, spans] of Object.entries(changes)) {
       const inFile = g.nodes.filter(n => n.file === f && n.kind === 'code')
       if (!spans) { changed.push(...inFile.map(n => n.id)); continue }
-      const hit = [...rg].filter(([, [rf, s, e]]) => rf === f && spans.some(([a, b]) => a <= e && b >= s)).map(([id]) => id)
+      const inFileR = [...rg].filter(([, [rf]]) => rf === f)
+      const hit = spans.flatMap(([a, b]) => {
+        const sh = inFileR.filter(([, [, s, e]]) => a <= e && b >= s)
+        // innermost only: a change in a method changes the method, not its whole class
+        return sh.filter(([id, [, s, e]]) => !sh.some(([o, [, s2, e2]]) => o !== id && s <= s2 && e2 <= e)).map(([id]) => id)
+      })
       changed.push(...(hit.length ? hit : inFile.filter(n => !n.callable).map(n => n.id)))
     }
     const dist = new Map(changed.map(i => [i, 0])); const q = [...changed]; const seeds = new Set(changed)

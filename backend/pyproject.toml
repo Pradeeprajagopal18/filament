@@ -22,8 +22,10 @@ dependencies = [
 [project.optional-dependencies]
 postgres = ["psycopg[binary]>=3.2"]
 # Symbol-level code graph during repo scans (tree-sitter, code-only, no LLM).
-code = ["graphifyy>=0.9"]
-dev = ["pytest>=8.2", "ruff>=0.5", "graphifyy>=0.9"]
+code = ["tree-sitter>=0.25,<0.26", "tree-sitter-python>=0.23", "tree-sitter-javascript>=0.23",
+        "tree-sitter-typescript>=0.23", "tree-sitter-java>=0.23", "tree-sitter-go>=0.23",
+        "networkx>=3.3"]
+dev = ["pytest>=8.2", "ruff>=0.5", "filament[code]"]
 
 [project.scripts]
 fil = "filament.cli:app"

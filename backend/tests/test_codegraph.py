@@ -1,15 +1,16 @@
 # ruff: noqa: E501  (fixture source files are embedded verbatim)
-"""Code graph (Graphify): handler-level services, notes as memory, explain/path/query,
-change and PR impact, conflicts, data model, agent and Omni tools, incremental scans."""
+"""Code graph (Filament's own tree-sitter extractor): per-language facts and resolution,
+handler-level services, notes as memory, explain/path/query, change and PR impact, conflicts,
+data model, agent and Omni tools, incremental scans."""
 
 from pathlib import Path
 
 import pytest
 
-from filament.repos import codegraph, codequery
+from filament.repos import codegraph, codeindex, codequery
 from tests.test_config import register, run, scripted  # noqa: F401
 
-pytestmark = pytest.mark.skipif(codegraph.engine_path() is None, reason="graphify not installed")
+pytestmark = pytest.mark.skipif(not codegraph.available(), reason="tree-sitter grammars not installed")
 
 FILES = {
     "pyproject.toml": '[project]\nname="checkout-api"\ndependencies=["fastapi","kafka-python","stripe","sqlalchemy"]\n',
@@ -76,22 +77,103 @@ def repos(client, ws, tmp_path):
     return api, web, api_root
 
 
-def test_normalize_and_schema_guard():
-    raw = {"graph": {"schema_version": 1, "graphify_version": "x"}, "nodes": [
-        {"id": "a", "label": "a()", "file_type": "code", "source_file": "m.py", "source_location": "L3", "_callable": True},
-        {"id": "b", "label": "b()", "file_type": "code", "source_file": "m.py", "source_location": "L9"}],
-        "links": [{"source": "a", "target": "b", "relation": "calls", "confidence": "EXTRACTED"},
-                  {"source": "a", "target": "missing", "relation": "calls"}]}
-    g = codegraph.normalize(raw)
-    assert [e["relation"] for e in g["edges"]] == ["calls"] and g["nodes"][0]["line"] == 3
-    assert g["warnings"] == []
-    assert codegraph.normalize({**raw, "graph": {"schema_version": 9}})["warnings"]
+def graph_of(tmp_path, files: dict) -> dict:
+    root = write(tmp_path / "r", files)
+    return codeindex.build(root, list(files), tmp_path / "cache")
+
+
+def edges(g: dict, rel: str = "calls") -> set[tuple]:
+    label = {n["id"]: n["label"] for n in g["nodes"]}
+    return {(label[e["source"]], label[e["target"]], e["confidence"]) for e in g["edges"]
+            if e["relation"] == rel}
+
+
+def test_python_resolution_typed_receivers_and_cache(tmp_path):
+    files = {
+        "pkg/__init__.py": "from pkg.repo import OrderRepo\n",
+        "pkg/repo.py": "class Base:\n    def ping(self):\n        return 1\n\n"
+                       "class OrderRepo(Base):\n    def save(self, o):\n        return self.ping()\n",
+        "pkg/service.py": (
+            "from pkg import OrderRepo\nimport pkg.repo as r\n\n"
+            "class Service:\n    def __init__(self):\n        self.repo = OrderRepo()\n\n"
+            "    def place(self, o):\n        self.repo.save(o)\n        return helper_unique_name(o)\n\n"
+            "    def other(self, repo: OrderRepo):\n        repo.save(1)\n        r.Base().ping()\n"),
+        "pkg/util.py": "def helper_unique_name(x):\n    return x\n",
+    }
+    g = graph_of(tmp_path, files)
+    calls = edges(g)
+    assert ("Service.place()", "OrderRepo.save()", "extracted") in calls  # self.repo = OrderRepo()
+    assert ("Service.other()", "OrderRepo.save()", "extracted") in calls  # repo: OrderRepo
+    assert ("OrderRepo.save()", "Base.ping()", "extracted") in calls      # self + inheritance
+    assert ("Service.place()", "helper_unique_name()", "inferred") in calls  # name match only
+    assert ("OrderRepo", "Base", "extracted") in edges(g, "inherits")
+    nodes = {n["label"]: n for n in g["nodes"]}
+    assert nodes["OrderRepo.save()"]["line"] == 6 and nodes["OrderRepo.save()"]["end"] == 7
+    assert all(n["community"] is not None for n in g["nodes"] if n["kind"] == "code")
+    again = codeindex.build(tmp_path / "r", list(files), tmp_path / "cache")
+    assert again["files_cached"] == 4 and again["files_parsed"] == 0
+    (tmp_path / "r" / "pkg/util.py").write_text("def helper_unique_name(x):\n    return x + 1\n")
+    assert codeindex.build(tmp_path / "r", list(files), tmp_path / "cache")["files_parsed"] == 1
+
+
+def test_typescript_imports_classes_jsx_and_notes(tmp_path):
+    g = graph_of(tmp_path, {
+        "src/db.ts": "export class Repo { save(o: Order) { return o } }\nexport interface Order { id: string }\n",
+        "src/orders.ts": (
+            "import { Repo, Order } from './db'\nimport express from 'express'\n"
+            "/** Places an order. */\nexport async function placeOrder(o: Order) {\n"
+            "  // NOTE: idempotent (ADR-3)\n  const repo = new Repo()\n  return repo.save(o)\n}\n"
+            "export class Api { constructor(private repo: Repo) {}\n"
+            "  run(o: Order) { this.repo.save(o); return placeOrder(o) } }\n"),
+        "src/App.tsx": "import { placeOrder } from './orders'\nconst Button = () => <b/>\n"
+                       "export const App = () => { placeOrder({id: '1'}); return <Button/> }\n",
+    })
+    calls = edges(g)
+    assert ("placeOrder()", "Repo.save()", "extracted") in calls
+    assert ("Api.run()", "Repo.save()", "extracted") in calls
+    assert ("Api.run()", "placeOrder()", "extracted") in calls
+    assert ("App()", "placeOrder()", "extracted") in calls
+    assert ("App()", "Button()", "extracted") in edges(g, "references")  # JSX
+    assert ("placeOrder()", "Order", "extracted") in edges(g, "references")
+    notes = {n["label"] for n in g["nodes"] if n["kind"] == "rationale"}
+    assert {"Places an order.", "// NOTE: idempotent (ADR-3)"} <= notes
+    assert any(n["id"] == "ext:express" for n in g["nodes"])
+
+
+def test_java_and_go(tmp_path):
+    g = graph_of(tmp_path, {
+        "src/main/java/com/acme/db/OrderRepo.java":
+            "package com.acme.db;\npublic class OrderRepo { public void save(Object o) {} }\n",
+        "src/main/java/com/acme/orders/OrderController.java": (
+            "package com.acme.orders;\nimport com.acme.db.OrderRepo;\n"
+            "public class OrderController {\n  private final OrderRepo repo;\n"
+            "  public void place(Object o) { repo.save(o); audit(o); new Helper().go(); }\n"
+            "  void audit(Object o) {}\n}\n"),
+        "src/main/java/com/acme/orders/Helper.java":
+            "package com.acme.orders;\nclass Helper { void go() {} }\n",
+        "go.mod": "module github.com/acme/checkout\n",
+        "internal/db/store.go": "package db\ntype Store struct{}\nfunc (s *Store) Save(o int) {}\nfunc Open() *Store { return &Store{} }\n",
+        "handlers/orders.go": (
+            "package handlers\nimport \"github.com/acme/checkout/internal/db\"\n"
+            "type Server struct { DB *db.Store }\n"
+            "// PlaceOrder turns a cart into an order.\n"
+            "func (s *Server) PlaceOrder() { s.DB.Save(1); s.log(); db.Open() }\n"
+            "func (s *Server) log() {}\n"),
+    })
+    calls = edges(g)
+    assert ("OrderController.place()", "OrderRepo.save()", "extracted") in calls  # field type
+    assert ("OrderController.place()", "OrderController.audit()", "extracted") in calls
+    assert ("OrderController.place()", "Helper", "extracted") in calls  # same package, no import
+    assert ("Server.PlaceOrder()", "Store.Save()", "extracted") in calls  # struct field type
+    assert ("Server.PlaceOrder()", "Server.log()", "extracted") in calls  # receiver
+    assert ("Server.PlaceOrder()", "Open()", "extracted") in calls        # package import
+    assert "PlaceOrder turns a cart into an order." in {n["label"] for n in g["nodes"]}
 
 
 def test_handler_level_services_notes_and_subsystems(client, ws, repos):
     api, _, _ = repos
     code = api["analysis"]["code"]
-    assert code["engine"] == "graphify" and code["symbols"] >= 6
+    assert code["engine"] == "filament" and code["symbols"] >= 6
     place = code["endpoints"]["POST /v1/orders"]["services"]
     assert [(s["label"], s["via"]) for s in place] == [("Kafka", "publish()")]
     refund = code["endpoints"]["POST /v1/orders/{order_id}/refund"]["services"]

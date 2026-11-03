@@ -59,7 +59,7 @@ def _save_code_graph(session: Session, record: RepoRecord, graph: dict | None) -
     if graph is None:
         return
     row = session.get(CodeGraph, record.id) or CodeGraph(repo_id=record.id)
-    row.engine, row.engine_version = graph.get("engine", "graphify"), graph.get("engine_version")
+    row.engine, row.engine_version = graph.get("engine", "filament"), graph.get("engine_version")
     row.schema_version, row.commit = graph.get("schema_version"), record.commit
     row.graph = {"nodes": graph["nodes"], "edges": graph["edges"]}
     row.built_at = datetime.now(UTC)

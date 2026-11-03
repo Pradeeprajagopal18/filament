@@ -43,11 +43,10 @@ class Settings(BaseSettings):
     repo_scan_interval_hours: int = 24
     repo_scheduler_enabled: bool = True
     repo_scheduler_tick_seconds: int = 300
-    # Where Filament keeps per-repo working data (e.g. Graphify's incremental cache).
+    # Where Filament keeps per-repo working data (e.g. the code graph's per-file cache).
     data_dir: str = "./.filament-data"
-    # Build a symbol-level code graph (Graphify, code-only, no LLM) during repo scans.
+    # Build a symbol-level code graph (tree-sitter, no LLM) during repo scans.
     code_graph: bool = True
-    code_graph_timeout_s: int = 600
 
     # MCP gateway: above this many enabled tools, agents get progressive discovery (discover,
     # list, schema, invoke) instead of every tool definition, to keep context small.

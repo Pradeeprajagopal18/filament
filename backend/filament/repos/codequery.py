@@ -213,8 +213,14 @@ def changed_symbols(g: dict, changes: dict[str, list[tuple[int, int]] | None]) -
         if not spans:  # whole file: the module and every symbol in it
             out += [n["id"] for n in sorted(file_nodes, key=lambda n: n["callable"])]
             continue
-        hit = [nid for nid, (rf, start, end) in ranges.items() if rf == f and any(
-            s <= end and e >= start for s, e in spans)]
+        hit = []
+        in_file = {nid: r for nid, r in ranges.items() if r[0] == f}
+        for s, e in spans:
+            span_hits = [nid for nid, (_, start, end) in in_file.items() if s <= end and e >= start]
+            # innermost only: a change in a method changes the method, not its whole class
+            hit += [a for a in span_hits if not any(
+                b != a and ranges[a][1] <= ranges[b][1] and ranges[b][2] <= ranges[a][2]
+                and ranges[b][1] <= e and s <= ranges[b][2] for b in span_hits)]
         out += hit or [n["id"] for n in file_nodes if not n["callable"]]
     return list(dict.fromkeys(out))
 

@@ -67,7 +67,7 @@ export interface RepoAnalysis {
 }
 export interface ServiceUse { service: string; label: string; category: string; via: string; confidence: string; file: string; line: number }
 export interface CodeSummary {
-  engine: string | null; reason?: string; error?: string; engine_version?: string; warnings?: string[]
+  engine: string | null; reason?: string; error?: string; engine_version?: string; warnings?: string[]; languages?: Record<string, number>
   nodes: number; edges: number; symbols: number; files: number; extracted_pct: number; inferred_pct: number
   communities: { id: number; name: string; size: number; files: number; cohesion: number; key_symbols: string[] }[]
   hotspots: { id: string; label: string; file: string; line: number; fan_in: number; fan_out: number }[]
