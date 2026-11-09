@@ -202,6 +202,20 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   return res.json() as Promise<T>
 }
 
+// -- delivery pipeline --------------------------------------------------------------------------
+export interface StageDef { key: string; label: string; work: string; agent: string; agent_label: string; agent_does: string; role: string | null; role_label: string; checkpoint: string }
+export interface StageState extends StageDef {
+  state: string; detail: string
+  artifacts: { id: string; type: string; title: string; status: string }[]
+  pending_approvals: { id: string; artifact_id: string; role: string | null }[]
+}
+export interface WorkItem { id: string; title: string; status: string; url?: string | null; labels: string[]; readiness: number | null; follow_up_of: string | null; stage: string; stages: StageState[] }
+export interface SloView { id: string; title: string; objective: number; service?: string | null; burn: Record<string, number | null>; state: string; severity: string | null; reason: string; samples: number }
+export interface DeliveryBoard { stages: StageDef[]; items: WorkItem[]; slos: SloView[]; hint?: string }
+export interface AdvanceBody { stage?: string | null; autonomy?: string; target?: string; pr_url?: string | null; post?: boolean; requested_by?: string }
+export interface Handoff { id: string; title: string; branch: string | null; target: string | null; brief: string; prompt: string; commands: Record<string, string>; attempt: number }
+export interface ReleaseOut { id: string; stage: string; steps: { percent: number; status: string }[] }
+
 const httpApi = {
   health: () => call<Health>('GET', '/health'),
   workspaces: () => call<Workspace[]>('GET', '/workspaces'),
@@ -234,6 +248,16 @@ const httpApi = {
   generateRepo: (id: string, items: string[]) => call<RepoDetail>('POST', `/repos/${id}/generate`, { items }),
   repoOpenapi: (id: string) => callText('GET', `/repos/${id}/openapi`),
   artifact: (id: string) => call<Artifact>('GET', `/artifacts/${id}`),
+  delivery: (p: string) => call<DeliveryBoard>('GET', `/projects/${p}/delivery`),
+  addIssue: (p: string, title: string, body: string) => call<WorkItem>('POST', `/projects/${p}/issues`, { title, body }),
+  importIssues: (p: string, repo: string) => call<{ imported: { id: string; title: string }[] }>('POST', `/projects/${p}/issues/import`, { repo }),
+  advance: (item: string, body: AdvanceBody) => call<{ run: Run; item: WorkItem }>('POST', `/work-items/${item}/advance`, { requested_by: 'web', ...body }),
+  handoff: (task: string) => call<Handoff>('GET', `/tasks/${task}/handoff`),
+  linkPr: (task: string, url: string) => call<{ id: string; item: WorkItem | null }>('POST', `/tasks/${task}/pull-request`, { url }),
+  addSlo: (p: string, title: string, objective: number) => call<{ id: string }>('POST', `/projects/${p}/slos`, { title, objective }),
+  sloCheck: (p: string) => call<{ slos: SloView[]; actions: unknown[] }>('POST', `/projects/${p}/slo-check`),
+  releaseAction: (id: string, action: 'promote' | 'rollback', reason = '') => call<ReleaseOut>('POST', `/releases/${id}/${action}`, { by: 'web', reason }),
+  resolveIncident: (id: string, note: string) => call<{ id: string; state: string }>('POST', `/incidents/${id}/resolve`, { by: 'web', reason: note }),
   systemMap: (ws: string) => call<SystemMap>('GET', `/workspaces/${ws}/system-map`),
   repoImpact: (id: string) => call<Impact>('GET', `/repos/${id}/impact`),
   repoScans: (id: string) => call<RepoScan[]>('GET', `/repos/${id}/scans`),

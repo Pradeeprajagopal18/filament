@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 ARTIFACT_TYPES = ["idea", "opportunity", "prd", "story", "flow", "adr", "api_contract", "task",
                   "test_plan", "release", "incident", "doc", "feature_request", "ui_mock",
-                  "component_view"]
+                  "component_view", "issue", "pull_request", "review", "slo"]
 LINK_KINDS = ["implements", "derives_from", "visualizes", "depends_on", "verifies", "relates_to",
               "supersedes"]
 EDITABLE = {"draft", "in_review"}
@@ -247,14 +247,20 @@ def finish(agent: Agent, inp: dict) -> dict:
     return {"done": True}
 
 
+DELEGABLE = {"requirements", "flow"}
+
+
 def delegate(agent: Agent, inp: dict) -> dict:
     """Run a specialist agent as a child run (orchestrator only)."""
     from filament.agents import REGISTRY, execute_run
     from filament.models import Run
 
     name = inp["agent"]
-    if name not in REGISTRY or name == agent.name:
-        raise ToolError(f"agent must be one of {sorted(set(REGISTRY) - {agent.name})}")
+    # Only design specialists: later stages start from the delivery board after a person's
+    # checkpoint, so an orchestrator cannot skip a sign-off by delegating past it.
+    allowed = sorted(DELEGABLE & set(REGISTRY) - {agent.name})
+    if name not in allowed:
+        raise ToolError(f"agent must be one of {allowed}")
     if agent.run_record.parent_run_id:
         raise ToolError("Delegation depth limit reached: specialists cannot delegate further")
     child = Run(project_id=agent.project.id, agent=name, goal=inp.get("goal", name),
@@ -347,3 +353,12 @@ READ_TOOLS = ["search_graph", "read_artifact", "search_memory", "search_repos", 
 SPECIALIST_TOOLS = READ_TOOLS + ["create_artifact", "update_artifact", "link_artifacts",
                                  "propose_memory", "ask_human", "finish"]
 ORCHESTRATOR_TOOLS = READ_TOOLS + ["delegate", "ask_human", "finish"]
+
+
+def _register_delivery() -> None:
+    from filament.agents.delivery_tools import TOOLS as delivery
+
+    TOOLS.update({t.name: t for t in delivery})
+
+
+_register_delivery()

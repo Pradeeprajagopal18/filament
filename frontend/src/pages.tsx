@@ -1,11 +1,31 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, type Artifact, type Gap, type Memory, type Project, type Run, type UsageRow } from './api'
 import { Badge, Content, ErrorLine, Tokens } from './components'
+import { DeliveryTab } from './delivery'
 
-const TYPE_ORDER = ['idea', 'opportunity', 'feature_request', 'prd', 'story', 'flow', 'component_view', 'ui_mock', 'adr', 'api_contract', 'doc', 'task', 'test_plan', 'release', 'incident']
+const TYPE_ORDER = ['issue', 'idea', 'opportunity', 'feature_request', 'prd', 'story', 'flow', 'component_view', 'ui_mock', 'adr', 'api_contract', 'doc', 'task', 'pull_request', 'test_plan', 'review', 'release', 'slo', 'incident']
 
 // -- Project: run agents, browse the graph, approve at the human gate --------------
 export function ProjectPage({ project }: { project: Project }) {
+  const [tab, setTab] = useState<'delivery' | 'design'>('delivery')
+  return (
+    <div className="page">
+      <header className="page-head">
+        <div>
+          <h1>{project.name}</h1>
+          {project.description && <p className="muted">{project.description}</p>}
+        </div>
+      </header>
+      <div className="tabs" role="tablist">
+        <button role="tab" aria-selected={tab === 'delivery'} className={tab === 'delivery' ? 'active' : ''} onClick={() => setTab('delivery')}>Delivery</button>
+        <button role="tab" aria-selected={tab === 'design'} className={tab === 'design' ? 'active' : ''} onClick={() => setTab('design')}>Design & graph</button>
+      </div>
+      {tab === 'delivery' ? <DeliveryTab project={project} /> : <ProjectDesign project={project} />}
+    </div>
+  )
+}
+
+function ProjectDesign({ project }: { project: Project }) {
   const [artifacts, setArtifacts] = useState<Artifact[]>([])
   const [runs, setRuns] = useState<Run[]>([])
   const [selected, setSelected] = useState<Artifact | null>(null)
@@ -60,13 +80,6 @@ export function ProjectPage({ project }: { project: Project }) {
 
   return (
     <div className="page">
-      <header className="page-head">
-        <div>
-          <h1>{project.name}</h1>
-          {project.description && <p className="muted">{project.description}</p>}
-        </div>
-      </header>
-
       <section className="card">
         <h2>Start from an idea</h2>
         <textarea rows={3} value={idea} onChange={e => setIdea(e.target.value)}

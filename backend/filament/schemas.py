@@ -184,6 +184,7 @@ class ApprovalDecision(BaseModel):
 class ApprovalOut(ORM):
     id: str
     artifact_id: str
+    role: str | None = None
     status: str
     decided_by: str | None
     comment: str

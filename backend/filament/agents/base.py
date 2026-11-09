@@ -346,16 +346,19 @@ class Agent:
                       gate: bool = False) -> Artifact | None:
         if not self.persists:
             return None
+        from filament.delivery.service import ALWAYS_GATED, ROLE_FOR
+
+        always = type_ in ALWAYS_GATED  # e.g. production releases: a person signs off at any level
         art = Artifact(
             project_id=self.project.id, type=type_, title=title, content=content,
-            data=data or {}, status=self.initial_status(), author=f"agent:{self.name}",
-            run_id=self.run_record.id,
+            data=data or {}, status="in_review" if always else self.initial_status(),
+            author=f"agent:{self.name}", run_id=self.run_record.id,
         )
         self.session.add(art)
         self.session.flush()
         self.seen_ids.add(art.id)
-        if gate and self.autonomy == "L2":
-            self.session.add(Approval(artifact_id=art.id))
+        if always or (gate and self.autonomy == "L2"):
+            self.session.add(Approval(artifact_id=art.id, role=ROLE_FOR.get(type_)))
         self.created.append(art)
         return art
 

@@ -132,10 +132,26 @@ Missing items (agent instructions, overview, architecture, ownership, API contra
 - **Change impact** uses exact line ranges and the innermost symbol a hunk touches (a change in a method changes that method, not its class).
 - **Scheduled scans** compare the remote HEAD (`git ls-remote`) with the last scanned commit and skip unchanged repos.
 
+## Delivery pipeline
+
+`delivery/` (service, checks, github, webhook, omni), `agents/delivery.py`, `agents/delivery_tools.py`, `api/delivery.py`.
+
+- **Work items** are `issue` artifacts. A stage's state is derived from the artifacts linked to the item (PRD/stories/flows, `task`, `pull_request`, `test_plan`, `review`, `release`, `incident`) and their approvals, so the board can't drift from the graph. Outputs of every stage run are linked back to the item.
+- **Checkpoints** are `Approval` rows with a `role` taken from the artifact type: issue → product owner, design artifacts → tech lead, review → engineer, release → release manager, incident → on-call. `POST /work-items/{id}/advance` refuses a stage until the previous checkpoint is signed off (design needs approved scope; build needs approved design if there is one; deploy needs an approved review). Releases are gated at every autonomy level. The orchestrator can only delegate to design specialists, so it can't skip a checkpoint.
+- **Agents** decide their steps from goals and tools; the checks behind the tools are deterministic (`delivery/checks.py`), so offline runs and tests produce the same results:
+  - Triage readiness scoring.
+  - Coding handoff brief: start points ranked by word stems against the issue, impact computed from those functions.
+  - QA: test plan from the PR's diff, CI classification, and a retry decision capped by `FILAMENT_DELIVERY_MAX_RETRIES`.
+  - Review findings.
+  - Release plan.
+  - SRE multi-window burn rates (fast burn 14.4x over 5m and 1h pages; slow burn 6x over 1h and 6h tickets).
+- **Coding agents** stay external. The brief is served at `GET /tasks/{id}/handoff`, by `fil delivery handoff`, and to MCP clients through the Omni tools `filament_list_tasks`, `filament_get_task` and `filament_report_pr`. The GitHub webhook links a PR whose branch is `filament/<task id>-…` or whose description says `Filament-Task: <id>`, and records check runs on the PR and its test plan.
+- **SLOs** are `slo` artifacts with samples (`POST /slos/{id}/samples`, from metrics pipelines or monitoring MCPs). The scheduler checks them every tick. When there's a breach during a rollout whose approved plan allows auto-rollback, the release is rolled back, an incident is opened for on-call, and a follow-up issue (`derives_from` the incident) goes back to triage. Open incidents aren't duplicated.
+- **Preview:** `scripts/demo_delivery.py` runs the real backend through the whole journey and records each step. The preview replays those steps in order.
+
 ## Next (from the roadmap)
 
-Durable background runs (workflow engine), pgvector semantic memory, code index and context
-graph, connectors (GitHub, Jira, Slack) via MCP, test/release/ops agents, SSO and policies.
+Durable background runs (workflow engine), pgvector semantic memory, Jira and Linear as issue sources, deploy-tool connectors for promote/rollback, SSO and policies.
 
 
 ## MCP gateway

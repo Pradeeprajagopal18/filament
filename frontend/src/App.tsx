@@ -90,7 +90,7 @@ export default function App() {
         )}
       </aside>
       <main>
-        {DEMO && <div className="demo-banner">Interactive preview · sample data · agents are simulated in your browser. Try “Take idea to design” on a new project.</div>}
+        {DEMO && <div className="demo-banner">Interactive preview · sample data · the delivery steps replay a run of the real agents. Open a work item and follow the seven stages.</div>}
         {error && <p className="error">{error}</p>}
         {ws && view.kind === 'project' && <ProjectPage key={view.project.id} project={view.project} />}
         {ws && view.kind === 'memory' && <MemoryPage ws={ws} />}

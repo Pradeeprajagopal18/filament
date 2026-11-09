@@ -148,6 +148,9 @@ class Approval(Base):
 
     id: Mapped[str] = mapped_column(String(12), primary_key=True, default=new_id)
     artifact_id: Mapped[str] = mapped_column(ForeignKey("artifacts.id"), index=True)
+    # Who signs off at this checkpoint: product_owner | tech_lead | engineer |
+    # release_manager | on_call (from the artifact type; see delivery.service.ROLE_FOR).
+    role: Mapped[str | None] = mapped_column(String(30), nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="pending")
     decided_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
     comment: Mapped[str] = mapped_column(Text, default="")
@@ -168,6 +171,19 @@ class Signal(Base):
     asker: Mapped[str] = mapped_column(String(120), default="human")
     answered: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class SloSample(Base):
+    """One measurement for an SLO (an `slo` artifact): good events out of total in a period."""
+
+    __tablename__ = "slo_samples"
+
+    id: Mapped[str] = mapped_column(String(12), primary_key=True, default=new_id)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), index=True)
+    slo_id: Mapped[str] = mapped_column(ForeignKey("artifacts.id"), index=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)
+    good: Mapped[int] = mapped_column(Integer, default=0)
+    total: Mapped[int] = mapped_column(Integer, default=0)
 
 
 class ReadinessReport(Base):

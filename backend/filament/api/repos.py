@@ -236,7 +236,8 @@ def mock_endpoint(repo_id: str, path: str, request: Request,
 @router.post("/webhooks/github", status_code=202)
 async def github_webhook(request: Request, background: BackgroundTasks,
                          session: Session = Depends(get_session)):
-    """Rescan onboarded repos when GitHub reports a push to their default branch."""
+    """Rescan onboarded repos when GitHub reports a push to their default branch; link pull
+    requests to coding tasks and record CI results for the delivery pipeline."""
     raw = await request.body()
     secret = get_settings().github_webhook_secret
     if secret:
@@ -247,6 +248,12 @@ async def github_webhook(request: Request, background: BackgroundTasks,
     event = request.headers.get("X-GitHub-Event", "push")
     if event == "ping":
         return {"ok": True}
+    if event in {"pull_request", "check_run", "check_suite"}:
+        from filament.delivery.webhook import handle
+
+        out = handle(session, event, json.loads(raw or b"{}"))
+        session.commit()
+        return out
     if event != "push":
         return {"ignored": event}
     payload = json.loads(raw or b"{}")

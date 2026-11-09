@@ -203,10 +203,11 @@ OMNI_TOOLS = [
 
 
 def _omni_tools() -> list[dict]:
+    from filament.delivery.omni import SPECS as TASK_SPECS
     from filament.repos.code_tools import SPECS
 
     return OMNI_TOOLS + [{"name": s["name"], "description": s["description"],
-                          "inputSchema": s["input_schema"]} for s in SPECS]
+                          "inputSchema": s["input_schema"]} for s in [*SPECS, *TASK_SPECS]]
 
 
 def _rpc(id_, result=None, error=None):
@@ -246,7 +247,9 @@ async def omni(ws_id: str, request: Request, session: Session = Depends(get_sess
                 "instructions": "Use discover_servers, then list_tools, get_tool_schema and "
                                 "invoke_tool. Ask for only the fields you need. For questions "
                                 "about code, use code_query / code_explain / code_path / "
-                                "code_impact before reading or grepping files."}))
+                                "code_impact before reading or grepping files. If you were "
+                                "given a Filament task id, read it with filament_get_task "
+                                "and report your PR with filament_report_pr."}))
         elif method == "ping":
             replies.append(_rpc(id_, {}))
         elif method == "tools/list":
@@ -284,8 +287,14 @@ def _omni_call(session: Session, ws_id: str, name: str | None, args: dict, auton
             srv, entry = reg.find(session, ws_id, args.get("server", ""), args.get("tool", ""))
             return ok(reg.invoke(session, ws_id, srv, entry, args.get("arguments") or {},
                                  actor="omni", autonomy=autonomy, fields=args.get("fields")))
+        from filament.delivery import omni as delivery_omni
         from filament.repos import code_tools
 
+        if name in delivery_omni.NAMES:
+            try:
+                return ok(delivery_omni.run(session, ws_id, name, args))
+            except delivery_omni.TaskError as exc:
+                raise reg.GatewayError(str(exc)) from exc
         if name in code_tools.NAMES:
             try:
                 return ok(code_tools.run(session, ws_id, name, args))

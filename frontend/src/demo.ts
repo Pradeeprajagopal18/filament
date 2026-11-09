@@ -3,8 +3,10 @@
 import type {
   AgentSetting, Artifact, Check, Gap, Health, Link, McpServer, McpServerInput, Memory, Project, Readiness, Run,
   ChangeImpact, CodeExplain, CodeGraphView, CodeLookup, CodePath, CodeSym, Endpoint, GatewayCall, GatewayServer, GatewayTool, Impact, JsonSchema, RepoAnalysis, RepoDetail, RepoScan, Runner, ScanChanges, SystemMap, TraceEvent, UsageRow, Workspace,
+  AdvanceBody, DeliveryBoard, Handoff, ReleaseOut, WorkItem,
 } from './api'
 import demoRepos from './demo-repos.json'
+import demoDelivery from './demo-delivery.json'
 
 // Real analyzer output for four sample repos (backend/scripts/demo_repos.py).
 interface RepoSample {
@@ -632,9 +634,72 @@ const project = (pid: string) => {
   if (!p) throw new Error('404: project not found')
   return p
 }
+
+// -- delivery pipeline (preview): plays back a scenario recorded from the real backend -----------
+// scripts/demo_delivery.py runs the actual agents (offline) through one work item's journey and
+// records each step. The preview applies steps in order; anything out of order gets the same
+// checkpoint message the server gives, or a pointer to the next step.
+interface DemoStep { key: string; hint: string; covers: string[]; response: unknown; board: DeliveryBoard }
+const DD = demoDelivery as unknown as { initial: DeliveryBoard; steps: DemoStep[]; errors: Record<string, string>; artifacts: Record<string, Artifact>; handoffs: Record<string, Handoff> }
+const delivery = { step: 0, board: DD.initial, added: [] as WorkItem[] }
+const SAMPLE_PROJECT = 'checkout'
+function play(key: string, artifactId?: string): unknown {
+  const s = DD.steps[delivery.step]
+  if (s && (s.key === key || (artifactId && s.covers.includes(artifactId)))) {
+    delivery.step++
+    delivery.board = s.board
+    return s.response
+  }
+  if (artifactId && DD.steps.slice(0, delivery.step).some(x => x.covers.includes(artifactId))) return null
+  throw new Error(`409: ${DD.errors[key] ?? (s ? `In this preview the next step is: ${s.hint}.` : 'This preview scenario is complete. On the real server every item can go through every stage.')}`)
+}
+function deliveryStatus(aid: string): string | undefined {
+  for (const i of delivery.board.items) {
+    if (i.id === aid) return i.status
+    for (const s of i.stages) { const a = s.artifacts.find(x => x.id === aid); if (a) return a.status }
+  }
+}
+
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v))
 
 export const demoApi = {
+  delivery: async (p: string): Promise<DeliveryBoard> => {
+    const next = DD.steps[delivery.step]
+    if (p !== SAMPLE_PROJECT) return clone({ stages: DD.initial.stages, items: delivery.added.filter(i => i.id.startsWith(p)), slos: [] })
+    return clone({ ...delivery.board, items: [...delivery.added.filter(i => i.id.startsWith(p)), ...delivery.board.items], hint: next?.hint ?? 'Scenario complete' })
+  },
+  addIssue: async (p: string, title: string, body: string): Promise<WorkItem> => {
+    const item: WorkItem = { id: `${p}-${id()}`, title, status: 'draft', labels: [], readiness: null, follow_up_of: null, stage: 'plan', url: null,
+      stages: DD.initial.items[0].stages.map(s => ({ ...s, state: 'todo', detail: '', artifacts: [], pending_approvals: [] })) }
+    void body
+    delivery.added.unshift(item)
+    return clone(item)
+  },
+  importIssues: async (): Promise<{ imported: { id: string; title: string }[] }> => {
+    throw new Error('Preview: importing issues reads them from GitHub, which needs the real server. Add one by hand instead.')
+  },
+  advance: async (item: string, body: AdvanceBody): Promise<{ run: Run; item: WorkItem }> => {
+    if (delivery.added.some(i => i.id === item)) throw new Error('409: In this preview the agents run on the two sample work items in Checkout v2; on the real server they run on any item.')
+    const cur = delivery.board.items.find(i => i.id === item)
+    await sleep(900)
+    const r = play(`advance:${item}:${body.stage ?? cur?.stage}`) as { run: Run; item: WorkItem }
+    return clone(r)
+  },
+  handoff: async (task: string): Promise<Handoff> => {
+    const h = DD.handoffs[task]; if (!h) throw new Error('404: No task')
+    return clone(h)
+  },
+  linkPr: async (task: string): Promise<{ id: string; item: WorkItem | null }> => {
+    await sleep(400)
+    return clone(play(`linkpr:${task}`) as { id: string; item: WorkItem | null })
+  },
+  addSlo: async (): Promise<{ id: string }> => { throw new Error('Preview: the sample project already has an SLO.') },
+  sloCheck: async () => clone({ slos: delivery.board.slos, actions: [] }),
+  releaseAction: async (rid: string, action: 'promote' | 'rollback'): Promise<ReleaseOut> => {
+    await sleep(400)
+    return clone(play(`${action}:${rid}`) as ReleaseOut)
+  },
+  resolveIncident: async (iid: string) => clone(play(`resolve:${iid}`) as { id: string; state: string }),
   health: async (): Promise<Health> => ({ status: 'ok', offline: false, model: 'claude-sonnet-5-5 (simulated)', version: '0.1.0-demo' }),
   workspaces: async () => clone(db.workspaces),
   createWorkspace: async (name: string) => { const w = { id: id(), name }; db.workspaces.push(w); return w },
@@ -657,6 +722,11 @@ export const demoApi = {
     return clone({ affected: db.artifacts.filter(x => seen.has(x.id)) })
   },
   decide: async (aid: string, decision: 'approved' | 'rejected') => {
+    if (DD.artifacts[aid]) {
+      if (decision === 'rejected') throw new Error('409: In this preview, approve to follow the scenario. Rejecting sends the work back on the real server.')
+      play('approve', aid)
+      return clone({ ...DD.artifacts[aid], status: 'approved' })
+    }
     const a = db.artifacts.find(x => x.id === aid)!
     a.status = decision; a.updated_at = now()
     return clone(a)
@@ -790,6 +860,7 @@ export const demoApi = {
     return y
   },
   artifact: async (aid: string) => {
+    if (DD.artifacts[aid]) return clone({ ...DD.artifacts[aid], status: deliveryStatus(aid) ?? DD.artifacts[aid].status })
     const a = db.artifacts.find(x => x.id === aid); if (!a) throw new Error('404: Artifact not found')
     return clone(a)
   },

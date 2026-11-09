@@ -349,5 +349,14 @@ async def scheduler_loop() -> None:
             m = await asyncio.to_thread(sync)
             if m:
                 log.info("re-synced %d MCP servers", m)
+
+            def slos() -> int:
+                from filament.delivery.service import check_all
+
+                with SessionLocal() as s:
+                    return check_all(s)
+            k = await asyncio.to_thread(slos)
+            if k:
+                log.info("SLO checks opened %d incident(s)", k)
         except Exception:  # never let the loop die
             log.exception("repo scheduler tick failed")

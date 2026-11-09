@@ -149,7 +149,9 @@ def decide(artifact_id: str, body: s.ApprovalDecision, session: Session = Depend
     pending = session.scalars(select(Approval).where(
         Approval.artifact_id == artifact_id, Approval.status == "pending")).all()
     if not pending:
-        pending = [Approval(artifact_id=artifact_id)]
+        from filament.delivery.service import ROLE_FOR
+
+        pending = [Approval(artifact_id=artifact_id, role=ROLE_FOR.get(art.type))]
         session.add(pending[0])
     for ap in pending:
         ap.status = body.decision

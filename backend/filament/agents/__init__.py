@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 
 from filament.agents.base import Agent, AgentError
+from filament.agents.delivery import AGENTS as DELIVERY_AGENTS
 from filament.agents.flow import FlowAgent
 from filament.agents.orchestrator import OrchestratorAgent
 from filament.agents.requirements import RequirementsAgent
@@ -15,6 +16,7 @@ REGISTRY: dict[str, type[Agent]] = {
     RequirementsAgent.name: RequirementsAgent,
     FlowAgent.name: FlowAgent,
     OrchestratorAgent.name: OrchestratorAgent,
+    **{a.name: a for a in DELIVERY_AGENTS},
 }
 
 

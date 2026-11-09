@@ -44,6 +44,13 @@ work in the same place, and every agent output is linked, cited and reviewable.
 | Change impact | From changed files, a diff or a GitHub PR: the symbols changed, code affected, endpoints touched, other repos that call them, and a risk level; also checks two change sets for overlap |
 | Design notes | `WHY:`, `NOTE:`, `DECISION:` and similar comments are proposed to project memory, linked to the ADRs they cite |
 | Data model | Tables, fields and relationships from SQL migrations, SQLAlchemy, Django and Prisma models, as an ER diagram |
+| Delivery pipeline | Each work item (a GitHub issue or one added by hand) moves through Plan → Design → Build → Test → Review → Deploy → Operate. An agent works each stage and a person signs off at the checkpoints: product owner (scope), tech lead (design), engineer (PR), release manager (production release), on-call (incidents). A stage can't start until the previous checkpoint is signed off |
+| Triage Agent | Scores issue readiness (problem, acceptance criteria, scope, where in the code, repro steps, duplicates) and asks authors for what's missing |
+| Coding Agent | Hands the task to Claude Code, Codex or Cursor with a brief grounded in the code graph: where to start, endpoints and the repos that call them, conventions from shared memory, test commands, branch name. The coding agent reads it over MCP (`filament_get_task`) or from `fil delivery handoff`; its PR links itself |
+| QA Agent | Test plan from acceptance criteria, touched endpoints and changed functions; reads CI and sends failures back to the coding agent until they pass, up to a limit, then asks a person |
+| Review Agent | First-pass PR scorecard: secrets, endpoints other repos call, hotspots, missing tests, migrations, debug output, size. Posts on the PR only at autonomy L3+ |
+| Release Agent | Rollout behind a flag in steps sized to risk, with rollback criteria tied to SLOs and the teams to tell. Production releases always need a release manager |
+| SRE Agent | Watches SLO burn rates; on a breach during a rollout it rolls back, opens an incident for on-call and files a follow-up issue that goes back to triage |
 | `fil` CLI | Every capability from the terminal |
 
 ## Quick start
@@ -84,6 +91,10 @@ fil repo map                                     # how repos connect
 fil repo impact <id>                             # who depends on this repo
 fil repo rescan <id> | --due                     # rescan and show what changed
 fil repo schedule <id> 24                        # rescan interval in hours (0 = manual)
+fil delivery board <project-id>                  # work items and stage states
+fil delivery advance <item-id>                   # run the next stage's agent
+fil delivery handoff <task-id> --prompt          # claude "$(fil delivery handoff <task-id> --prompt)"
+fil delivery slo add <project-id> "Checkout availability" --objective 99.9
 fil code summary <repo-id>                       # subsystems, hotspots, cycles, design notes
 fil code explain <repo-id> place_order           # calls, callers, endpoints, services reached
 fil code path <repo-id> place_order save_order   # how two symbols connect

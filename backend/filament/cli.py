@@ -857,5 +857,140 @@ def code_conflicts(repo_id: str, change: list[str] = typer.Option(
         console.print(f"{x['severity']}: {x['a']} × {x['b']}  {what}")
 
 
+# -- Delivery pipeline -------------------------------------------------------------------
+delivery_app = typer.Typer(help="Delivery: work items through plan, design, build, test, "
+                                "review, deploy and operate", no_args_is_help=True)
+app.add_typer(delivery_app, name="delivery")
+STATE_STYLE = {"approved": "green", "done": "green", "passed": "green", "watching": "green",
+               "waiting": "yellow", "needs_info": "yellow", "draft": "yellow", "ready": "cyan",
+               "handed_off": "cyan", "running": "cyan", "rolling_out": "cyan",
+               "failing": "red", "blocked": "red", "incident": "red", "rolled_back": "red"}
+
+
+def _stage_cell(s: dict) -> str:
+    style = STATE_STYLE.get(s["state"], "dim")
+    return f"[{style}]{s['state'].replace('_', ' ')}[/{style}]"
+
+
+@delivery_app.command("board")
+def delivery_board(project_id: str):
+    """Work items and where each stage stands."""
+    b = _call("GET", f"/projects/{project_id}/delivery")
+    table = Table(title="Delivery")
+    table.add_column("Work item")
+    for s in b["stages"]:
+        table.add_column(s["label"])
+    for i in b["items"]:
+        stages = {s["key"]: s for s in i["stages"]}
+        table.add_row(f"{i['title'][:40]}\n[dim]{i['id']}[/dim]",
+                      *[_stage_cell(stages[s["key"]]) for s in b["stages"]])
+    console.print(table)
+    for s in b["slos"]:
+        console.print(f"SLO {s['title']} ({s['objective']}%): {s['state']} · {s['reason']}")
+
+
+@delivery_app.command("add")
+def delivery_add(project_id: str, title: str, body: str = typer.Option("", "--body"),
+                 repo: str | None = typer.Option(None, "--repo")):
+    """Add a work item by hand."""
+    i = _call("POST", f"/projects/{project_id}/issues",
+              json={"title": title, "body": body, "repo": repo})
+    console.print(f"added {i['id']}  {i['title']}")
+
+
+@delivery_app.command("import")
+def delivery_import(project_id: str, repo: str, labels: str = "", limit: int = 20):
+    """Import open GitHub issues (owner/repo) as work items."""
+    r = _call("POST", f"/projects/{project_id}/issues/import",
+              json={"repo": repo, "labels": labels, "limit": limit})
+    for i in r["imported"]:
+        console.print(f"{i['id']}  {i['title']}")
+
+
+@delivery_app.command("advance")
+def delivery_advance(item_id: str, stage: str | None = typer.Option(None, "--stage"),
+                     autonomy: str = typer.Option("L2", "--autonomy"),
+                     target: str = typer.Option("claude_code", "--target",
+                                                help="claude_code | codex | cursor"),
+                     pr_url: str | None = typer.Option(None, "--pr"),
+                     post: bool = typer.Option(False, "--post", help="Post the review (L3+)")):
+    """Run the agent for a work item's next stage (or --stage). Checkpoints must be signed off."""
+    r = _call("POST", f"/work-items/{item_id}/advance",
+              json={"stage": stage, "autonomy": autonomy, "target": target, "pr_url": pr_url,
+                    "post": post})
+    run = r["run"]
+    console.print(f"[bold]{run['agent']}[/bold] {run['status']}: "
+                  f"{(run.get('output') or {}).get('summary', '')}")
+    for s in r["item"]["stages"]:
+        wait = " · waiting for " + s["role_label"] if s["pending_approvals"] else ""
+        console.print(f"  {s['label']:<8} {_stage_cell(s)} {s['detail']}{wait}")
+
+
+@delivery_app.command("handoff")
+def delivery_handoff(task_id: str, prompt: bool = typer.Option(
+        False, "--prompt", help="Print only the prompt (pipe it into your coding agent)")):
+    """The brief for Claude Code, Codex or Cursor: claude "$(fil delivery handoff ID --prompt)"."""
+    h = _call("GET", f"/tasks/{task_id}/handoff")
+    if prompt:
+        print(h["prompt"])
+        return
+    console.print(h["brief"])
+    for name, cmd in (h.get("commands") or {}).items():
+        console.print(f"[dim]{name}:[/dim] {cmd}")
+
+
+@delivery_app.command("link-pr")
+def delivery_link_pr(task_id: str, url: str):
+    """Attach the pull request opened for a task (the webhook does this automatically)."""
+    r = _call("POST", f"/tasks/{task_id}/pull-request", json={"url": url})
+    console.print(f"linked {r['id']}")
+
+
+slo_app = typer.Typer(help="SLOs the SRE agent watches", no_args_is_help=True)
+delivery_app.add_typer(slo_app, name="slo")
+
+
+@slo_app.command("add")
+def slo_add(project_id: str, title: str, objective: float = 99.9,
+            service: str | None = typer.Option(None, "--service")):
+    r = _call("POST", f"/projects/{project_id}/slos",
+              json={"title": title, "objective": objective, "service": service})
+    console.print(f"added SLO {r['id']}  {r['title']} ({r['objective']}%)")
+
+
+@slo_app.command("sample")
+def slo_sample(slo_id: str, good: int, total: int):
+    """Record a measurement: good events out of total."""
+    _call("POST", f"/slos/{slo_id}/samples", json=[{"good": good, "total": total}])
+    console.print("recorded")
+
+
+@slo_app.command("check")
+def slo_check(project_id: str):
+    """Evaluate SLOs now: auto-rollback, incidents and follow-up issues."""
+    r = _call("POST", f"/projects/{project_id}/slo-check")
+    for s in r["slos"]:
+        console.print(f"{s['title']}: {s['state']} · {s['reason']}")
+    for a in r["actions"]:
+        console.print(f"[red]incident {a['incident']}[/red] follow-up {a['follow_up_issue']}"
+                      + (f" · rolled back {a['rolled_back']}" if a["rolled_back"] else ""))
+
+
+@delivery_app.command("release")
+def delivery_release(release_id: str, action: str = typer.Argument(
+        ..., help="promote | rollback"), by: str = "human", reason: str = ""):
+    """Roll an approved release to its next step, or roll it back."""
+    r = _call("POST", f"/releases/{release_id}/{action}", json={"by": by, "reason": reason})
+    live = [s["percent"] for s in r["steps"] if s["status"] == "done"]
+    console.print(f"{r['stage']}" + (f" · {live[-1]}% live" if live else ""))
+
+
+@delivery_app.command("resolve")
+def delivery_resolve(incident_id: str, by: str = "human", note: str = ""):
+    """Close an incident (on-call)."""
+    _call("POST", f"/incidents/{incident_id}/resolve", json={"by": by, "reason": note})
+    console.print("resolved")
+
+
 if __name__ == "__main__":
     app()

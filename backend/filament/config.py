@@ -26,6 +26,10 @@ class Settings(BaseSettings):
 
     # Agent loop guardrails: hard limits the model cannot override.
     max_agent_turns: int = 12
+    # Delivery: how many times QA sends failing CI back to the coding agent before a person
+    # steps in, and how often SLOs are checked by the scheduler.
+    delivery_max_retries: int = 3
+    slo_check_interval_minutes: int = 5
     run_token_budget: int = 200_000
 
     # Context control: keep each model call lean and grounded.
