@@ -1,8 +1,11 @@
-.PHONY: setup build test lint dev-api dev-web openapi
+.PHONY: setup check-node build test lint dev-api dev-web openapi
 
-setup:
-	cd backend && uv venv -q .venv && uv pip install -q -e ".[dev]"
+setup: check-node
+	cd backend && uv venv -q --allow-existing .venv && uv pip install -q -e ".[dev]"
 	cd frontend && npm ci
+
+check-node:
+	@node frontend/scripts/check-node.mjs
 
 build:
 	cd frontend && npm run build
@@ -18,7 +21,7 @@ lint:
 dev-api:
 	cd backend && .venv/bin/uvicorn filament.main:app --reload --port 8000
 
-dev-web:
+dev-web: check-node
 	cd frontend && npm run dev
 
 openapi:
