@@ -26,6 +26,11 @@ class Settings(BaseSettings):
 
     # Agent loop guardrails: hard limits the model cannot override.
     max_agent_turns: int = 12
+    # Git hosts that get the FILAMENT_GIT_TOKEN: github.com plus any GitHub Enterprise hosts,
+    # e.g. FILAMENT_GITHUB_HOSTS='["github.com","github.acme.internal"]'. Other hosts never see it.
+    github_hosts: list[str] = ["github.com"]
+    # Shallow clones of big internal repos can take a while.
+    clone_timeout_s: int = 600
     # Delivery: how many times QA sends failing CI back to the coding agent before a person
     # steps in, and how often SLOs are checked by the scheduler.
     delivery_max_retries: int = 3

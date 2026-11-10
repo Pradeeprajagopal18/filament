@@ -1,7 +1,6 @@
 """Deterministic repo readiness checks (no model needed) plus generated fixes."""
 
 import json
-import os
 import shutil
 import subprocess
 import tempfile
@@ -139,46 +138,50 @@ def run_checks(repo: Repo) -> list[Check]:
 
 @contextmanager
 def checkout(repo: str):
-    """Yield a local path for a directory or a git URL (shallow clone into a temp dir)."""
+    """Yield a local path for a directory or a git URL (shallow clone into a temp dir).
+
+    Credentials come from the environment (see filament.gitaccess); git never prompts, so a
+    missing credential fails at once with a reason instead of hanging."""
+    from filament import gitaccess
+    from filament.config import get_settings
+
     path = Path(repo).expanduser()
     if path.exists():
         yield path.resolve()
         return
     tmp = Path(tempfile.mkdtemp(prefix="filament-ready-"))
-    token = None
     try:
-        url = repo if "://" in repo or repo.startswith("git@") else f"https://{repo}"
-        # Private repos: a token from the environment (never stored by Filament).
-        token = os.environ.get("FILAMENT_GIT_TOKEN") or os.environ.get("GITHUB_TOKEN")
-        if token and url.startswith("https://github.com/"):
-            url = url.replace("https://", f"https://x-access-token:{token}@", 1)
-        subprocess.run(["git", "clone", "--depth", "1", "--quiet", url, str(tmp / "repo")],
-                       check=True, capture_output=True, timeout=180)
+        url = gitaccess.authed(gitaccess.clone_url(repo))
+        timeout = get_settings().clone_timeout_s
+        try:
+            subprocess.run(["git", "clone", "--depth", "1", "--quiet", url, str(tmp / "repo")],
+                           check=True, capture_output=True, timeout=timeout, env=gitaccess.env())
+        except FileNotFoundError as exc:
+            raise ValueError("git is not installed or not on PATH") from exc
+        except subprocess.TimeoutExpired as exc:
+            raise ValueError(f"Cloning {repo} took longer than {timeout}s. For very large repos, "
+                             "clone it yourself and onboard the local folder, or raise "
+                             "FILAMENT_CLONE_TIMEOUT_S.") from exc
+        except subprocess.CalledProcessError as exc:
+            raise ValueError(gitaccess.explain(repo, exc.stderr.decode(errors="ignore"))) from exc
         yield tmp / "repo"
-    except subprocess.CalledProcessError as exc:
-        stderr = exc.stderr.decode(errors="ignore")[:300]
-        if token:
-            stderr = stderr.replace(token, "***")
-        raise ValueError(f"Could not clone {repo}: {stderr}") from exc
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
 def remote_head(repo: str) -> str | None:
     """The remote's HEAD commit without cloning (None for local paths or on any error)."""
+    from filament import gitaccess
+
     if Path(repo).expanduser().exists():
         return None
-    url = repo if "://" in repo or repo.startswith("git@") else f"https://{repo}"
-    token = os.environ.get("FILAMENT_GIT_TOKEN") or os.environ.get("GITHUB_TOKEN")
-    if token and url.startswith("https://github.com/"):
-        url = url.replace("https://", f"https://x-access-token:{token}@", 1)
+    url = gitaccess.authed(gitaccess.clone_url(repo))
     try:
         out = subprocess.run(["git", "ls-remote", url, "HEAD"], capture_output=True, text=True,
-                             timeout=30)
+                             timeout=30, env=gitaccess.env())
     except (OSError, subprocess.SubprocessError):
         return None
-    sha = out.stdout.split()[0] if out.returncode == 0 and out.stdout.strip() else None
-    return sha
+    return out.stdout.split()[0] if out.returncode == 0 and out.stdout.strip() else None
 
 
 def scan(repo: str) -> ReadinessResult:

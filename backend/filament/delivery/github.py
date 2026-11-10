@@ -1,17 +1,19 @@
 """Minimal GitHub REST client for the delivery stages: issues, pull requests, CI checks, comments.
 
-Uses a token from the environment (FILAMENT_GIT_TOKEN or GITHUB_TOKEN), never stored. Every
-call is small and read-only except `comment`, which agents may only use at autonomy L3+.
+Works with github.com and GitHub Enterprise Server (hosts in FILAMENT_GITHUB_HOSTS; the API is
+https://<host>/api/v3). Uses a token from the environment (FILAMENT_GIT_TOKEN or GITHUB_TOKEN),
+never stored, and only sends it to configured hosts. Every call is small and read-only except
+`comment`, which agents may only use at autonomy L3+.
 """
 
 from __future__ import annotations
 
-import os
 import re
 
-API = "https://api.github.com"
-PR_URL = re.compile(r"github\.com/([\w.-]+)/([\w.-]+)/pull/(\d+)")
-REPO_REF = re.compile(r"(?:github\.com[/:])?([\w.-]+)/([\w.-]+?)(?:\.git)?/?$")
+from filament import gitaccess
+
+PR_URL = re.compile(r"https?://([\w.-]+)/([\w.-]+)/([\w.-]+)/pull/(\d+)")
+REPO_REF = re.compile(r"(?:(?:https?://)?([\w.-]+\.[\w.-]+)[/:])?([\w.-]+)/([\w.-]+?)(?:\.git)?/?$")
 
 
 class GitHubError(RuntimeError):
@@ -19,7 +21,15 @@ class GitHubError(RuntimeError):
 
 
 def token() -> str | None:
-    return os.environ.get("FILAMENT_GIT_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    return gitaccess.token()
+
+
+def _check_host(host: str) -> str:
+    """Only configured hosts get the token (and our API calls)."""
+    if host not in gitaccess.hosts():
+        raise GitHubError(f"{host} is not a configured GitHub host. Add it to "
+                          f"FILAMENT_GITHUB_HOSTS, e.g. '[\"github.com\",\"{host}\"]'")
+    return host
 
 
 def _headers() -> dict:
@@ -30,11 +40,12 @@ def _headers() -> dict:
     return h
 
 
-def _get(path: str, params: dict | None = None):
+def _get(host: str, path: str, params: dict | None = None):
     import httpx
 
     try:
-        r = httpx.get(f"{API}{path}", headers=_headers(), params=params or {}, timeout=20)
+        r = httpx.get(f"{gitaccess.api_base(host)}{path}", headers=_headers(),
+                      params=params or {}, timeout=20)
     except httpx.HTTPError as exc:
         raise GitHubError(f"GitHub unreachable: {exc}") from exc
     if r.status_code == 404:
@@ -44,25 +55,30 @@ def _get(path: str, params: dict | None = None):
     return r.json()
 
 
-def parse_pr(url: str) -> tuple[str, str, int]:
+def parse_pr(url: str) -> tuple[str, str, str, int]:
+    """(host, owner, repo, number) from a pull request URL on a configured host."""
     m = PR_URL.search(url or "")
     if not m:
         raise GitHubError(f"Not a GitHub pull request URL: {url}")
-    return m.group(1), m.group(2), int(m.group(3))
+    return _check_host(m.group(1).lower()), m.group(2), m.group(3), int(m.group(4))
 
 
-def parse_repo(ref: str) -> tuple[str, str]:
-    m = REPO_REF.search((ref or "").strip())
+def parse_repo(ref: str) -> tuple[str, str, str]:
+    """(host, owner, repo) from owner/repo, host/owner/repo or a URL (default host: the first)."""
+    ref = (ref or "").strip()
+    if ref.startswith("git@"):
+        ref = ref[4:].replace(":", "/", 1)
+    m = REPO_REF.search(ref)
     if not m:
         raise GitHubError(f"Not a GitHub repo: {ref}")
-    return m.group(1), m.group(2)
+    return _check_host((m.group(1) or gitaccess.hosts()[0]).lower()), m.group(2), m.group(3)
 
 
 def pull_request(url: str) -> dict:
     """Title, body, branch, head commit and changed files (with patches) of a PR."""
-    owner, repo, n = parse_pr(url)
-    pr = _get(f"/repos/{owner}/{repo}/pulls/{n}")
-    files = _get(f"/repos/{owner}/{repo}/pulls/{n}/files", {"per_page": 100})
+    host, owner, repo, n = parse_pr(url)
+    pr = _get(host, f"/repos/{owner}/{repo}/pulls/{n}")
+    files = _get(host, f"/repos/{owner}/{repo}/pulls/{n}/files", {"per_page": 100})
     return {"url": url, "repo": f"{owner}/{repo}", "number": n, "title": pr.get("title", ""),
             "body": pr.get("body") or "", "branch": (pr.get("head") or {}).get("ref", ""),
             "head_sha": (pr.get("head") or {}).get("sha", ""), "state": pr.get("state", ""),
@@ -74,10 +90,10 @@ def pull_request(url: str) -> dict:
 
 def check_runs(url: str, sha: str | None = None) -> list[dict]:
     """CI check runs for a PR's head commit."""
-    owner, repo, n = parse_pr(url)
+    host, owner, repo, n = parse_pr(url)
     if not sha:
-        sha = (_get(f"/repos/{owner}/{repo}/pulls/{n}").get("head") or {}).get("sha", "")
-    data = _get(f"/repos/{owner}/{repo}/commits/{sha}/check-runs", {"per_page": 100})
+        sha = (_get(host, f"/repos/{owner}/{repo}/pulls/{n}").get("head") or {}).get("sha", "")
+    data = _get(host, f"/repos/{owner}/{repo}/commits/{sha}/check-runs", {"per_page": 100})
     return [{"name": c.get("name", ""), "status": c.get("status", ""),
              "conclusion": c.get("conclusion"),
              "summary": ((c.get("output") or {}).get("summary") or
@@ -86,11 +102,11 @@ def check_runs(url: str, sha: str | None = None) -> list[dict]:
 
 
 def issues(ref: str, state: str = "open", labels: str = "", limit: int = 20) -> list[dict]:
-    owner, repo = parse_repo(ref)
+    host, owner, repo = parse_repo(ref)
     params = {"state": state, "per_page": min(limit, 100)}
     if labels:
         params["labels"] = labels
-    data = _get(f"/repos/{owner}/{repo}/issues", params)
+    data = _get(host, f"/repos/{owner}/{repo}/issues", params)
     return [{"number": i["number"], "title": i.get("title", ""), "body": i.get("body") or "",
              "url": i.get("html_url", ""), "labels": [lb["name"] for lb in i.get("labels", [])],
              "author": (i.get("user") or {}).get("login", ""), "repo": f"{owner}/{repo}"}
@@ -102,8 +118,9 @@ def comment(url: str, body: str) -> dict:
 
     if not token():
         raise GitHubError("Posting to GitHub needs FILAMENT_GIT_TOKEN in the environment")
-    owner, repo, n = parse_pr(url)
-    r = httpx.post(f"{API}/repos/{owner}/{repo}/issues/{n}/comments", headers=_headers(),
+    host, owner, repo, n = parse_pr(url)
+    r = httpx.post(f"{gitaccess.api_base(host)}/repos/{owner}/{repo}/issues/{n}/comments",
+                   headers=_headers(),
                    json={"body": body}, timeout=20)
     if r.status_code >= 400:
         raise GitHubError(f"GitHub {r.status_code}: {r.text[:200]}")

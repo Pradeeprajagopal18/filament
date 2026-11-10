@@ -87,6 +87,21 @@ or plain `docker run --env-file .env -e NAME=value filament-api` work too. Behin
 proxy, Docker passes `HTTP_PROXY`/`HTTPS_PROXY` to the build automatically; for an internal
 package mirror, set `PIP_INDEX_URL` in `.env` before `docker compose build`.
 
+### Private and organization repos
+
+Public repos need nothing. For private repos, pick one:
+
+- **A token**: set `FILAMENT_GIT_TOKEN` to a fine-grained token with read access to the
+  org's repos (Contents and Metadata; add Issues, Pull requests and Checks for the delivery
+  pipeline). If the org uses single sign-on, authorize the token for the org. For GitHub
+  Enterprise Server, add your host: `FILAMENT_GITHUB_HOSTS='["github.com","github.yourcompany.com"]'`.
+  The token is only sent to those hosts.
+- **SSH**: onboard `git@github.com:org/repo.git`; your SSH key and agent are used.
+- **A local clone**: onboard the folder path; Filament reads it as it is.
+
+git never prompts for a password: if credentials are missing the scan stops at once and says
+what to set.
+
 ## CLI
 
 ```bash

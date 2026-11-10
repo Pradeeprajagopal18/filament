@@ -1,7 +1,6 @@
 """Code graph API: summary and graph for the UI, explain/path/query/affected, change and PR
 impact, conflicts between change sets."""
 
-import re
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
@@ -128,20 +127,21 @@ class ChangesIn(BaseModel):
 
 def _pr_changes(url: str) -> dict:
     """Changed files and hunks of a GitHub PR (uses FILAMENT_GIT_TOKEN/GITHUB_TOKEN if set)."""
-    import os
 
     import httpx
 
-    m = re.match(r"https?://github\.com/([^/]+)/([^/]+)/pull/(\d+)", url)
-    if not m:
-        raise HTTPException(422, "pr must look like https://github.com/<owner>/<repo>/pull/<n>")
-    headers = {"Accept": "application/vnd.github+json"}
-    token = os.environ.get("FILAMENT_GIT_TOKEN") or os.environ.get("GITHUB_TOKEN")
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
+    from filament import gitaccess
+    from filament.delivery import github
+
+    try:
+        host, owner, repo, number = github.parse_pr(url)
+    except github.GitHubError as exc:
+        raise HTTPException(422, f"{exc}. Expected https://<github host>/<owner>/<repo>/pull/<n>"
+                            ) from exc
+    headers = github._headers()
     out: dict = {}
     for page in range(1, 11):
-        api = f"https://api.github.com/repos/{m.group(1)}/{m.group(2)}/pulls/{m.group(3)}/files"
+        api = f"{gitaccess.api_base(host)}/repos/{owner}/{repo}/pulls/{number}/files"
         r = httpx.get(api, params={"per_page": 100, "page": page}, headers=headers, timeout=30)
         if r.status_code >= 400:
             raise HTTPException(502, f"GitHub said {r.status_code}: {r.text[:200]}")

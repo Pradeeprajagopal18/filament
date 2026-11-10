@@ -4,6 +4,7 @@ scheduled rescans, webhooks and the API simulator."""
 import hashlib
 import hmac
 import json
+import logging
 import re
 
 import yaml
@@ -24,13 +25,21 @@ from filament.repos.analyze import analyze
 from filament.repos.system import impact
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 
 
 def _run(ref: str) -> dict:
+    from filament.gitaccess import scrub
+
     try:
         return analyze(ref)
-    except ValueError as exc:
-        raise HTTPException(400, str(exc)) from exc
+    except ValueError as exc:  # clone problems and bad refs: the message says what to do
+        raise HTTPException(400, scrub(str(exc))) from exc
+    except Exception as exc:  # noqa: BLE001 - never a bare 500: say what broke, log the trace
+        log.exception("scan of %s failed", ref)
+        raise HTTPException(500, f"Scanning {ref} failed: {type(exc).__name__}: "
+                                 f"{scrub(str(exc))[:300]}. The API log has the full trace."
+                            ) from exc
 
 
 @router.post("/workspaces/{ws_id}/repos", response_model=s.RepoDetail, status_code=201)
