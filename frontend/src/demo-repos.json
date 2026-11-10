@@ -345,7 +345,8 @@
         "200": {
          "description": "Successful response"
         }
-       }
+       },
+       "documented": "fastapi"
       },
       {
        "method": "POST",
@@ -378,7 +379,8 @@
         ],
         "subtotal": 49.99,
         "currency": "usd"
-       }
+       },
+       "documented": "fastapi"
       },
       {
        "method": "GET",
@@ -425,7 +427,8 @@
         ],
         "subtotal": 49.99,
         "currency": "usd"
-       }
+       },
+       "documented": "fastapi"
       },
       {
        "method": "POST",
@@ -482,7 +485,8 @@
         ],
         "subtotal": 49.99,
         "currency": "usd"
-       }
+       },
+       "documented": "fastapi"
       },
       {
        "method": "DELETE",
@@ -516,7 +520,8 @@
         "422": {
          "description": "Validation error"
         }
-       }
+       },
+       "documented": "fastapi"
       },
       {
        "method": "GET",
@@ -576,7 +581,8 @@
          "total": 49.99,
          "created_at": "2026-11-01T09:00:00Z"
         }
-       ]
+       ],
+       "documented": "fastapi"
       },
       {
        "method": "POST",
@@ -628,7 +634,8 @@
         ],
         "total": 49.99,
         "created_at": "2026-11-01T09:00:00Z"
-       }
+       },
+       "documented": "fastapi"
       },
       {
        "method": "GET",
@@ -680,7 +687,8 @@
         ],
         "total": 49.99,
         "created_at": "2026-11-01T09:00:00Z"
-       }
+       },
+       "documented": "fastapi"
       },
       {
        "method": "POST",
@@ -732,7 +740,8 @@
         ],
         "total": 49.99,
         "created_at": "2026-11-01T09:00:00Z"
-       }
+       },
+       "documented": "fastapi"
       },
       {
        "method": "POST",
@@ -774,7 +783,8 @@
         "client_secret": "sample-client_secret",
         "status": "active",
         "amount": 49.99
-       }
+       },
+       "documented": "fastapi"
       },
       {
        "method": "POST",
@@ -790,7 +800,8 @@
         "200": {
          "description": "Successful response"
         }
-       }
+       },
+       "documented": "fastapi"
       },
       {
        "method": "POST",
@@ -830,7 +841,8 @@
         "client_secret": "sample-client_secret",
         "status": "active",
         "amount": 49.99
-       }
+       },
+       "documented": "fastapi"
       }
      ],
      "openapi": {
@@ -1760,7 +1772,16 @@
      "drift": null,
      "auth": [
       "bearer"
-     ]
+     ],
+     "generators": [
+      {
+       "generator": "fastapi",
+       "spec_path": "/openapi.json",
+       "evidence": "fastapi"
+      }
+     ],
+     "documented": 12,
+     "undocumented": []
     },
     "ui": {
      "pages": [],
@@ -2010,44 +2031,44 @@
       },
       {
        "id": 1,
-       "name": "models + payments",
-       "size": 7,
-       "files": 3,
-       "cohesion": 0.25,
+       "name": "app (orders.py)",
+       "size": 9,
+       "files": 5,
+       "cohesion": 0.35,
        "key_symbols": [
-        "models.py",
-        "payments.py",
-        "auth.py",
-        "PaymentIntentIn",
-        "PaymentIntent"
+        "orders.py",
+        "place_order()",
+        "db.py",
+        "events.py",
+        "auth.py"
        ]
       },
       {
        "id": 2,
-       "name": "app (get_current_user())",
-       "size": 7,
-       "files": 6,
-       "cohesion": 0.64,
+       "name": "models",
+       "size": 6,
+       "files": 2,
+       "cohesion": 0.2,
        "key_symbols": [
-        "get_current_user()",
-        "place_order()",
-        "publish_order_event()",
-        "PlaceOrder",
-        "cancel_order()"
+        "models.py",
+        "payments.py",
+        "PaymentIntentIn",
+        "PaymentIntent",
+        "create_intent()"
        ]
       },
       {
        "id": 3,
-       "name": "orders",
-       "size": 6,
+       "name": "routers",
+       "size": 5,
        "files": 4,
-       "cohesion": 0.28,
+       "cohesion": 0.45,
        "key_symbols": [
-        "orders.py",
+        "get_current_user()",
         "Order",
-        "db.py",
-        "events.py",
-        "list_orders()"
+        "list_orders()",
+        "get_order()",
+        "refund()"
        ]
       },
       {
@@ -2228,21 +2249,21 @@
        "node": "app/routers/orders.py#place_order",
        "services": [
         {
-         "service": "postgres",
-         "label": "PostgreSQL",
-         "category": "datastore",
-         "via": "save_order()",
-         "confidence": "extracted",
-         "file": "app/db.py",
-         "line": 7
-        },
-        {
          "service": "kafka",
          "label": "Kafka",
          "category": "queue",
          "via": "publish_order_event()",
          "confidence": "extracted",
          "file": "app/events.py",
+         "line": 7
+        },
+        {
+         "service": "postgres",
+         "label": "PostgreSQL",
+         "category": "datastore",
+         "via": "save_order()",
+         "confidence": "extracted",
+         "file": "app/db.py",
          "line": 7
         }
        ]
@@ -2530,7 +2551,7 @@
       "file": "app/auth.py",
       "line": 1,
       "end": 2,
-      "community": 2,
+      "community": 3,
       "callable": true,
       "is_class": false
      },
@@ -2574,7 +2595,7 @@
       "file": "app/db.py",
       "line": 1,
       "end": null,
-      "community": 3,
+      "community": 1,
       "callable": false,
       "is_class": false
      },
@@ -2585,7 +2606,7 @@
       "file": "app/db.py",
       "line": 5,
       "end": 8,
-      "community": 2,
+      "community": 1,
       "callable": true,
       "is_class": false
      },
@@ -2596,7 +2617,7 @@
       "file": "app/events.py",
       "line": 1,
       "end": null,
-      "community": 3,
+      "community": 1,
       "callable": false,
       "is_class": false
      },
@@ -2607,7 +2628,7 @@
       "file": "app/events.py",
       "line": 5,
       "end": 7,
-      "community": 2,
+      "community": 1,
       "callable": true,
       "is_class": false
      },
@@ -2640,7 +2661,7 @@
       "file": "app/models.py",
       "line": 1,
       "end": null,
-      "community": 1,
+      "community": 2,
       "callable": false,
       "is_class": false
      },
@@ -2684,7 +2705,7 @@
       "file": "app/models.py",
       "line": 22,
       "end": 25,
-      "community": 2,
+      "community": 1,
       "callable": true,
       "is_class": true
      },
@@ -2706,7 +2727,7 @@
       "file": "app/models.py",
       "line": 35,
       "end": 37,
-      "community": 1,
+      "community": 2,
       "callable": true,
       "is_class": true
      },
@@ -2717,7 +2738,7 @@
       "file": "app/models.py",
       "line": 39,
       "end": 43,
-      "community": 1,
+      "community": 2,
       "callable": true,
       "is_class": true
      },
@@ -2783,7 +2804,7 @@
       "file": "app/routers/orders.py",
       "line": 1,
       "end": null,
-      "community": 3,
+      "community": 1,
       "callable": false,
       "is_class": false
      },
@@ -2794,7 +2815,7 @@
       "file": "app/routers/orders.py",
       "line": 11,
       "end": 15,
-      "community": 2,
+      "community": 1,
       "callable": true,
       "is_class": false
      },
@@ -2827,7 +2848,7 @@
       "file": "app/routers/orders.py",
       "line": 27,
       "end": 30,
-      "community": 2,
+      "community": 1,
       "callable": true,
       "is_class": false
      },
@@ -2838,7 +2859,7 @@
       "file": "app/routers/payments.py",
       "line": 1,
       "end": null,
-      "community": 1,
+      "community": 2,
       "callable": false,
       "is_class": false
      },
@@ -2849,7 +2870,7 @@
       "file": "app/routers/payments.py",
       "line": 9,
       "end": 12,
-      "community": 1,
+      "community": 2,
       "callable": true,
       "is_class": false
      },
@@ -2860,7 +2881,7 @@
       "file": "app/routers/payments.py",
       "line": 15,
       "end": 16,
-      "community": 1,
+      "community": 2,
       "callable": true,
       "is_class": false
      },
@@ -2871,7 +2892,7 @@
       "file": "app/routers/payments.py",
       "line": 19,
       "end": 21,
-      "community": 2,
+      "community": 3,
       "callable": true,
       "is_class": false
      },
@@ -3025,7 +3046,7 @@
       "file": "app/events.py",
       "line": 6,
       "end": null,
-      "community": 2,
+      "community": 1,
       "callable": false,
       "is_class": false
      },
@@ -3091,7 +3112,7 @@
       "file": "app/routers/orders.py",
       "line": 12,
       "end": null,
-      "community": 2,
+      "community": 1,
       "callable": false,
       "is_class": false
      },
@@ -3124,7 +3145,7 @@
       "file": "app/routers/orders.py",
       "line": 28,
       "end": null,
-      "community": 2,
+      "community": 1,
       "callable": false,
       "is_class": false
      },
@@ -3135,7 +3156,7 @@
       "file": "app/routers/payments.py",
       "line": 10,
       "end": null,
-      "community": 1,
+      "community": 2,
       "callable": false,
       "is_class": false
      },
@@ -3146,7 +3167,7 @@
       "file": "app/routers/payments.py",
       "line": 11,
       "end": null,
-      "community": 1,
+      "community": 2,
       "callable": false,
       "is_class": false
      },
@@ -3157,7 +3178,7 @@
       "file": "app/routers/payments.py",
       "line": 16,
       "end": null,
-      "community": 1,
+      "community": 2,
       "callable": false,
       "is_class": false
      },
@@ -3168,7 +3189,7 @@
       "file": "app/routers/payments.py",
       "line": 20,
       "end": null,
-      "community": 2,
+      "community": 3,
       "callable": false,
       "is_class": false
      }
@@ -5128,7 +5149,7 @@
     },
     "request_flows": {
      "title": "Request flows: checkout-api",
-     "content": "# Request flows: checkout-api\nDrawn from the code: each endpoint, its auth, the services its handler reaches (through its own calls when a code graph is available) and the responses it can return. Refreshed on every scan.\n## carts\n```mermaid\nsequenceDiagram\n  actor C as Client\n  participant S as checkout-api\n  participant redis as Redis\n  C->>S: POST /v1/carts\n  S-->>C: 201 Cart\n  C->>S: GET /v1/carts/cart_id\n  S->>redis: read/write via cached_cart()\n  S-->>C: 200 Cart\n  Note over C,S: or 404, 422\n  C->>S: POST /v1/carts/cart_id/items\n  S->>redis: read/write via invalidate_cart()\n  S-->>C: 201 Cart\n  Note over C,S: or 409, 422\n  C->>S: DELETE /v1/carts/cart_id/items/item_id\n  S-->>C: 204\n  Note over C,S: or 422\n```\n## orders\n```mermaid\nsequenceDiagram\n  actor C as Client\n  participant S as checkout-api\n  participant postgres as PostgreSQL\n  participant kafka as Kafka\n  C->>S: GET /v1/orders\n  S->>S: check auth\n  S-->>C: 200 Order[]\n  Note over C,S: or 401\n  C->>S: POST /v1/orders\n  S->>S: check auth\n  S->>postgres: query via save_order()\n  S->>kafka: publish via publish_order_event()\n  S-->>C: 201 Order\n  Note over C,S: or 401, 422\n  C->>S: GET /v1/orders/order_id\n  S->>S: check auth\n  S-->>C: 200 Order\n  Note over C,S: or 401, 404, 422\n  C->>S: POST /v1/orders/order_id/cancel\n  S->>S: check auth\n  S->>kafka: publish via publish_order_event()\n  S-->>C: 200 Order\n  Note over C,S: or 401, 409, 422\n```\n## payments\n```mermaid\nsequenceDiagram\n  actor C as Client\n  participant S as checkout-api\n  participant stripe as Stripe\n  C->>S: POST /v1/payments/intents\n  S->>S: check auth\n  S->>stripe: call\n  S-->>C: 201 PaymentIntent\n  Note over C,S: or 401, 422\n  C->>S: POST /v1/payments/webhooks/stripe\n  S-->>C: 200\n  C->>S: POST /v1/payments/payment_id/refund\n  S->>S: check auth\n  S->>stripe: call\n  S-->>C: 200 PaymentIntent\n  Note over C,S: or 401, 422\n```\n## health\n```mermaid\nsequenceDiagram\n  actor C as Client\n  participant S as checkout-api\n  participant sentry as Sentry\n  Note over S,sentry: health module uses Sentry (app/main.py:6)\n  C->>S: GET /health\n  S-->>C: 200\n```",
+     "content": "# Request flows: checkout-api\nDrawn from the code: each endpoint, its auth, the services its handler reaches (through its own calls when a code graph is available) and the responses it can return. Refreshed on every scan.\n## carts\n```mermaid\nsequenceDiagram\n  actor C as Client\n  participant S as checkout-api\n  participant redis as Redis\n  C->>S: POST /v1/carts\n  S-->>C: 201 Cart\n  C->>S: GET /v1/carts/cart_id\n  S->>redis: read/write via cached_cart()\n  S-->>C: 200 Cart\n  Note over C,S: or 404, 422\n  C->>S: POST /v1/carts/cart_id/items\n  S->>redis: read/write via invalidate_cart()\n  S-->>C: 201 Cart\n  Note over C,S: or 409, 422\n  C->>S: DELETE /v1/carts/cart_id/items/item_id\n  S-->>C: 204\n  Note over C,S: or 422\n```\n## orders\n```mermaid\nsequenceDiagram\n  actor C as Client\n  participant S as checkout-api\n  participant kafka as Kafka\n  participant postgres as PostgreSQL\n  C->>S: GET /v1/orders\n  S->>S: check auth\n  S-->>C: 200 Order[]\n  Note over C,S: or 401\n  C->>S: POST /v1/orders\n  S->>S: check auth\n  S->>kafka: publish via publish_order_event()\n  S->>postgres: query via save_order()\n  S-->>C: 201 Order\n  Note over C,S: or 401, 422\n  C->>S: GET /v1/orders/order_id\n  S->>S: check auth\n  S-->>C: 200 Order\n  Note over C,S: or 401, 404, 422\n  C->>S: POST /v1/orders/order_id/cancel\n  S->>S: check auth\n  S->>kafka: publish via publish_order_event()\n  S-->>C: 200 Order\n  Note over C,S: or 401, 409, 422\n```\n## payments\n```mermaid\nsequenceDiagram\n  actor C as Client\n  participant S as checkout-api\n  participant stripe as Stripe\n  C->>S: POST /v1/payments/intents\n  S->>S: check auth\n  S->>stripe: call\n  S-->>C: 201 PaymentIntent\n  Note over C,S: or 401, 422\n  C->>S: POST /v1/payments/webhooks/stripe\n  S-->>C: 200\n  C->>S: POST /v1/payments/payment_id/refund\n  S->>S: check auth\n  S->>stripe: call\n  S-->>C: 200 PaymentIntent\n  Note over C,S: or 401, 422\n```\n## health\n```mermaid\nsequenceDiagram\n  actor C as Client\n  participant S as checkout-api\n  participant sentry as Sentry\n  Note over S,sentry: health module uses Sentry (app/main.py:6)\n  C->>S: GET /health\n  S-->>C: 200\n```",
      "data": {
       "diagram": "sequence",
       "groups": 4
@@ -6135,13 +6156,13 @@
        "name": "pages",
        "size": 7,
        "files": 7,
-       "cohesion": 0.64,
+       "cohesion": 0.69,
        "key_symbols": [
-        "App.tsx",
-        "Header.tsx",
+        "App()",
+        "Header()",
         "main.tsx",
-        "Account.tsx",
-        "Cart.tsx"
+        "Account()",
+        "Cart()"
        ]
       },
       {
@@ -6160,16 +6181,16 @@
       },
       {
        "id": 2,
-       "name": "pages (App())",
+       "name": "pages (App.tsx)",
        "size": 6,
        "files": 6,
-       "cohesion": 0.73,
+       "cohesion": 0.67,
        "key_symbols": [
-        "App()",
-        "Header()",
-        "Account()",
-        "Cart()",
-        "Checkout()"
+        "App.tsx",
+        "Header.tsx",
+        "Account.tsx",
+        "Cart.tsx",
+        "Checkout.tsx"
        ]
       },
       {
@@ -6367,7 +6388,7 @@
       "file": "src/App.tsx",
       "line": 1,
       "end": null,
-      "community": 0,
+      "community": 2,
       "callable": false,
       "is_class": false
      },
@@ -6378,7 +6399,7 @@
       "file": "src/App.tsx",
       "line": 8,
       "end": 20,
-      "community": 2,
+      "community": 0,
       "callable": true,
       "is_class": false
      },
@@ -6466,7 +6487,7 @@
       "file": "src/components/Header.tsx",
       "line": 1,
       "end": null,
-      "community": 0,
+      "community": 2,
       "callable": false,
       "is_class": false
      },
@@ -6477,7 +6498,7 @@
       "file": "src/components/Header.tsx",
       "line": 1,
       "end": 12,
-      "community": 2,
+      "community": 0,
       "callable": true,
       "is_class": false
      },
@@ -6521,7 +6542,7 @@
       "file": "src/pages/Account.tsx",
       "line": 1,
       "end": null,
-      "community": 0,
+      "community": 2,
       "callable": false,
       "is_class": false
      },
@@ -6532,7 +6553,7 @@
       "file": "src/pages/Account.tsx",
       "line": 2,
       "end": 16,
-      "community": 2,
+      "community": 0,
       "callable": true,
       "is_class": false
      },
@@ -6543,7 +6564,7 @@
       "file": "src/pages/Cart.tsx",
       "line": 1,
       "end": null,
-      "community": 0,
+      "community": 2,
       "callable": false,
       "is_class": false
      },
@@ -6554,7 +6575,7 @@
       "file": "src/pages/Cart.tsx",
       "line": 2,
       "end": 15,
-      "community": 2,
+      "community": 0,
       "callable": true,
       "is_class": false
      },
@@ -6565,7 +6586,7 @@
       "file": "src/pages/Checkout.tsx",
       "line": 1,
       "end": null,
-      "community": 0,
+      "community": 2,
       "callable": false,
       "is_class": false
      },
@@ -6576,7 +6597,7 @@
       "file": "src/pages/Checkout.tsx",
       "line": 2,
       "end": 19,
-      "community": 2,
+      "community": 0,
       "callable": true,
       "is_class": false
      },
@@ -6620,7 +6641,7 @@
       "file": "src/pages/Product.tsx",
       "line": 1,
       "end": null,
-      "community": 0,
+      "community": 2,
       "callable": false,
       "is_class": false
      },
@@ -6631,7 +6652,7 @@
       "file": "src/pages/Product.tsx",
       "line": 2,
       "end": 14,
-      "community": 2,
+      "community": 0,
       "callable": true,
       "is_class": false
      },
@@ -7552,7 +7573,10 @@
      "openapi": null,
      "schemas": {},
      "drift": null,
-     "auth": []
+     "auth": [],
+     "generators": [],
+     "documented": 0,
+     "undocumented": []
     },
     "ui": {
      "pages": [],

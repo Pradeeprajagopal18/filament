@@ -136,7 +136,8 @@ def store(session: Session, record: RepoRecord, analysis: dict, trigger: str) ->
 
 
 def scan_record(session: Session, record: RepoRecord, trigger: str = "manual") -> RepoScan:
-    if trigger == "schedule" and record.commit:
+    # A live spec can change without a commit, so repos that read one are always rescanned.
+    if trigger == "schedule" and record.commit and not record.spec_url:
         from filament.readiness.scanner import remote_head
 
         head = remote_head(record.ref)
@@ -150,7 +151,7 @@ def scan_record(session: Session, record: RepoRecord, trigger: str = "manual") -
             session.add(scan)
             return scan
     try:
-        analysis = analyze(record.ref)
+        analysis = analyze(record.ref, record.spec_url)
     except Exception as exc:  # clone failures, unreadable repos: keep the last good analysis
         record.last_error = str(exc)[:500]
         schedule_next(record)

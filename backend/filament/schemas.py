@@ -374,10 +374,14 @@ class RepoIn(BaseModel):
     project_id: str | None = Field(default=None, description="Attach to an existing project")
     scan_interval_hours: int | None = Field(
         default=None, description="Rescan every N hours (0 = manual only; default from settings)")
+    spec_url: str | None = Field(
+        default=None, description="URL where a running instance serves its generated OpenAPI "
+                                  "spec, e.g. http://localhost:8080/v3/api-docs")
 
 
 class RepoPatch(BaseModel):
     scan_interval_hours: int | None = None
+    spec_url: str | None = Field(default=None, description="Empty string clears it")
 
 
 class RepoSummary(ORM):
@@ -392,6 +396,7 @@ class RepoSummary(ORM):
     generated: dict
     scanned_at: datetime
     scan_interval_hours: int | None = None
+    spec_url: str | None = None
     next_scan_at: datetime | None = None
     last_error: str | None = None
     commit: str | None = None

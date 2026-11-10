@@ -326,3 +326,40 @@ def test_user_flow_shared_nav_and_action_buttons():
     assert "Add to cart" not in body  # an action, not navigation
     assert "|Go to checkout|" in body
     assert body.count("nav_Header -.->") == 2
+
+
+def test_system_map_focus_on_one_repo(client, ws, company):
+    repos = {k: onboard(client, ws, p) for k, p in company.items()}
+    url = f"/api/workspaces/{ws['id']}/system-map"
+    api, web = repos["api"], repos["web"]
+
+    both = client.get(url, params={"focus": "checkout-api"}).json()
+    # checkout-api depends on its config and infra repos (they configure/provision it) and on
+    # its shared services; web-storefront depends on it (calls its endpoints).
+    assert set(both["focus"]["uses"]) >= {"service-config", "platform-infra"}
+    assert both["focus"]["used_by"] == ["web-storefront"]
+    assert {n["label"] for n in both["nodes"] if n["kind"] == "repo"} == {
+        "checkout-api", "web-storefront", "service-config", "platform-infra"}
+    assert next(n for n in both["nodes"] if n["id"] == api["id"])["focus"]
+    assert "stroke-width:3px" in both["mermaid"]
+
+    deps = client.get(url, params={"focus": api["id"], "direction": "dependencies"}).json()
+    assert "web-storefront" not in {n["label"] for n in deps["nodes"]}
+    assert deps["focus"]["used_by"] == []
+
+    users = client.get(url, params={"focus": "checkout-api", "direction": "dependents"}).json()
+    assert {n["label"] for n in users["nodes"]} == {"checkout-api", "web-storefront"}
+    assert [e["kind"] for e in users["edges"]] == ["calls"]
+
+    # The storefront only uses checkout-api directly; two hops also reach what that depends on.
+    one = client.get(url, params={"focus": "web-storefront", "direction": "dependencies"}).json()
+    two = client.get(url, params={"focus": "web-storefront", "direction": "dependencies",
+                                  "depth": 2}).json()
+    one_repos = {n["label"] for n in one["nodes"] if n["kind"] == "repo"}
+    two_repos = {n["label"] for n in two["nodes"] if n["kind"] == "repo"}
+    assert one_repos == {"web-storefront", "checkout-api"}
+    assert two_repos >= {"service-config", "platform-infra"}
+    assert web["id"] in {n["id"] for n in two["nodes"]}
+
+    assert client.get(url, params={"focus": "nope"}).status_code == 404
+    assert client.get(url, params={"focus": "checkout-api", "direction": "x"}).status_code == 422

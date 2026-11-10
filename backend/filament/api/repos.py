@@ -21,6 +21,7 @@ from filament.models import Artifact, Project, RepoRecord, RepoScan, Workspace
 from filament.repos import context as repo_context
 from filament.repos import generate as gen
 from filament.repos import service
+from filament.repos import system as sysmap
 from filament.repos.analyze import analyze
 from filament.repos.system import impact
 
@@ -28,11 +29,11 @@ router = APIRouter()
 log = logging.getLogger(__name__)
 
 
-def _run(ref: str) -> dict:
+def _run(ref: str, spec_url: str | None = None) -> dict:
     from filament.gitaccess import scrub
 
     try:
-        return analyze(ref)
+        return analyze(ref, spec_url)
     except ValueError as exc:  # clone problems and bad refs: the message says what to do
         raise HTTPException(400, scrub(str(exc))) from exc
     except Exception as exc:  # noqa: BLE001 - never a bare 500: say what broke, log the trace
@@ -46,7 +47,10 @@ def _run(ref: str) -> dict:
 def onboard_repo(ws_id: str, body: s.RepoIn, session: Session = Depends(get_session)):
     """Analyze a repo and keep it in the workspace (re-onboarding the same ref rescans it)."""
     get_or_404(session, Workspace, ws_id)
-    analysis = _run(body.repo)
+    existing = session.scalars(select(RepoRecord).where(RepoRecord.workspace_id == ws_id,
+                                                        RepoRecord.ref == body.repo)).first()
+    spec_url = body.spec_url or (existing.spec_url if existing else None)
+    analysis = _run(body.repo, spec_url)
     record = session.scalars(select(RepoRecord).where(RepoRecord.workspace_id == ws_id,
                                                       RepoRecord.ref == body.repo)).first()
     trigger = "manual"
@@ -59,7 +63,8 @@ def onboard_repo(ws_id: str, body: s.RepoIn, session: Session = Depends(get_sess
             project_id = service.project_for(session, ws_id, analysis["name"], body.repo,
                                              analysis["profile"]["kind_names"])
         record = RepoRecord(workspace_id=ws_id, project_id=project_id, ref=body.repo,
-                            name=analysis["name"], scan_interval_hours=body.scan_interval_hours)
+                            name=analysis["name"], scan_interval_hours=body.scan_interval_hours,
+                            spec_url=spec_url)
         session.add(record)
         session.flush()
     service.store(session, record, analysis, trigger)
@@ -74,11 +79,22 @@ def list_repos(ws_id: str, session: Session = Depends(get_session)):
 
 
 @router.get("/workspaces/{ws_id}/system-map")
-def system_map(ws_id: str, session: Session = Depends(get_session)):
+def system_map(ws_id: str, focus: str | None = None, direction: str = "both", depth: int = 1,
+               session: Session = Depends(get_session)):
     """How the workspace's repos connect: calls (matched to endpoints), configuration,
-    provisioning and shared external services."""
+    provisioning and shared external services. With `focus` (a repo id or name), only that
+    repo's neighbourhood: what it depends on, what depends on it, or both, `depth` hops out."""
     get_or_404(session, Workspace, ws_id)
     m = service.system_for(session, ws_id)
+    if focus:
+        node = next((n for n in m["nodes"] if n["kind"] == "repo" and
+                     focus in (n["id"], n["label"])), None)
+        if node is None:
+            raise HTTPException(404, f"No repo {focus} in this workspace")
+        try:
+            return sysmap.focus(m, node["id"], direction, depth)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
     return {k: v for k, v in m.items() if k != "consumers"}
 
 
@@ -93,6 +109,11 @@ def update_repo(repo_id: str, body: s.RepoPatch, session: Session = Depends(get_
     if body.scan_interval_hours is not None:
         record.scan_interval_hours = max(0, body.scan_interval_hours)
         service.schedule_next(record)
+    if body.spec_url is not None:  # takes effect on the next scan
+        url = body.spec_url.strip()
+        if url and not url.startswith(("http://", "https://")):
+            raise HTTPException(422, "spec_url must be an http(s) URL")
+        record.spec_url = url or None
     session.commit()
     return record
 

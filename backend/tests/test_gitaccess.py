@@ -74,7 +74,7 @@ def test_onboard_failures_are_readable(client, ws, monkeypatch, tmp_path):
     monkeypatch.undo()
     import filament.api.repos as repos_api
 
-    def boom(ref):
+    def boom(ref, spec_url=None):
         raise RuntimeError("unexpected layout")
     monkeypatch.setattr(repos_api, "analyze", boom)
     r = _onboard(client, ws, str(tmp_path))

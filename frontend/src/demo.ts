@@ -4,6 +4,7 @@ import type {
   AgentSetting, Artifact, Check, Gap, Health, Link, McpServer, McpServerInput, Memory, Project, Readiness, Run,
   ChangeImpact, CodeExplain, CodeGraphView, CodeLookup, CodePath, CodeSym, Endpoint, GatewayCall, GatewayServer, GatewayTool, Impact, JsonSchema, RepoAnalysis, RepoDetail, RepoScan, Runner, ScanChanges, SystemMap, TraceEvent, UsageRow, Workspace,
   AdvanceBody, DeliveryBoard, Handoff, ReleaseOut, WorkItem,
+  MapDirection, MapFocus,
 } from './api'
 import demoRepos from './demo-repos.json'
 import demoDelivery from './demo-delivery.json'
@@ -261,6 +262,55 @@ function demoSystem(ws: string): DemoSystem {
   }
   const unresolved = s.unresolved.filter(u => byName.has(u.repo) && byName.has(u.target)).map(u => ({ ...u, repo_id: sid(u.repo_id), target_id: sid(u.target_id) }))
   return { nodes, edges, mermaid: s.mermaid, unresolved, consumers }
+}
+
+// -- focused system map (same rules as repos/system.py focus/mermaid) ------------------------------
+type SysEdge = DemoSystem['edges'][number]
+const dependsOn = (e: SysEdge): [string, string] => (['configures', 'provisions'].includes(e.kind) ? [e.target, e.source] : [e.source, e.target])
+function sysMermaid(nodes: DemoSystem['nodes'], edges: SysEdge[], highlight?: string): string {
+  const nid = (x: string) => 'n_' + x.replace(/\W/g, '_')
+  const lines = ['flowchart LR']
+  for (const n of nodes) {
+    const label = n.label.replace(/"/g, "'")
+    lines.push(n.kind === 'repo' ? `  ${nid(n.id)}(["${label}<br/><small>${(n.kinds ?? []).slice(0, 2).join('/')}</small>"])` : `  ${nid(n.id)}["${label}"]`)
+  }
+  for (const e of edges) {
+    const k = e.endpoints.length
+    const lbl = e.kind + (k ? ` · ${k} endpoint${k > 1 ? 's' : ''}` : '')
+    const arrow = e.kind === 'uses' || (e as { confidence?: string }).confidence === 'inferred' ? '-.->' : '-->'
+    lines.push(`  ${nid(e.source)} ${arrow}|${lbl}| ${nid(e.target)}`)
+  }
+  const styles: Record<string, string> = { frontend: '#f3e8ff', api: '#e6f0ff', backend: '#e6f7ef', infrastructure: '#fff1e0', config: '#fdf6d8' }
+  for (const n of nodes) lines.push(n.kind === 'repo' ? `  style ${nid(n.id)} fill:${(n.kinds ?? []).map(k => styles[k]).find(Boolean) ?? '#eef1f5'},stroke:#888` : `  style ${nid(n.id)} fill:#f9ece7,stroke:#c4825b`)
+  if (highlight) lines.push(`  style ${nid(highlight)} stroke:#c77d12,stroke-width:3px`)
+  return lines.join('\n')
+}
+function focusMap(s: DemoSystem, id: string, direction: MapDirection, depth: number): SystemMap {
+  const byId = new Map(s.nodes.map(n => [n.id, n]))
+  const keep: (SysEdge & { direction: string })[] = []
+  const seen = new Set<number>()
+  const reached = new Set([id])
+  for (const want of direction === 'both' ? ['dependencies', 'dependents'] : [direction]) {
+    let frontier = new Set([id])
+    for (let d = 0; d < Math.max(1, Math.min(depth, 5)) && frontier.size; d++) {
+      const next = new Set<string>()
+      s.edges.forEach((e, i) => {
+        const [dependent, dependency] = dependsOn(e)
+        const [here, there] = want === 'dependencies' ? [dependent, dependency] : [dependency, dependent]
+        if (!frontier.has(here)) return
+        if (!seen.has(i)) { seen.add(i); keep.push({ ...e, direction: want }) }
+        if (!reached.has(there) && !there.startsWith('x:')) next.add(there)
+        reached.add(there)
+      })
+      frontier = next
+    }
+  }
+  const nodes = s.nodes.filter(n => reached.has(n.id)).map(n => ({ ...n, focus: n.id === id }))
+  const summary = (want: string) => [...new Set(keep.filter(e => e.direction === want && dependsOn(e).includes(id))
+    .map(e => byId.get(dependsOn(e)[want === 'dependencies' ? 1 : 0])?.label ?? ''))].sort()
+  return { nodes, edges: keep, mermaid: sysMermaid(nodes, keep, id),
+    unresolved: s.unresolved.filter(u => reached.has(u.repo_id) && reached.has(u.target_id)),
+    focus: { id, label: byId.get(id)?.label ?? id, direction, depth, uses: summary('dependencies'), used_by: summary('dependents') } }
 }
 
 function demoImpact(rid: string): Impact {
@@ -813,10 +863,14 @@ export const demoApi = {
     r.next_scan_at = hours ? new Date(new Date(r.scanned_at).getTime() + hours * 3600_000).toISOString() : null
     return stripSample(r)
   },
-  systemMap: async (ws: string): Promise<SystemMap> => {
+  systemMap: async (ws: string, f?: MapFocus): Promise<SystemMap> => {
     const { consumers: _c, ...rest } = demoSystem(ws)
     void _c
+    if (f?.focus) return clone(focusMap({ ...rest, consumers: {} }, f.focus, f.direction, f.depth))
     return clone(rest)
+  },
+  setRepoSpecUrl: async (): Promise<RepoDetail> => {
+    throw new Error('Preview: reading a live spec needs the real server, which can reach your running services.')
   },
   repoImpact: async (rid: string) => clone(demoImpact(rid)),
   acceptReference: async (): Promise<Artifact> => { throw new Error('409: No pending update for this reference') },

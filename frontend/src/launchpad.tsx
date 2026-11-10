@@ -3,7 +3,7 @@
 // time. Filament never writes to these repos: what it creates is kept as references in Filament.
 import { useEffect, useMemo, useState } from 'react'
 import { api, DEMO } from './api'
-import type { Artifact, Check, Endpoint, Impact, JsonSchema, RepoDetail, RepoScan, RepoSummary, SystemMap, UiElement } from './api'
+import type { Artifact, Check, Endpoint, Impact, JsonSchema, MapDirection, RepoDetail, RepoScan, RepoSummary, SystemMap, UiElement } from './api'
 import { CodeTab, DataTab } from './code'
 import { Content, ErrorLine, Mermaid } from './components'
 
@@ -37,6 +37,7 @@ export function LaunchpadPage({ ws }: { ws: string }) {
   const [repos, setRepos] = useState<RepoSummary[]>([])
   const [current, setCurrent] = useState<RepoDetail | null>(null)
   const [view, setView] = useState<'repos' | 'map'>('repos')
+  const [mapFocus, setMapFocus] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -59,7 +60,9 @@ export function LaunchpadPage({ ws }: { ws: string }) {
     setRepos(rs => rs.map(x => (x.id === r.id ? r : x)))
   }
 
-  if (current) return <RepoView repo={current} onBack={() => setCurrent(null)} onChange={updated} onOpen={open} />
+  function showOnMap(id: string) { setCurrent(null); setMapFocus(id); setView('map') }
+
+  if (current) return <RepoView repo={current} onBack={() => setCurrent(null)} onChange={updated} onOpen={open} onMap={showOnMap} />
 
   return (
     <div className="page">
@@ -77,7 +80,7 @@ export function LaunchpadPage({ ws }: { ws: string }) {
         </button>
         <button role="tab" aria-selected={view === 'map'} className={view === 'map' ? 'active' : ''} onClick={() => setView('map')}>System map</button>
       </div>
-      {view === 'map' && <SystemMapView ws={ws} repos={repos} onOpen={open} />}
+      {view === 'map' && <SystemMapView ws={ws} repos={repos} onOpen={open} focus={mapFocus} setFocus={setMapFocus} />}
       {view === 'repos' && repos.length === 0 && <section className="card muted">No repos yet. Onboard one above.</section>}
       {view === 'repos' && (
         <div className="repo-grid">
@@ -103,26 +106,53 @@ export function LaunchpadPage({ ws }: { ws: string }) {
   )
 }
 
-function SystemMapView({ ws, repos, onOpen }: { ws: string; repos: RepoSummary[]; onOpen: (id: string) => void }) {
+const DIRECTIONS: [MapDirection, string][] = [['both', 'Both'], ['dependencies', 'What it uses'], ['dependents', 'Who uses it']]
+
+function SystemMapView({ ws, repos, onOpen, focus, setFocus }: {
+  ws: string; repos: RepoSummary[]; onOpen: (id: string) => void; focus: string; setFocus: (id: string) => void
+}) {
   const [map, setMap] = useState<SystemMap | null>(null)
+  const [direction, setDirection] = useState<MapDirection>('both')
+  const [depth, setDepth] = useState(1)
   const [error, setError] = useState('')
   const key = repos.map(r => r.id + r.scanned_at).join(',')
-  useEffect(() => { api.systemMap(ws).then(setMap).catch(e => setError(String(e))) }, [ws, key])
-  if (error) return <ErrorLine error={error} />
-  if (!map) return <section className="card muted">Loading…</section>
-  const names = Object.fromEntries(map.nodes.map(n => [n.id, n.label]))
-  const links = map.edges.filter(e => e.kind !== 'uses')
-  const shared = map.nodes.filter(n => n.kind !== 'repo' && (n.shared_by ?? 0) > 1)
-  if (map.nodes.filter(n => n.kind === 'repo').length < 2) {
-    return <section className="card muted">Onboard two or more repos to see how they connect.</section>
-  }
+  useEffect(() => {
+    setError('')
+    api.systemMap(ws, focus ? { focus, direction, depth } : undefined).then(setMap).catch(e => setError(String(e)))
+  }, [ws, key, focus, direction, depth])
+  if (repos.length < 2) return <section className="card muted">Onboard two or more repos to see how they connect.</section>
+  const names = Object.fromEntries((map?.nodes ?? []).map(n => [n.id, n.label]))
+  const links = (map?.edges ?? []).filter(e => e.kind !== 'uses')
+  const shared = (map?.nodes ?? []).filter(n => n.kind !== 'repo' && (focus ? true : (n.shared_by ?? 0) > 1))
+  const f = map?.focus
   return (
     <>
       <section className="card">
-        <p className="muted small">How your repos connect, from evidence in the code: HTTP calls matched to the endpoints they hit, configuration, provisioned infrastructure and shared services.</p>
-        <Mermaid code={map.mermaid} />
+        <div className="map-filter">
+          <label>Repo <select value={focus} onChange={e => setFocus(e.target.value)}>
+            <option value="">All repos</option>
+            {[...repos].sort((x, y) => x.name.localeCompare(y.name)).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+          </select></label>
+          {focus && <>
+            <div className="seg" role="group" aria-label="Direction">
+              {DIRECTIONS.map(([d, label]) => <button key={d} className={direction === d ? 'on' : ''} onClick={() => setDirection(d)}>{label}</button>)}
+            </div>
+            <label>Depth <select value={depth} onChange={e => setDepth(Number(e.target.value))}>
+              <option value={1}>Direct</option><option value={2}>2 hops</option><option value={3}>3 hops</option>
+            </select></label>
+          </>}
+        </div>
+        {f ? (
+          <div className="map-summary small">
+            {direction !== 'dependents' && <p><b>{f.label}</b> uses: {f.uses.length ? f.uses.join(', ') : <span className="muted">nothing found</span>}</p>}
+            {direction !== 'dependencies' && <p><b>Integrating with {f.label}:</b> {f.used_by.length ? f.used_by.join(', ') : <span className="muted">no other repo</span>}</p>}
+          </div>
+        ) : <p className="muted small">How your repos connect, from evidence in the code: HTTP calls matched to the endpoints they hit, configuration, provisioned infrastructure and shared services. Pick a repo to see only what it uses and what integrates with it.</p>}
+        <ErrorLine error={error} />
+        {!map && !error && <p className="muted">Loading…</p>}
+        {map && <Mermaid code={map.mermaid} />}
       </section>
-      {map.unresolved.length > 0 && (
+      {map && map.unresolved.length > 0 && (
         <section className="card warn">
           <h3>Calls to endpoints that don't exist</h3>
           <p className="muted small">These repos call an endpoint the target repo no longer serves. They will fail at runtime.</p>
@@ -133,32 +163,36 @@ function SystemMapView({ ws, repos, onOpen }: { ws: string; repos: RepoSummary[]
           </ul>
         </section>
       )}
-      <section className="card">
-        <h3>Connections</h3>
-        <ul className="links">
-          {links.map((e, i) => (
-            <li key={i}>
-              <div>
-                <button className="link" onClick={() => onOpen(e.source)}>{names[e.source]}</button>
-                <span className={`edge edge-${e.kind}`}>{e.kind}</span>
-                <button className="link" onClick={() => onOpen(e.target)}>{names[e.target]}</button>
-                {(e as { confidence?: string }).confidence === 'inferred' && <span className="badge badge-draft" title="Linked by name, not by a call in the code">inferred</span>}
-              </div>
-              {e.endpoints.length > 0 && <div className="small">{e.endpoints.map(ep => <code key={ep} className="ep-chip">{ep}</code>)}</div>}
-              <div className="muted small">{e.evidence.slice(0, 2).map((ev, j) => <span key={j}>{ev.file}{ev.line ? `:${ev.line}` : ''} {ev.detail}{j === 0 && e.evidence.length > 1 ? ' · ' : ''}</span>)}</div>
-            </li>
-          ))}
-        </ul>
-        {shared.length > 0 && <p className="muted small">Shared services: {shared.map(n => `${n.label} (${n.shared_by} repos)`).join(', ')}</p>}
-      </section>
+      {map && (
+        <section className="card">
+          <h3>Connections{links.length ? ` (${links.length})` : ''}</h3>
+          {links.length === 0 && <p className="muted small">No repo-to-repo connections{focus ? ' in this direction' : ''}.</p>}
+          <ul className="links">
+            {links.map((e, i) => (
+              <li key={i}>
+                <div>
+                  <button className="link" onClick={() => onOpen(e.source)}>{names[e.source]}</button>
+                  <span className={`edge edge-${e.kind}`}>{e.kind}</span>
+                  <button className="link" onClick={() => onOpen(e.target)}>{names[e.target]}</button>
+                  {(e as { confidence?: string }).confidence === 'inferred' && <span className="badge badge-draft" title="Linked by name, not by a call in the code">inferred</span>}
+                  {!focus && <button className="link small" onClick={() => setFocus(e.source)} title="Show only this repo's connections">focus</button>}
+                </div>
+                {e.endpoints.length > 0 && <div className="small">{e.endpoints.map(ep => <code key={ep} className="ep-chip">{ep}</code>)}</div>}
+                <div className="muted small">{e.evidence.slice(0, 2).map((ev, j) => <span key={j}>{ev.file}{ev.line ? `:${ev.line}` : ''} {ev.detail}{j === 0 && e.evidence.length > 1 ? ' · ' : ''}</span>)}</div>
+              </li>
+            ))}
+          </ul>
+          {shared.length > 0 && <p className="muted small">{focus ? 'Services' : 'Shared services'}: {shared.map(n => n.shared_by ? `${n.label} (${n.shared_by} repos)` : n.label).join(', ')}</p>}
+        </section>
+      )}
     </>
   )
 }
 
 type Tab = 'readiness' | 'api' | 'ui' | 'code' | 'data' | 'components' | 'history' | 'filament'
 
-function RepoView({ repo, onBack, onChange, onOpen }: {
-  repo: RepoDetail; onBack: () => void; onChange: (r: RepoDetail) => void; onOpen: (id: string) => void
+function RepoView({ repo, onBack, onChange, onOpen, onMap }: {
+  repo: RepoDetail; onBack: () => void; onChange: (r: RepoDetail) => void; onOpen: (id: string) => void; onMap: (id: string) => void
 }) {
   const a = repo.analysis
   const [impact, setImpact] = useState<Impact | null>(null)
@@ -199,7 +233,10 @@ function RepoView({ repo, onBack, onChange, onOpen }: {
 
   return (
     <div className="page">
-      <button className="link" onClick={onBack}>← All repos</button>
+      <div className="row spread">
+        <button className="link" onClick={onBack}>← All repos</button>
+        <button className="link" onClick={() => onMap(repo.id)}>Show on system map →</button>
+      </div>
       <section className="card">
         <div className="row spread">
           <div>
@@ -319,6 +356,49 @@ function typeOf(s?: JsonSchema): string {
 }
 const pretty = (v: unknown) => JSON.stringify(v, null, 2)
 
+const GENERATOR_LABEL: Record<string, string> = {
+  springdoc: 'springdoc', springfox: 'Springfox', swaggo: 'swaggo', 'nestjs-swagger': '@nestjs/swagger',
+  fastapi: 'FastAPI', 'drf-spectacular': 'drf-spectacular',
+}
+
+function SpecSource({ repo, onChange }: { repo: RepoDetail; onChange: (r: RepoDetail) => void }) {
+  const a = repo.analysis.api
+  const gens = a.generators ?? []
+  const [url, setUrl] = useState(repo.spec_url ?? '')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  useEffect(() => { setUrl(repo.spec_url ?? '') }, [repo.spec_url])
+  if (!gens.length && !repo.spec_url && a.source !== 'live') return null
+  const port = { fastapi: 8000, 'drf-spectacular': 8000, 'nestjs-swagger': 3000 }[gens[0]?.generator ?? ''] ?? 8080
+  const suggestion = `http://localhost:${port}${gens[0]?.spec_path ?? '/v3/api-docs'}`
+  async function save(value: string) {
+    setBusy(true); setError('')
+    try { await api.setRepoSpecUrl(repo.id, value); onChange(await api.rescanRepo(repo.id)) }
+    catch (e) { setError(String(e)) } finally { setBusy(false) }
+  }
+  return (
+    <section className="card">
+      <h3>Generated spec</h3>
+      {gens.length > 0 && <p className="small">
+        This service generates its OpenAPI spec with <b>{gens.map(g => GENERATOR_LABEL[g.generator] ?? g.generator).join(' and ')}</b>, served
+        at <code>{gens.map(g => g.spec_path).join(', ')}</code> on a running instance. Filament reads the same annotations from the code; point it at a running instance to read the generated spec itself.
+      </p>}
+      <div className="row">
+        <input value={url} onChange={e => setUrl(e.target.value)} placeholder={suggestion} />
+        <button disabled={busy || url.trim() === (repo.spec_url ?? '')} onClick={() => save(url.trim())}>{busy ? 'Reading…' : 'Use live spec'}</button>
+        {repo.spec_url && <button className="secondary" disabled={busy} onClick={() => save('')}>Stop</button>}
+      </div>
+      {a.live_error && <p className="small error-text">{a.live_error}. Showing what the code says instead.</p>}
+      {(a.undocumented ?? []).length > 0 && <details className="small">
+        <summary>{a.undocumented!.length} endpoints have no documentation annotations</summary>
+        <p className="muted">The generated spec will list them without summaries or response descriptions.</p>
+        <ul className="plain">{a.undocumented!.map(u => <li key={u}><code>{u}</code></li>)}</ul>
+      </details>}
+      <ErrorLine error={error} />
+    </section>
+  )
+}
+
 function ApiTab({ repo, busy, generate, impact, onChange }: {
   repo: RepoDetail; busy: string; generate: (items: string[]) => void; impact: Impact | null; onChange: (r: RepoDetail) => void
 }) {
@@ -364,11 +444,14 @@ function ApiTab({ repo, busy, generate, impact, onChange }: {
         <div className="row spread wrap">
           <div>
             <strong>{a.endpoints.length} endpoints</strong>{' '}
-            <span className={`badge ${a.source === 'spec' ? 'badge-approved' : 'badge-draft'}`}>{a.source === 'spec' ? 'from contract' : 'inferred from code'}</span>
+            <span className={`badge ${a.source === 'inferred' ? 'badge-draft' : 'badge-approved'}`}>{a.source === 'live' ? 'live from service' : a.source === 'spec' ? 'from contract' : 'from code'}</span>
+            {(a.documented ?? 0) > 0 && a.source === 'inferred' && <span className="badge badge-approved" title="Endpoints with summaries, responses or tags from annotations">{a.documented} documented in code</span>}
             {(a.auth ?? []).length > 0 && <span className="badge badge-in_review">auth: {(a.auth ?? []).join(', ')}</span>}
-            <p className="muted small">{a.source === 'spec'
+            <p className="muted small">{a.source === 'live'
+              ? `Read from the running service at ${a.specs.join(', ')} on each scan, and compared with the code.`
+              : a.source === 'spec'
               ? `Read from ${a.specs.join(', ')}`
-              : `No contract is checked in, so Filament read the routes, request and response models, auth and error codes from the code${models.length ? ` (${models.length} models)` : ''}.`}</p>
+              : `No contract is checked in, so Filament read the routes, request and response models, auth and error codes from the code${(a.documented ?? 0) > 0 ? ', plus the API documentation annotations' : ''}${models.length ? ` (${models.length} models)` : ''}.`}</p>
             <p className="muted small">Agents can call this API through the MCP gateway as <code>api-{repo.name}</code> once an owner enables its tools (MCP gateway page).</p>
             {a.enrichment && <p className="muted small">Descriptions added by {a.enrichment.model} for {a.enrichment.applied} endpoints, {ago(a.enrichment.at)}.</p>}
           </div>
@@ -382,6 +465,7 @@ function ApiTab({ repo, busy, generate, impact, onChange }: {
         <ErrorLine error={error} />
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="Filter endpoints" />
       </section>
+      <SpecSource repo={repo} onChange={onChange} />
       {driftCount > 0 && drift && (
         <section className="card warn">
           <h3>Contract and code disagree ({driftCount})</h3>

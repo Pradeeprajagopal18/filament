@@ -302,6 +302,9 @@ class RepoRecord(Base):
     scanned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     # Periodic rescans keep Filament's references current (0 = manual only; None = default).
     scan_interval_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Where a running instance serves its generated spec (springdoc /v3/api-docs, FastAPI
+    # /openapi.json, swaggo /swagger/doc.json...). Scans read it as the contract when set.
+    spec_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     next_scan_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     commit: Mapped[str | None] = mapped_column(String(64), nullable=True)

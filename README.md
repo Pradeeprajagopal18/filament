@@ -87,6 +87,32 @@ or plain `docker run --env-file .env -e NAME=value filament-api` work too. Behin
 proxy, Docker passes `HTTP_PROXY`/`HTTPS_PROXY` to the build automatically; for an internal
 package mirror, set `PIP_INDEX_URL` in `.env` before `docker compose build`.
 
+### API contracts generated from code
+
+Many services don't check in an OpenAPI file; a generator builds it from annotations. Filament
+reads the same annotations, so the contract matches what the generator publishes:
+
+| Stack | What Filament reads |
+|---|---|
+| Java (springdoc, Springfox) | `@Operation`, `@ApiResponse`, `@Parameter`, `@Tag`, `@Hidden` / `@ApiOperation`, `@ApiParam`, `@Api`, `@ApiIgnore` |
+| Go (swaggo) | `// @Summary`, `@Description`, `@Tags`, `@Param`, `@Success`, `@Failure`, `@Router`, `@Security`, `@BasePath`, and the structs they name |
+| NestJS (`@nestjs/swagger`) | `@ApiOperation`, `@ApiResponse`, `@Api<Status>Response`, `@ApiTags`, `@ApiBearerAuth`, `@ApiExcludeEndpoint` |
+| Python (FastAPI, drf-spectacular) | `summary`, `description`, `tags`, `responses`, `deprecated`, `include_in_schema`, docstrings, `@extend_schema` |
+
+The API tab says which generator a repo uses and where it serves the spec (`/v3/api-docs`,
+`/openapi.json`, `/swagger/doc.json`, …). To read the generated spec itself, give the repo the URL of a
+running instance; every scan then reads it and compares it with the code:
+
+```bash
+fil repo spec-url <repo-id> http://localhost:8080/v3/api-docs   # '' to stop
+```
+
+### System map for one repo
+
+Pick a repo on the System map (or "Show on system map" from a repo) to see only what it uses and
+who integrates with it, one or more hops out. From the CLI:
+`fil repo map --focus checkout-api --direction dependents --depth 2`.
+
 ### Private and organization repos
 
 Public repos need nothing. For private repos, pick one:

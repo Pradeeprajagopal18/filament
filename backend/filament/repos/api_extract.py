@@ -344,10 +344,16 @@ def drift(spec_eps: list[dict], code_eps: list[dict]) -> dict:
             "in_contract_not_in_code": [fmt(spec[k]) for k in sorted(set(spec) - set(code))]}
 
 
-def extract(repo: Repo, title: str = "API") -> dict:
+def extract(repo: Repo, title: str = "API", deps: set[str] | None = None,
+            live: tuple[dict, str] | None = None) -> dict:
+    """The contract, best source first: a live spec from a running service (if configured),
+    checked-in spec files, then the code itself, including the documentation annotations spec
+    generators read (springdoc, swaggo, @nestjs/swagger, FastAPI, drf-spectacular)."""
+    from filament.repos import api_annotations as ann
+
     endpoints: list[dict] = []
     specs = []
-    for p in repo.files:
+    for p in ([] if live else repo.files):
         f, name = str(p), p.name.lower()
         if set(p.parts[:-1]) & {"node_modules", "fixtures"}:
             continue
@@ -367,8 +373,18 @@ def extract(repo: Repo, title: str = "API") -> dict:
             specs.append(f)
             endpoints += _from_graphql(repo.read(f), f)
 
-    source = "spec" if endpoints else "none"
+    if live:
+        endpoints, specs = _from_openapi(live[0], live[1]), [live[1]]
+    source = ("live" if live else "spec") if endpoints else "none"
     inferred = _infer_python(repo) + _infer_js(repo) + _infer_java(repo) + _infer_go(repo)
+    gens = ann.generators(repo, deps or set())
+    go_texts = {str(p): repo.read(str(p), 300_000) for p in repo.files
+                if p.suffix == ".go" and not str(p).endswith("_test.go")}
+    go_schemas = ann.go_models(go_texts) if any("@Router" in x for x in go_texts.values()) else {}
+    swag = ann.swaggo(repo, set(go_schemas)) if go_schemas or go_texts else []
+    if swag and not any(g["generator"] == "swaggo" for g in gens):
+        gens.append({"generator": "swaggo", "spec_path": "/swagger/doc.json",
+                     "evidence": "swaggo comments"})
     contract_drift = None
     schemas: dict = {}
     if not endpoints:
@@ -376,7 +392,7 @@ def extract(repo: Repo, title: str = "API") -> dict:
         source = "inferred" if endpoints else "none"
     elif inferred and any(e["framework"] == "openapi" for e in endpoints):
         http = [e for e in endpoints if e["framework"] == "openapi"]
-        contract_drift = drift(http, inferred)
+        contract_drift = drift(http, inferred + swag)
     seen, unique = set(), []
     for ep in endpoints:
         key = (ep["method"], ep["path"])
@@ -385,8 +401,13 @@ def extract(repo: Repo, title: str = "API") -> dict:
             unique.append(ep)
     unique.sort(key=lambda e: (e["path"], e["method"]))
     original = None
-    if source == "inferred":
+    if source == "inferred" or (source == "none" and swag):
         schemas = api_enrich.enrich(repo, unique)
+        unique = ann.document(repo, unique)  # after enrich: annotations win over guesses
+        unique = _merge_swag(unique, swag)
+        schemas.update(_referenced(go_schemas, unique))
+        source = "inferred" if unique else "none"
+        unique.sort(key=lambda e: (e["path"], e["method"]))
     elif source == "spec":
         for f in specs:
             if f.lower().endswith((".yaml", ".yml", ".json")):
@@ -402,6 +423,60 @@ def extract(repo: Repo, title: str = "API") -> dict:
     openapi = None
     if unique:
         openapi = original or to_openapi(title, unique, source == "inferred", schemas)
+    documented = sum(1 for e in unique if e.get("documented"))
     return {"source": source, "specs": specs, "endpoints": unique, "openapi": openapi,
             "schemas": schemas, "drift": contract_drift,
-            "auth": sorted({e["auth"] for e in unique if e.get("auth")})}
+            "auth": sorted({e["auth"] for e in unique if e.get("auth")}),
+            "generators": gens, "documented": documented,
+            # With a generator in use, endpoints it would leave out are worth knowing about.
+            "undocumented": [f"{e['method']} {e['path']}" for e in unique
+                             if not e.get("documented")] if gens and source == "inferred" else []}
+
+
+def _merge_swag(endpoints: list[dict], swag: list[dict]) -> list[dict]:
+    """swaggo comments document routes the router registers; join them by method and path, and
+    keep documented routes the router inference missed."""
+    by_key = {_key(e): e for e in endpoints}
+    for s in swag:
+        rel = _key({"method": s["method"], "path": s.pop("router_path", s["path"])})
+        e = by_key.get(_key(s)) or by_key.get(rel)  # routers often add the base via a group
+        if e is None:
+            endpoints.append(s)
+            by_key[_key(s)] = s
+            continue
+        if _key(e) != _key(s):
+            by_key.pop(_key(e), None)
+            e["path"] = s["path"]
+            by_key[_key(s)] = e
+        for k in ("summary", "description", "tag", "request", "auth", "deprecated", "documented"):
+            if s.get(k):
+                e[k] = s[k]
+        e["responses"] = {**(e.get("responses") or {}), **s["responses"]}
+        names = {p["name"] for p in e["params"]}
+        e["params"] = [next((sp for sp in s["params"] if sp["name"] == p["name"]), p)
+                       for p in e["params"]] + [sp for sp in s["params"] if sp["name"] not in names]
+    return endpoints
+
+
+def _referenced(schemas: dict, endpoints: list[dict]) -> dict:
+    """Only the models the documented endpoints use (and what those use)."""
+    want, seen = [], set()
+
+    def refs(obj):
+        if isinstance(obj, dict):
+            r = obj.get("$ref", "")
+            if r.startswith("#/components/schemas/"):
+                want.append(r.rsplit("/", 1)[-1])
+            for v in obj.values():
+                refs(v)
+        elif isinstance(obj, list):
+            for v in obj:
+                refs(v)
+    refs(endpoints)
+    while want:
+        name = want.pop()
+        if name in seen or name not in schemas:
+            continue
+        seen.add(name)
+        refs(schemas[name])
+    return {n: schemas[n] for n in seen}

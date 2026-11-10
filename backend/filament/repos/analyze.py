@@ -89,7 +89,11 @@ def _code_graph(indexed, root, repo_ref: str, endpoints: list[dict], build: bool
         return {"engine": "filament", "error": str(exc)}, None
 
 
-def analyze_path(root, repo_ref: str, code_graph: bool = True) -> dict:
+def analyze_path(root, repo_ref: str, code_graph: bool = True,
+                 spec_url: str | None = None) -> dict:
+    from filament.repos.api_annotations import live_spec
+    from filament.repos.manifests import names
+
     indexed = Repo(root)
     dependencies = parse(indexed)
     profile = detect(indexed, dependencies)
@@ -98,10 +102,15 @@ def analyze_path(root, repo_ref: str, code_graph: bool = True) -> dict:
     # Infrastructure-only profiles can still hold a service (e.g. an app with a k8s/ folder and
     # a framework we don't know yet): scan their code for endpoints too.
     infra_only = set(profile.kind_names) <= {"infrastructure", "monorepo"}
-    api = api_extract.extract(indexed, name) if (
-        profile.has("api") or profile.has("backend") or (infra_only and profile.languages)) else {
-        "source": "none", "specs": [], "endpoints": [], "openapi": None, "schemas": {},
-        "drift": None, "auth": []}
+    live, live_error = live_spec(spec_url) if spec_url else (None, None)
+    api = api_extract.extract(indexed, name, deps=names(dependencies),
+                              live=(live, spec_url) if live else None) if (
+        live or profile.has("api") or profile.has("backend") or (infra_only and profile.languages)
+    ) else {"source": "none", "specs": [], "endpoints": [], "openapi": None, "schemas": {},
+            "drift": None, "auth": []}
+    if spec_url:
+        api["spec_url"] = spec_url
+        api["live_error"] = live_error
     if api["endpoints"] and not profile.has("api"):
         from filament.repos.profile import Kind
 
@@ -156,8 +165,8 @@ def head_commit(root) -> str | None:
     return out.stdout.strip() or None if out.returncode == 0 else None
 
 
-def analyze(repo_ref: str) -> dict:
+def analyze(repo_ref: str, spec_url: str | None = None) -> dict:
     with checkout(repo_ref) as root:
-        result = analyze_path(root, repo_ref)
+        result = analyze_path(root, repo_ref, spec_url=spec_url)
         result["commit"] = head_commit(root)
         return result

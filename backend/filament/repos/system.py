@@ -213,7 +213,62 @@ def impact(system: dict, repo_id: str) -> dict:
                                  if repo_id in (u["repo_id"], u["target_id"])]}
 
 
-def mermaid(nodes: list[dict], edges: list[dict], by_id: dict) -> str:
+def _depends(e: dict) -> tuple[str, str]:
+    """(dependent, dependency) for an edge. A repo depends on what it calls or uses; an app
+    depends on the repo that configures or provisions it, so those edges point the other way."""
+    if e["kind"] in {"configures", "provisions"}:
+        return e["target"], e["source"]
+    return e["source"], e["target"]
+
+
+def focus(system: dict, repo_id: str, direction: str = "both", depth: int = 1) -> dict:
+    """The part of the system map around one repo.
+
+    direction: "dependencies" (what it calls, uses, and what configures/provisions it),
+    "dependents" (who calls it or is configured by it), or "both". depth: hops to follow
+    (1 = direct neighbours; shared services are never followed through)."""
+    if direction not in {"both", "dependencies", "dependents"}:
+        raise ValueError("direction must be both, dependencies or dependents")
+    names = {n["id"]: n for n in system["nodes"]}
+    if repo_id not in names:
+        raise KeyError(repo_id)
+    keep_edges: list[dict] = []
+    seen_edges: set[int] = set()
+    reached = {repo_id}
+    for want in (["dependencies", "dependents"] if direction == "both" else [direction]):
+        frontier = {repo_id}
+        for _ in range(max(1, min(depth, 5))):
+            nxt = set()
+            for i, e in enumerate(system["edges"]):
+                dependent, dependency = _depends(e)
+                here, there = (dependent, dependency) if want == "dependencies" else \
+                    (dependency, dependent)
+                if here in frontier:
+                    if i not in seen_edges:
+                        seen_edges.add(i)
+                        keep_edges.append({**e, "direction": want})
+                    if there not in reached and not there.startswith("x:"):
+                        nxt.add(there)
+                    reached.add(there)
+            frontier = nxt
+            if not frontier:
+                break
+    nodes = [dict(names[n], focus=(n == repo_id)) for n in names if n in reached]
+    unresolved = [u for u in system.get("unresolved", [])
+                  if u["repo_id"] in reached and u["target_id"] in reached]
+
+    def summary(want: str) -> list[str]:
+        return sorted({names[_depends(e)[1 if want == "dependencies" else 0]]["label"]
+                       for e in keep_edges if e["direction"] == want and
+                       repo_id in _depends(e)})
+    return {"nodes": nodes, "edges": keep_edges, "unresolved": unresolved,
+            "mermaid": mermaid(nodes, keep_edges, {}, highlight=repo_id),
+            "focus": {"id": repo_id, "label": names[repo_id]["label"], "direction": direction,
+                      "depth": depth, "uses": summary("dependencies"),
+                      "used_by": summary("dependents")}}
+
+
+def mermaid(nodes: list[dict], edges: list[dict], by_id: dict, highlight: str | None = None) -> str:
     def nid(x: str) -> str:
         return "n_" + re.sub(r"\W", "_", x)
 
@@ -241,4 +296,6 @@ def mermaid(nodes: list[dict], edges: list[dict], by_id: dict) -> str:
             lines.append(f"  style {nid(n['id'])} fill:{fill},stroke:#888")
         else:
             lines.append(f"  style {nid(n['id'])} fill:#f9ece7,stroke:#c4825b")
+    if highlight:
+        lines.append(f"  style {nid(highlight)} stroke:#c77d12,stroke-width:3px")
     return "\n".join(lines)

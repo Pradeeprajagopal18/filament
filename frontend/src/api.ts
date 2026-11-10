@@ -39,7 +39,8 @@ export type JsonSchema = Record<string, unknown>
 export interface Endpoint {
   method: string; path: string; file: string | null; line: number | null; handler: string
   framework: string; summary: string; tag: string; description?: string; enriched?: string
-  params: { name: string; in: string; schema?: JsonSchema; required?: boolean }[]
+  documented?: string; deprecated?: boolean
+  params: { name: string; in: string; schema?: JsonSchema; required?: boolean; description?: string }[]
   request?: { content_type: string; schema: JsonSchema }
   responses?: Record<string, { description: string; schema?: JsonSchema }>
   auth?: string; example_request?: unknown; example_response?: unknown
@@ -54,8 +55,10 @@ export interface RepoAnalysis {
   readiness: { score: number; grade: string; checks: Check[] }
   commands: Record<string, string>
   api: {
-    source: 'spec' | 'inferred' | 'none'; specs: string[]; endpoints: Endpoint[]; openapi: Record<string, unknown> | null
+    source: 'spec' | 'live' | 'inferred' | 'none'; specs: string[]; endpoints: Endpoint[]; openapi: Record<string, unknown> | null
     schemas?: Record<string, JsonSchema>; auth?: string[]
+    generators?: { generator: string; spec_path: string; evidence: string }[]
+    documented?: number; undocumented?: string[]; spec_url?: string | null; live_error?: string | null
     drift?: { in_code_not_in_contract: DriftItem[]; in_contract_not_in_code: DriftItem[] } | null
     enrichment?: { model: string; applied: number; at: string }
   }
@@ -103,6 +106,7 @@ export interface RepoSummary {
   id: string; workspace_id: string; project_id: string; ref: string; name: string; kinds: string[]
   score: number; grade: string; generated: Record<string, string>; scanned_at: string
   scan_interval_hours?: number | null; next_scan_at?: string | null; last_error?: string | null; commit?: string | null
+  spec_url?: string | null
 }
 export interface Breaking { endpoint: string; change: string; consumers?: string[] }
 export interface ScanChanges {
@@ -119,9 +123,12 @@ export interface RepoScan {
 export interface MapEdge { source: string; target: string; kind: string; evidence: Evidence[]; endpoints: string[] }
 export interface UnresolvedCall { repo_id: string; repo: string; target_id: string; target: string; method: string; path: string; file: string; line: number }
 export interface SystemMap {
-  nodes: { id: string; label: string; kind: string; kinds?: string[]; grade?: string; endpoints?: number; pages?: number; shared_by?: number }[]
+  nodes: { id: string; label: string; kind: string; kinds?: string[]; grade?: string; endpoints?: number; pages?: number; shared_by?: number; focus?: boolean }[]
   edges: MapEdge[]; mermaid: string; unresolved: UnresolvedCall[]
+  focus?: { id: string; label: string; direction: MapDirection; depth: number; uses: string[]; used_by: string[] }
 }
+export type MapDirection = 'both' | 'dependencies' | 'dependents'
+export interface MapFocus { focus: string; direction: MapDirection; depth: number }
 export interface Impact {
   dependents: { repo_id: string; repo: string; kind: string; endpoints: string[]; evidence: Evidence[] }[]
   dependencies: { id: string; name: string; kind: string; endpoints: string[] }[]
@@ -258,7 +265,8 @@ const httpApi = {
   sloCheck: (p: string) => call<{ slos: SloView[]; actions: unknown[] }>('POST', `/projects/${p}/slo-check`),
   releaseAction: (id: string, action: 'promote' | 'rollback', reason = '') => call<ReleaseOut>('POST', `/releases/${id}/${action}`, { by: 'web', reason }),
   resolveIncident: (id: string, note: string) => call<{ id: string; state: string }>('POST', `/incidents/${id}/resolve`, { by: 'web', reason: note }),
-  systemMap: (ws: string) => call<SystemMap>('GET', `/workspaces/${ws}/system-map`),
+  systemMap: (ws: string, f?: MapFocus) => call<SystemMap>('GET', `/workspaces/${ws}/system-map${f ? `?focus=${encodeURIComponent(f.focus)}&direction=${f.direction}&depth=${f.depth}` : ''}`),
+  setRepoSpecUrl: (id: string, url: string) => call<RepoDetail>('PATCH', `/repos/${id}`, { spec_url: url }),
   repoImpact: (id: string) => call<Impact>('GET', `/repos/${id}/impact`),
   repoScans: (id: string) => call<RepoScan[]>('GET', `/repos/${id}/scans`),
   setRepoSchedule: (id: string, hours: number) => call<RepoDetail>('PATCH', `/repos/${id}`, { scan_interval_hours: hours }),
