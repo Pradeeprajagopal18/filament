@@ -61,6 +61,7 @@ Requirements: Python 3.11+, [uv](https://docs.astral.sh/uv/), Node 20+.
 make setup          # install backend and frontend dependencies
 make dev-api        # API on http://localhost:8000  (docs at /docs)
 make dev-web        # UI on http://localhost:5173   (in a second terminal)
+# Port 8000 taken? Use another one for both: make dev-api API_PORT=8010 / make dev-web API_PORT=8010
 ```
 
 Without `ANTHROPIC_API_KEY` Filament runs in **offline mode**: agents return deterministic
