@@ -73,11 +73,18 @@ export FILAMENT_MODEL_DEFAULT=claude-sonnet-5-5
 export FILAMENT_PRICING='{"claude-sonnet-5-5": {"input": 3.0, "output": 15.0}}'
 ```
 
-Or run everything in containers (Postgres included):
+Or run everything in containers (Postgres included). Settings go in a `.env` file next to
+`docker-compose.yml`, which compose passes to the API container (git ignores it):
 
 ```bash
+cp .env.example .env          # add ANTHROPIC_API_KEY, FILAMENT_GIT_TOKEN, proxy settings
 docker compose up --build
 ```
+
+Any `FILAMENT_*` setting can go in `.env`. For a one-off, `docker compose run -e NAME=value api …`
+or plain `docker run --env-file .env -e NAME=value filament-api` work too. Behind a corporate
+proxy, Docker passes `HTTP_PROXY`/`HTTPS_PROXY` to the build automatically; for an internal
+package mirror, set `PIP_INDEX_URL` in `.env` before `docker compose build`.
 
 ## CLI
 

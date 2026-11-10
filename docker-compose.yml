@@ -1,3 +1,4 @@
+# Settings come from a .env file next to this one (copy .env.example). Never commit .env.
 services:
   db:
     image: pgvector/pgvector:pg16
@@ -9,12 +10,20 @@ services:
     volumes: [pgdata:/var/lib/postgresql/data]
 
   api:
-    build: ./backend
+    build:
+      context: ./backend
+      args:
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-}
+        PIP_TRUSTED_HOST: ${PIP_TRUSTED_HOST:-}
+    # Every FILAMENT_* setting, ANTHROPIC_* and proxy variables in .env reach the container.
+    env_file:
+      - path: .env
+        required: false
     environment:
       FILAMENT_DATABASE_URL: postgresql+psycopg://filament:filament@db:5432/filament
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       FILAMENT_CORS_ORIGINS: '["http://localhost:5173"]'
     ports: ["8000:8000"]
+    volumes: [filament-data:/data]
     depends_on: [db]
 
   web:
@@ -29,3 +38,4 @@ services:
 
 volumes:
   pgdata:
+  filament-data:
