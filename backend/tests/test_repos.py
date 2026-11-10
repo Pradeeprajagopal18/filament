@@ -167,3 +167,32 @@ def test_onboard_and_generate_in_platform(client, ws, tmp_path):
     assert "openapi.yaml" in client.get(f"/api/repos/{repo['id']}/files").json()
     bad = client.post(f"/api/repos/{repo['id']}/generate", json={"items": ["nope"]})
     assert bad.status_code == 422
+
+
+def test_spring_boot_4_service_with_k8s_folder_is_a_backend(tmp_path):
+    """Boot 4 renamed the web starter to -webmvc; a k8s/ folder must not hide the service."""
+    root = write(tmp_path / "svc", {
+        "pom.xml": "<project><dependencies><dependency><artifactId>spring-boot-starter-webmvc"
+                   "</artifactId></dependency></dependencies></project>",
+        "k8s/deploy.yaml": "apiVersion: apps/v1\nkind: Deployment\nmetadata: {name: svc}\n",
+        "k8s/svc.yaml": "apiVersion: v1\nkind: Service\nmetadata: {name: svc}\n",
+        "src/main/java/acme/OwnerController.java": (
+            "package acme;\n@Controller\nclass OwnerController {\n"
+            "  @GetMapping(\"/owners/{id}\")\n  public String show(int id) { return \"o\"; }\n}\n"),
+    })
+    a = analyze_path(root, str(root), code_graph=False)
+    assert {"backend", "api"} <= set(a["profile"]["kind_names"])
+    assert "Spring Boot" in a["profile"]["frameworks"]
+    assert [(e["method"], e["path"]) for e in a["api"]["endpoints"]] == [("GET", "/owners/{id}")]
+
+
+def test_unknown_framework_infra_repo_still_scanned(tmp_path):
+    root = write(tmp_path / "svc", {
+        "build.gradle": "dependencies { implementation 'com.acme:acme-web:1.0' }\n",
+        "k8s/deploy.yaml": "apiVersion: apps/v1\nkind: Deployment\nmetadata: {name: svc}\n",
+        "src/main/java/acme/Api.java": ("package acme;\nclass Api {\n  @PostMapping(\"/orders\")\n"
+                                        "  public void place() {}\n}\n"),
+    })
+    a = analyze_path(root, str(root), code_graph=False)
+    assert [(e["method"], e["path"]) for e in a["api"]["endpoints"]] == [("POST", "/orders")]
+    assert "api" in a["profile"]["kind_names"]

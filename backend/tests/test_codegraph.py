@@ -170,6 +170,34 @@ def test_java_and_go(tmp_path):
     assert "PlaceOrder turns a cart into an order." in {n["label"] for n in g["nodes"]}
 
 
+def test_go_methods_declared_apart_from_their_type(tmp_path):
+    """Go lets a type's methods live in other files of the package (the ROP.edgeservice crash)."""
+    g = graph_of(tmp_path, {
+        "go.mod": "module github.com/acme/edge\n",
+        "pkg/artifactory/types.go": "package artifactory\ntype service struct { client *Client }\n"
+                                    "type Client struct{}\nfunc (c *Client) Get(p string) string "
+                                    "{ return p }\n",
+        "pkg/artifactory/artifactory.go": "package artifactory\nfunc (s *service) Fetch(p string) "
+                                          "string { return s.client.Get(p) + s.helper() }\n"
+                                          "func (s *service) helper() string { return \"\" }\n",
+        "pkg/orphan/x.go": "package orphan\nfunc (g *Generated) Do() { g.Other() }\n",
+    })
+    calls = edges(g)
+    assert ("service.Fetch()", "Client.Get()", "extracted") in calls  # field type, other file
+    assert ("service.Fetch()", "service.helper()", "extracted") in calls
+    assert ("service", "service.Fetch()", "extracted") in edges(g, "method")
+    assert not g["warnings"]
+
+
+def test_one_bad_call_does_not_fail_the_scan(tmp_path, monkeypatch):
+    def boom(self, file, f, call):
+        raise KeyError("unexpected")
+    monkeypatch.setattr(codeindex.Resolver, "resolve_call", boom)
+    g = graph_of(tmp_path, {"a.py": "def f():\n    g()\n\ndef g():\n    pass\n"})
+    assert any("could not be resolved" in w for w in g["warnings"])
+    assert {n["label"] for n in g["nodes"]} >= {"f()", "g()"}
+
+
 def test_handler_level_services_notes_and_subsystems(client, ws, repos):
     api, _, _ = repos
     code = api["analysis"]["code"]

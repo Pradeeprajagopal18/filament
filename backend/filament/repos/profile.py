@@ -26,6 +26,11 @@ BACKEND_LIBS = {
     "github.com/go-chi/chi/v5": "chi", "github.com/gofiber/fiber/v2": "Fiber",
     "github.com/gorilla/mux": "gorilla/mux", "spring-boot-starter-web": "Spring Boot",
     "spring-boot-starter-webflux": "Spring WebFlux", "quarkus-resteasy": "Quarkus",
+    "spring-boot-starter-webmvc": "Spring Boot", "spring-webmvc": "Spring MVC",
+    "spring-webflux": "Spring WebFlux", "spring-boot-starter-jersey": "Spring Boot (Jersey)",
+    "quarkus-rest": "Quarkus", "quarkus-resteasy-reactive": "Quarkus",
+    "micronaut-http-server": "Micronaut", "javalin": "Javalin", "dropwizard-core": "Dropwizard",
+    "vertx-web": "Vert.x", "ktor-server-core": "Ktor", "jersey-server": "Jersey",
     "micronaut-http-server-netty": "Micronaut", "actix-web": "Actix", "axum": "Axum",
     "rails": "Rails", "sinatra": "Sinatra", "laravel/framework": "Laravel",
 }

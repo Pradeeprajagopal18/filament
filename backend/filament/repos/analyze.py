@@ -95,8 +95,11 @@ def analyze_path(root, repo_ref: str, code_graph: bool = True) -> dict:
     profile = detect(indexed, dependencies)
     checks = run_checks(indexed, profile)
     name = repo_name(repo_ref)
+    # Infrastructure-only profiles can still hold a service (e.g. an app with a k8s/ folder and
+    # a framework we don't know yet): scan their code for endpoints too.
+    infra_only = set(profile.kind_names) <= {"infrastructure", "monorepo"}
     api = api_extract.extract(indexed, name) if (
-        profile.has("api") or profile.has("backend")) else {
+        profile.has("api") or profile.has("backend") or (infra_only and profile.languages)) else {
         "source": "none", "specs": [], "endpoints": [], "openapi": None, "schemas": {},
         "drift": None, "auth": []}
     if api["endpoints"] and not profile.has("api"):

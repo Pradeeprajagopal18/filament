@@ -93,15 +93,18 @@ def build(root: Path, files: list[str], cache_dir: Path | None = None) -> dict:
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         cache_path.write_text(json.dumps({"version": [VERSION, codeparse.VERSION],
                                           "files": fresh}))
-    graph = Resolver(facts, go_mods).run()
+    resolver = Resolver(facts, go_mods)
+    graph = resolver.run()
     langs: dict[str, int] = defaultdict(int)
     for f in facts.values():
         langs[f["lang"]] += 1
     errors = sum(f.get("errors", 0) for f in facts.values())
     graph.update({"languages": dict(langs), "files_parsed": parsed, "files_cached": reused,
                   "files_skipped": skipped,
-                  "warnings": [f"{errors} files had syntax errors; parsed what we could"]
-                  if errors else []})
+                  "warnings": ([f"{errors} files had syntax errors; parsed what we could"]
+                               if errors else []) +
+                              ([f"{resolver.errors} calls or references could not be resolved "
+                                "and were skipped"] if resolver.errors else [])})
     return graph
 
 
@@ -132,6 +135,9 @@ class Resolver:
         self.top: dict[str, dict[str, str]] = defaultdict(dict)  # file -> name -> id
         self.members: dict[str, dict[str, str]] = defaultdict(dict)  # class -> name -> id
         self.bases: dict[str, list[str]] = defaultdict(list)
+        self.owner: dict[str, str] = {}               # method id -> class id
+        self._orphans: list[tuple[str, str, dict]] = []  # Go methods whose type is in another file
+        self.errors = 0
         self.by_name: dict[str, list[str]] = defaultdict(list)
         self.types: dict[tuple, str] = {}
         self._scopes: dict[str, dict] = {}
@@ -188,11 +194,15 @@ class Resolver:
                 if s["parent"]:
                     parent = self.sid(file, s["parent"])
                     rel = "method" if s["kind"] == "method" else "contains"
-                    if parent in self.nodes or any(x["q"] == s["parent"] for x in f["symbols"]):
-                        self.node(parent)  # declared in order, but be safe
+                    if parent in self.records:
                         self.edge(parent, nid, rel, file, s["line"])
                         if s["kind"] == "method":
                             self.members[parent][s["name"]] = nid
+                            self.owner[nid] = parent
+                    elif s["kind"] == "method":
+                        # Go: a method's type can be declared in another file of the package.
+                        self._orphans.append((file, nid, s))
+                        self.edge(file, nid, "contains", file, s["line"])
                 else:
                     self.top[file][s["name"]] = nid
                     self.edge(file, nid, "contains", file, s["line"])
@@ -216,6 +226,18 @@ class Resolver:
                         self.java_fqn[f"{pkg}.{s['q']}" if pkg else s["q"]] = self.sid(file, s["q"])
             elif lang == "go":
                 self.go_dirs[posixpath.dirname(file)].append(file)
+
+    def attach_orphans(self) -> None:
+        for file, nid, s in self._orphans:
+            pkg_files = self.go_dirs.get(posixpath.dirname(file), [file])
+            cls = next((self.top[f][s["parent"]] for f in pkg_files
+                        if self.records.get(self.top[f].get(s["parent"], ""), {}).get("kind")
+                        == "class"), None)
+            if cls is None:
+                continue  # type not in this repo (generated or vendored): keep it a free function
+            self.edge(cls, nid, "method", file, s["line"])
+            self.members[cls][s["name"]] = nid
+            self.owner[nid] = cls
 
     # -- scopes: what each name in a file refers to
     def scope(self, file: str) -> dict:
@@ -432,7 +454,7 @@ class Resolver:
             if rec and rec["kind"] == "class":
                 return nid
             if rec and rec["kind"] == "method":
-                return self.sid(file, rec["parent"])
+                return self.owner.get(nid)
             q = rec["parent"] if rec else None
         return None
 
@@ -545,7 +567,8 @@ class Resolver:
             t = self.var_type(file, q, head) if "." not in _strip_self(head) else None
             if t is None and cls and (recv.startswith(("self.", "this.")) or head != recv or
                                       lang == "java"):
-                t = self.types.get((file, self.records[cls]["q"], _strip_self(head)))
+                owner = self.records[cls]  # fields live with the type, maybe in another file
+                t = self.types.get((owner["file"], owner["q"], _strip_self(head)))
             if t:
                 hit = self.type_class(file, t)
                 if hit and hit[0] == "ext":
@@ -608,20 +631,29 @@ class Resolver:
 
     def run(self) -> dict:
         self.declare()
+        self.attach_orphans()
         for file in self.facts:
             self.scope(file)
         self.resolve_bases()
         for file, f in self.facts.items():
+            # One odd file or call must not fail the scan: skip it and count it.
             called: set[tuple] = set()
             for call in f["calls"]:
-                hit = self.resolve_call(file, f, call)
+                try:
+                    hit = self.resolve_call(file, f, call)
+                except Exception:  # noqa: BLE001
+                    self.errors += 1
+                    continue
                 if not hit:
                     continue
                 src = self.sid(file, call["in"]) if call["in"] else file
                 self.edge(src, hit[0], "calls", file, call["line"], hit[1])
                 called.add((src, hit[0]))
-            self.resolve_refs(file, f, called)
-            self.notes(file, f)
+            try:
+                self.resolve_refs(file, f, called)
+                self.notes(file, f)
+            except Exception:  # noqa: BLE001
+                self.errors += 1
         communities(self.nodes, self.edges)
         return {"nodes": list(self.nodes.values()), "edges": self.edges,
                 "schema_version": SCHEMA_VERSION, "engine": "filament",
