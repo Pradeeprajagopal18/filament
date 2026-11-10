@@ -26,6 +26,23 @@ class Settings(BaseSettings):
 
     # Agent loop guardrails: hard limits the model cannot override.
     max_agent_turns: int = 12
+    # Access control. "none": no sign-in (a single local user who can do everything; for a
+    # laptop). "oidc": everyone signs in with the company SSO and sees only what they may.
+    auth_mode: str = "none"
+    oidc_issuer: str | None = None          # e.g. https://acme.okta.com/oauth2/default
+    oidc_client_id: str | None = None
+    oidc_client_secret: str | None = Field(default=None, repr=False)
+    oidc_redirect_url: str | None = None    # default: <ui_url>/api/auth/callback
+    oidc_scopes: str = "openid email profile groups"
+    oidc_groups_claim: str = "groups"
+    oidc_github_claim: str | None = None    # a claim holding the user's GitHub username, if any
+    # Signs session cookies; set a long random value in production.
+    session_secret: str = Field(default="dev-only-change-me", repr=False)
+    session_hours: int = 12
+    admin_emails: list[str] = []            # first admins (bootstrap)
+    # "member": everyone who signs in joins every workspace; "none": only people added by an admin.
+    workspace_default_role: str = "member"
+    ui_url: str = "http://localhost:5173"   # where to send people after signing in
     # Git hosts that get the FILAMENT_GIT_TOKEN: github.com plus any GitHub Enterprise hosts,
     # e.g. FILAMENT_GITHUB_HOSTS='["github.com","github.acme.internal"]'. Other hosts never see it.
     github_hosts: list[str] = ["github.com"]

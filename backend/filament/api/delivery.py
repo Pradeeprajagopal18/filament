@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from filament import access
 from filament import schemas as s
 from filament.agents import execute_run
 from filament.api.graph import get_or_404
@@ -141,7 +142,8 @@ def advance(issue_id: str, body: AdvanceIn, session: Session = Depends(get_sessi
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     run = Run(project_id=project.id, agent=st["agent"], goal=goal, input=inp,
-              autonomy=body.autonomy, requested_by=body.requested_by, config=cfg,
+              autonomy=body.autonomy, requested_by=access.requester(body.requested_by),
+              config=cfg,
               runner_id=cfg["runner_id"])
     if cfg["runner_kind"] != INLINE:
         run.status = "queued"
@@ -252,13 +254,23 @@ class ActorIn(BaseModel):
 def release_action(release_id: str, action: str, body: ActorIn,
                    session: Session = Depends(get_session)):
     rel = _typed(session, release_id, "release")
+    project = session.get(Project, rel.project_id)
+    by = access.actor(body.by)
     try:
         if action == "promote":
-            svc.promote(session, rel, body.by)
+            access.check_sign_off(session, project, "release_manager")
+            svc.promote(session, rel, by)
         elif action == "rollback":
-            svc.rollback(session, rel, body.by, body.reason or "Manual rollback")
+            # Rolling back is the safe direction: on-call or the release manager may do it.
+            if not (access.can_sign_off(session, access.current(), project, "on_call")
+                    or access.can_sign_off(session, access.current(), project,
+                                           "release_manager")):
+                access.check_sign_off(session, project, "on_call")
+            svc.rollback(session, rel, by, body.reason or "Manual rollback")
         else:
             raise HTTPException(404, "action must be promote or rollback")
+        access.audit(session, f"release.{action}", workspace_id=project.workspace_id,
+                     resource=rel.id, reason=body.reason)
     except svc.DeliveryError as exc:
         raise HTTPException(409, str(exc)) from exc
     session.commit()
@@ -268,11 +280,15 @@ def release_action(release_id: str, action: str, body: ActorIn,
 @router.post("/incidents/{incident_id}/resolve")
 def resolve_incident(incident_id: str, body: ActorIn, session: Session = Depends(get_session)):
     inc = _typed(session, incident_id, "incident")
-    inc.data = {**inc.data, "state": "resolved", "resolved_by": body.by,
+    project = session.get(Project, inc.project_id)
+    access.check_sign_off(session, project, "on_call")
+    by = access.actor(body.by)
+    access.audit(session, "incident.resolve", workspace_id=project.workspace_id, resource=inc.id)
+    inc.data = {**inc.data, "state": "resolved", "resolved_by": by,
                 "resolution": body.reason, "resolved_at": datetime.now(UTC).isoformat()}
     inc.status = "approved"
     for ap in session.scalars(select(Approval).where(Approval.artifact_id == inc.id,
                                                      Approval.status == "pending")):
-        ap.status, ap.decided_by, ap.decided_at = "approved", body.by, datetime.now(UTC)
+        ap.status, ap.decided_by, ap.decided_at = "approved", by, datetime.now(UTC)
     session.commit()
     return {"id": inc.id, "state": "resolved"}

@@ -36,6 +36,15 @@ def execute_run(session: Session, project: Project, run: Run, commit: bool = Tru
     rolled back but the run record (status, error, tokens, trace) is kept. `commit=False` is
     used for child runs started by the orchestrator, which commit with their parent.
     """
+    from filament import access
+
+    if access.current() is access.SYSTEM and (run.requested_by or "").startswith("user:"):
+        # A queued run picked up by a worker acts for the person who asked for it.
+        token = access.set_current(access.for_requester(session, run.requested_by))
+        try:
+            return execute_run(session, project, run, commit)
+        finally:
+            access.reset_current(token)
     agent_cls = REGISTRY.get(run.agent)
     session.add(run)
     session.flush()

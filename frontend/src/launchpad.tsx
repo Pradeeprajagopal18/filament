@@ -122,6 +122,10 @@ function SystemMapView({ ws, repos, onOpen, focus, setFocus }: {
   }, [ws, key, focus, direction, depth])
   if (repos.length < 2) return <section className="card muted">Onboard two or more repos to see how they connect.</section>
   const names = Object.fromEntries((map?.nodes ?? []).map(n => [n.id, n.label]))
+  const locked = new Set((map?.nodes ?? []).filter(n => n.restricted).map(n => n.id))
+  const repoLink = (rid: string) => locked.has(rid)
+    ? <span className="locked" title="You don't have access to this repo">{names[rid]}</span>
+    : <button className="link" onClick={() => onOpen(rid)}>{names[rid]}</button>
   const links = (map?.edges ?? []).filter(e => e.kind !== 'uses')
   const shared = (map?.nodes ?? []).filter(n => n.kind !== 'repo' && (focus ? true : (n.shared_by ?? 0) > 1))
   const f = map?.focus
@@ -132,6 +136,7 @@ function SystemMapView({ ws, repos, onOpen, focus, setFocus }: {
           <label>Repo <select value={focus} onChange={e => setFocus(e.target.value)}>
             <option value="">All repos</option>
             {[...repos].sort((x, y) => x.name.localeCompare(y.name)).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+            {[...locked].filter(rid => !repos.some(r => r.id === rid)).map(rid => <option key={rid} value={rid}>{names[rid]} (restricted)</option>)}
           </select></label>
           {focus && <>
             <div className="seg" role="group" aria-label="Direction">
@@ -151,6 +156,7 @@ function SystemMapView({ ws, repos, onOpen, focus, setFocus }: {
         <ErrorLine error={error} />
         {!map && !error && <p className="muted">Loading…</p>}
         {map && <Mermaid code={map.mermaid} />}
+        {locked.size > 0 && <p className="muted small">Dashed boxes are repos you don't have access to. They're shown so the picture of the system is complete; their details stay hidden. Ask a project owner for access.</p>}
       </section>
       {map && map.unresolved.length > 0 && (
         <section className="card warn">
@@ -171,11 +177,11 @@ function SystemMapView({ ws, repos, onOpen, focus, setFocus }: {
             {links.map((e, i) => (
               <li key={i}>
                 <div>
-                  <button className="link" onClick={() => onOpen(e.source)}>{names[e.source]}</button>
+                  {repoLink(e.source)}
                   <span className={`edge edge-${e.kind}`}>{e.kind}</span>
-                  <button className="link" onClick={() => onOpen(e.target)}>{names[e.target]}</button>
+                  {repoLink(e.target)}
                   {(e as { confidence?: string }).confidence === 'inferred' && <span className="badge badge-draft" title="Linked by name, not by a call in the code">inferred</span>}
-                  {!focus && <button className="link small" onClick={() => setFocus(e.source)} title="Show only this repo's connections">focus</button>}
+                  {!focus && !locked.has(e.source) && <> <button className="link small" onClick={() => setFocus(e.source)} title="Show only this repo's connections">focus</button></>}
                 </div>
                 {e.endpoints.length > 0 && <div className="small">{e.endpoints.map(ep => <code key={ep} className="ep-chip">{ep}</code>)}</div>}
                 <div className="muted small">{e.evidence.slice(0, 2).map((ev, j) => <span key={j}>{ev.file}{ev.line ? `:${ev.line}` : ''} {ev.detail}{j === 0 && e.evidence.length > 1 ? ' · ' : ''}</span>)}</div>

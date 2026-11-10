@@ -45,7 +45,10 @@ class CodeToolError(Exception):
 
 def _repo(session: Session, workspace_id: str, key: str) -> tuple[RepoRecord, dict]:
     key = (key or "").lower()
-    repos = session.scalars(select(RepoRecord).where(RepoRecord.workspace_id == workspace_id)).all()
+    from filament import access
+
+    repos = access.filter_repos(session, session.scalars(select(RepoRecord).where(
+        RepoRecord.workspace_id == workspace_id)).all())
     record = next((r for r in repos if r.id == key or r.name.lower() == key), None) or next(
         (r for r in repos if key and key in r.name.lower()), None)
     if record is None:

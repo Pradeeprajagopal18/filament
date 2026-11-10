@@ -268,6 +268,35 @@ def focus(system: dict, repo_id: str, direction: str = "both", depth: int = 1) -
                       "used_by": summary("dependents")}}
 
 
+def redact(system: dict, hidden: set[str]) -> dict:
+    """The map for someone who can't open some repos: those stay on the map (name, kind and
+    connections, so the picture of the system is whole) but lose everything read from their
+    code: grade, endpoint and page counts, endpoints on their edges, evidence from their files."""
+    if not hidden:
+        return system
+    nodes = []
+    for n in system["nodes"]:
+        if n["id"] in hidden:
+            n = {"id": n["id"], "label": n["label"], "kind": "repo", "kinds": n.get("kinds", []),
+                 "grade": None, "endpoints": 0, "pages": 0, "restricted": True}
+        nodes.append(n)
+    edges = []
+    for e in system["edges"]:
+        if e["source"] in hidden or e["target"] in hidden:
+            e = {**e, "endpoints": [] if e["target"] in hidden or e["source"] in hidden else
+                 e["endpoints"], "evidence": [] if e["source"] in hidden else e["evidence"]}
+        edges.append(e)
+    shared = [n for n in nodes if n["kind"] != "repo"]
+    for n in shared:  # a shared service used only by hidden repos still shows, just not by whom
+        n["shared_by"] = sum(1 for e in edges if e["target"] == n["id"])
+    out = {**system, "nodes": nodes, "edges": edges,
+           "unresolved": [u for u in system.get("unresolved", [])
+                          if u["repo_id"] not in hidden and u["target_id"] not in hidden]}
+    out.pop("consumers", None)
+    out["mermaid"] = mermaid(nodes, edges, {})
+    return out
+
+
 def mermaid(nodes: list[dict], edges: list[dict], by_id: dict, highlight: str | None = None) -> str:
     def nid(x: str) -> str:
         return "n_" + re.sub(r"\W", "_", x)
@@ -277,6 +306,8 @@ def mermaid(nodes: list[dict], edges: list[dict], by_id: dict, highlight: str | 
         label = n["label"].replace('"', "'")
         if n["kind"] == "repo":
             kinds = "/".join(k for k in n["kinds"][:2])
+            if n.get("restricted"):
+                kinds = (kinds + " · " if kinds else "") + "restricted"
             lines.append(f'  {nid(n["id"])}(["{label}<br/><small>{kinds}</small>"])')
         else:
             lines.append(f'  {nid(n["id"])}["{label}"]')
@@ -291,7 +322,9 @@ def mermaid(nodes: list[dict], edges: list[dict], by_id: dict, highlight: str | 
     styles = {"frontend": "#f3e8ff", "api": "#e6f0ff", "backend": "#e6f7ef",
               "infrastructure": "#fff1e0", "config": "#fdf6d8"}
     for n in nodes:
-        if n["kind"] == "repo":
+        if n["kind"] == "repo" and n.get("restricted"):
+            lines.append(f"  style {nid(n['id'])} fill:#f1f1f1,stroke:#999,stroke-dasharray:4 3")
+        elif n["kind"] == "repo":
             fill = next((styles[k] for k in n["kinds"] if k in styles), "#eef1f5")
             lines.append(f"  style {nid(n['id'])} fill:{fill},stroke:#888")
         else:

@@ -1,7 +1,7 @@
 // Typed client for the Filament API (same endpoints the CLI uses).
 
 export interface Workspace { id: string; name: string }
-export interface Project { id: string; workspace_id: string; name: string; description: string }
+export interface Project { id: string; workspace_id: string; name: string; description: string; restricted?: boolean; team_id?: string | null }
 export interface Artifact {
   id: string; project_id: string; type: string; title: string; content: string
   data: Record<string, unknown>; status: string; version: number; author: string
@@ -106,7 +106,7 @@ export interface RepoSummary {
   id: string; workspace_id: string; project_id: string; ref: string; name: string; kinds: string[]
   score: number; grade: string; generated: Record<string, string>; scanned_at: string
   scan_interval_hours?: number | null; next_scan_at?: string | null; last_error?: string | null; commit?: string | null
-  spec_url?: string | null
+  spec_url?: string | null; private?: boolean | null
 }
 export interface Breaking { endpoint: string; change: string; consumers?: string[] }
 export interface ScanChanges {
@@ -123,7 +123,7 @@ export interface RepoScan {
 export interface MapEdge { source: string; target: string; kind: string; evidence: Evidence[]; endpoints: string[] }
 export interface UnresolvedCall { repo_id: string; repo: string; target_id: string; target: string; method: string; path: string; file: string; line: number }
 export interface SystemMap {
-  nodes: { id: string; label: string; kind: string; kinds?: string[]; grade?: string; endpoints?: number; pages?: number; shared_by?: number; focus?: boolean }[]
+  nodes: { id: string; label: string; kind: string; kinds?: string[]; grade?: string | null; endpoints?: number; pages?: number; shared_by?: number; focus?: boolean; restricted?: boolean }[]
   edges: MapEdge[]; mermaid: string; unresolved: UnresolvedCall[]
   focus?: { id: string; label: string; direction: MapDirection; depth: number; uses: string[]; used_by: string[] }
 }
@@ -176,10 +176,41 @@ export interface AgentSetting {
   agent: string; description: string; runner: string; model: string; max_turns: number
   token_budget: number; context_budget: number; overridden: string[]
 }
+// -- sign-in and access --------------------------------------------------------------------------
+export interface Me {
+  mode: 'none' | 'oidc'; id: string | null; email: string; name: string; is_admin: boolean
+  github_login: string | null; via: string
+  workspaces: { id: string; name: string; role: 'admin' | 'member' }[]
+  checkpoint_roles: { workspace_id: string; project_id: string | null; role: string }[]
+}
+export interface Person {
+  id: string; email: string; name: string; github_login: string | null; is_admin: boolean; active: boolean
+  groups: string[]; last_login_at: string | null; workspace_role: 'admin' | 'member' | null
+  teams: { team_id: string; role: string; source: string }[]; projects: { project_id: string; role: string }[]
+}
+export interface Team { id: string; workspace_id: string; name: string; sso_group?: string | null; sso_role?: string }
+export interface ProjectAccess {
+  project_id: string; restricted: boolean; team: { id: string; name: string; sso_group: string | null } | null
+  members: { user_id: string; email: string; name: string; role: string }[]; my_role: string | null
+  checkpoints: Record<string, { user_id: string; email: string; name: string }[]>
+}
+export interface CheckpointRoleRow { id: string; user_id: string; email: string; role: string; project_id: string | null }
+export interface ApiTokenRow { id: string; name: string; prefix: string; created_at: string; expires_at: string | null; last_used_at: string | null }
+export interface AuditRow { at: string; actor: string; action: string; resource: string; detail: Record<string, unknown> }
+export const CHECKPOINT_ROLES = ['product_owner', 'tech_lead', 'engineer', 'release_manager', 'on_call'] as const
+export const PROJECT_ROLES = ['viewer', 'contributor', 'maintainer', 'owner'] as const
+
+/** Fired when the API says the session is missing or expired, so the shell shows sign-in. */
+export const SIGNED_OUT = 'filament:signed-out'
+function checkAuth(res: Response) {
+  if (res.status === 401) window.dispatchEvent(new Event(SIGNED_OUT))
+}
+
 export interface Health { status: string; offline: boolean; model: string; version: string }
 
 async function callText(method: string, path: string, body?: string): Promise<string> {
   const res = await fetch(`/api${path}`, { method, headers: body ? { 'Content-Type': 'text/plain' } : undefined, body })
+  checkAuth(res)
   if (!res.ok) {
     let detail = res.statusText
     try { detail = (await res.json()).detail ?? detail } catch { /* not JSON */ }
@@ -191,6 +222,7 @@ async function callText(method: string, path: string, body?: string): Promise<st
 async function lookup<T>(path: string): Promise<CodeLookup<T>> {
   const res = await fetch(`/api${path}`)
   const body = await res.json()
+  checkAuth(res)
   if (res.ok) return { ok: true, data: body as T }
   return { ok: false, ambiguous: body.ambiguous, candidates: body.candidates, suggestions: body.suggestions, detail: body.detail ?? res.statusText }
 }
@@ -201,12 +233,13 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
     body: body ? JSON.stringify(body) : undefined,
   })
+  checkAuth(res)
   if (!res.ok) {
     let detail = res.statusText
     try { detail = (await res.json()).detail ?? detail } catch { /* not JSON */ }
     throw new Error(`${res.status}: ${typeof detail === 'string' ? detail : JSON.stringify(detail)}`)
   }
-  return res.json() as Promise<T>
+  return (res.status === 204 ? undefined : res.json()) as Promise<T>
 }
 
 // -- delivery pipeline --------------------------------------------------------------------------
@@ -228,8 +261,30 @@ const httpApi = {
   workspaces: () => call<Workspace[]>('GET', '/workspaces'),
   createWorkspace: (name: string) => call<Workspace>('POST', '/workspaces', { name }),
   projects: (ws: string) => call<Project[]>('GET', `/workspaces/${ws}/projects`),
-  createProject: (ws: string, name: string, description: string) =>
-    call<Project>('POST', `/workspaces/${ws}/projects`, { name, description }),
+  createProject: (ws: string, name: string, description: string, restricted = false) =>
+    call<Project>('POST', `/workspaces/${ws}/projects`, { name, description, restricted }),
+  me: () => call<Me>('GET', '/auth/me'),
+  logout: () => call<{ ok: boolean }>('POST', '/auth/logout'),
+  tokens: () => call<ApiTokenRow[]>('GET', '/auth/tokens'),
+  createToken: (name: string, days: number | null) => call<{ id: string; token: string; note: string }>('POST', '/auth/tokens', { name, days }),
+  revokeToken: (id: string) => call<void>('DELETE', `/auth/tokens/${id}`),
+  people: (ws: string) => call<Person[]>('GET', `/workspaces/${ws}/people`),
+  invite: (ws: string, email: string, workspace_role: string, github_login: string | null) =>
+    call<Person>('POST', `/workspaces/${ws}/people`, { email, workspace_role, github_login }),
+  updatePerson: (ws: string, id: string, body: { workspace_role?: string; github_login?: string; active?: boolean; teams?: { team_id: string; role: string }[] }) =>
+    call<Person>('PATCH', `/workspaces/${ws}/people/${id}`, body),
+  teams: (ws: string) => call<Team[]>('GET', `/workspaces/${ws}/teams`),
+  createTeam: (ws: string, name: string) => call<Team>('POST', `/workspaces/${ws}/teams`, { name }),
+  setTeamGroup: (ws: string, team: string, sso_group: string, sso_role: string) =>
+    call<Team>('PUT', `/workspaces/${ws}/teams/${team}`, { sso_group, sso_role }),
+  projectAccess: (p: string) => call<ProjectAccess>('GET', `/projects/${p}/access`),
+  setRestricted: (p: string, restricted: boolean) => call<ProjectAccess>('PATCH', `/projects/${p}/access`, { restricted }),
+  setMembers: (p: string, members: { user_id: string; role: string }[]) => call<ProjectAccess>('PUT', `/projects/${p}/members`, members),
+  checkpointRoles: (ws: string) => call<CheckpointRoleRow[]>('GET', `/workspaces/${ws}/checkpoint-roles`),
+  addCheckpointRole: (ws: string, user_id: string, role: string, project_id: string | null) =>
+    call<CheckpointRoleRow>('PUT', `/workspaces/${ws}/checkpoint-roles`, { user_id, role, project_id }),
+  removeCheckpointRole: (ws: string, id: string) => call<void>('DELETE', `/workspaces/${ws}/checkpoint-roles/${id}`),
+  audit: (ws: string) => call<AuditRow[]>('GET', `/workspaces/${ws}/audit?limit=100`),
   artifacts: (p: string) => call<Artifact[]>('GET', `/projects/${p}/artifacts`),
   graph: (p: string) => call<{ nodes: Artifact[]; edges: Link[] }>('GET', `/projects/${p}/graph`),
   impact: (a: string) => call<{ affected: Artifact[] }>('GET', `/artifacts/${a}/impact`),

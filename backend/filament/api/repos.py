@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from filament import access
 from filament import schemas as s
 from filament.api.graph import get_or_404
 from filament.config import get_settings
@@ -49,6 +50,26 @@ def onboard_repo(ws_id: str, body: s.RepoIn, session: Session = Depends(get_sess
     get_or_404(session, Workspace, ws_id)
     existing = session.scalars(select(RepoRecord).where(RepoRecord.workspace_id == ws_id,
                                                         RepoRecord.ref == body.repo)).first()
+    p = access.current()
+    if existing is not None:
+        if not access.can_see_repo(session, p, existing):
+            raise HTTPException(404, "Not found")
+        access.require(session, p, access.Target(ws_id, session.get(Project, existing.project_id),
+                                                 existing), "contributor")
+    elif body.project_id:
+        proj = get_or_404(session, Project, body.project_id)
+        if proj.workspace_id != ws_id:
+            raise HTTPException(404, "Project not found")
+        access.require(session, p, access.Target(ws_id, proj), "contributor")
+    private = access.repo_visibility(body.repo)
+    if existing is None and private and not p.unrestricted \
+            and not access.is_ws_admin(session, p, ws_id):
+        # Filament scans with the org token; don't let that become a way around GitHub.
+        can_read = access._github_can_read(body.repo, p.github_login) if p.github_login else None
+        if can_read is not True:
+            raise HTTPException(403, "This is a private repo and Filament can't confirm you "
+                                     "can read it on GitHub. Ask an admin to set your GitHub "
+                                     "username under People & access, or to onboard it.")
     spec_url = body.spec_url or (existing.spec_url if existing else None)
     analysis = _run(body.repo, spec_url)
     record = session.scalars(select(RepoRecord).where(RepoRecord.workspace_id == ws_id,
@@ -64,9 +85,11 @@ def onboard_repo(ws_id: str, body: s.RepoIn, session: Session = Depends(get_sess
                                              analysis["profile"]["kind_names"])
         record = RepoRecord(workspace_id=ws_id, project_id=project_id, ref=body.repo,
                             name=analysis["name"], scan_interval_hours=body.scan_interval_hours,
-                            spec_url=spec_url)
+                            spec_url=spec_url, private=private)
         session.add(record)
         session.flush()
+        access.audit(session, "repo.onboard", workspace_id=ws_id, resource=record.id,
+                     ref=body.repo, private=private)
     service.store(session, record, analysis, trigger)
     session.commit()
     return record
@@ -74,8 +97,9 @@ def onboard_repo(ws_id: str, body: s.RepoIn, session: Session = Depends(get_sess
 
 @router.get("/workspaces/{ws_id}/repos", response_model=list[s.RepoSummary])
 def list_repos(ws_id: str, session: Session = Depends(get_session)):
-    return session.scalars(select(RepoRecord).where(RepoRecord.workspace_id == ws_id)
+    rows = session.scalars(select(RepoRecord).where(RepoRecord.workspace_id == ws_id)
                            .order_by(RepoRecord.name)).all()
+    return access.filter_repos(session, rows)
 
 
 @router.get("/workspaces/{ws_id}/system-map")
@@ -86,6 +110,10 @@ def system_map(ws_id: str, focus: str | None = None, direction: str = "both", de
     repo's neighbourhood: what it depends on, what depends on it, or both, `depth` hops out."""
     get_or_404(session, Workspace, ws_id)
     m = service.system_for(session, ws_id)
+    visible = access.visible_repo_ids(session, access.current(), ws_id)
+    if visible is not None:
+        m = sysmap.redact(m, {n["id"] for n in m["nodes"]
+                              if n["kind"] == "repo" and n["id"] not in visible})
     if focus:
         node = next((n for n in m["nodes"] if n["kind"] == "repo" and
                      focus in (n["id"], n["label"])), None)
@@ -114,6 +142,12 @@ def update_repo(repo_id: str, body: s.RepoPatch, session: Session = Depends(get_
         if url and not url.startswith(("http://", "https://")):
             raise HTTPException(422, "spec_url must be an http(s) URL")
         record.spec_url = url or None
+    if body.private is not None:
+        if not access.is_ws_admin(session, access.current(), record.workspace_id):
+            raise HTTPException(403, "Only a workspace admin can change a repo's visibility")
+        record.private = body.private
+        access.audit(session, "repo.visibility", workspace_id=record.workspace_id,
+                     resource=record.id, private=body.private)
     session.commit()
     return record
 

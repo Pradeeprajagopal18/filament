@@ -25,7 +25,8 @@ Guidance for AI coding agents (and humans) working in this repo.
 - `backend/filament/delivery/` — delivery pipeline: `service.py` (stages, roles, board, PR linking, SLO checks, release actions), `checks.py` (deterministic triage/handoff/QA/review/release/SLO checks), `github.py`, `webhook.py` (PR + CI events), `omni.py` (task tools for external coding agents); agents in `agents/delivery.py` with tools in `agents/delivery_tools.py`; API in `api/delivery.py`
 - `backend/scripts/demo_repos.py` — regenerates `frontend/src/demo-repos.json` for the preview after analyzer changes
 - `backend/scripts/demo_delivery.py` — regenerates `frontend/src/demo-delivery.json` (the delivery scenario the preview replays) after delivery changes
-- `frontend/src/` — `api.ts` client, `pages.tsx` views, `App.tsx` shell
+- `backend/filament/auth.py` (OIDC sign-in, sessions, personal tokens), `access.py` (roles, repo visibility, list filters, checkpoint sign-off, audit), `api/guard.py` (the rule every route goes through), `api/access.py` (auth and People & access endpoints)
+- `frontend/src/` — `api.ts` client, `pages.tsx` views, `App.tsx` shell, `access.tsx` (sign-in, People & access, project access, tokens)
 
 ## Conventions
 - Call the Anthropic Messages API directly through `llm.complete`; no agent frameworks.
@@ -41,6 +42,9 @@ Guidance for AI coding agents (and humans) working in this repo.
   autonomy levels and provenance are applied consistently.
 - New API capability → add the CLI command and the `api.ts` client method in the same change.
 - Every change ships with tests in `backend/tests/`.
+- New routes are covered by `api/guard.py` automatically; add them to its ADMIN / MAINTAINER /
+  SIGNED_IN sets when the default (viewer reads, contributor writes) is wrong, and filter lists
+  with `access.*` helpers. Agent-facing reads of repos or memory go through `access.filter_*`.
 
 ## Do not touch
 - Do not commit `.env`, databases (`*.db`) or API keys.

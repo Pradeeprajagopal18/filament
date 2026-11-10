@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from filament import access
 from filament import schemas as s
 from filament.agents import REGISTRY, execute_run, list_agents
 from filament.api.graph import get_or_404
@@ -32,7 +33,8 @@ def start_run(project_id: str, body: s.RunIn, session: Session = Depends(get_ses
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     run = Run(project_id=project_id, agent=body.agent, goal=body.goal, input=body.input,
-              autonomy=body.autonomy, requested_by=body.requested_by, config=cfg,
+              autonomy=body.autonomy, requested_by=access.requester(body.requested_by),
+              config=cfg,
               runner_id=cfg["runner_id"])
     if cfg["runner_kind"] != INLINE:
         # Executes wherever `fil runner start <name>` is running for this runner.
@@ -72,6 +74,22 @@ def usage(ws_id: str, by: str = "agent", session: Session = Depends(get_session)
         .group_by(col)
     )
     rows = session.execute(stmt).all()
+    if by == "person":  # show people by email, not internal ids
+        from filament.models import User
+
+        def name(k):
+            if isinstance(k, str) and k.startswith("user:"):
+                u = session.get(User, k[5:])
+                return u.email if u else k
+            return k
+        merged: dict = {}
+        for k, n, i, o, c in rows:
+            m = merged.setdefault(name(k), [0, 0, 0, 0.0])
+            m[0] += n
+            m[1] += i or 0
+            m[2] += o or 0
+            m[3] += c or 0
+        rows = [(k, *v) for k, v in merged.items()]
     return sorted(
         ({"key": str(k), "runs": n, "input_tokens": i or 0, "output_tokens": o or 0,
           "cost_usd": c} for k, n, i, o, c in rows),
@@ -97,4 +115,16 @@ def readiness_reports(repo: str | None = None, session: Session = Depends(get_se
     stmt = select(ReadinessReport).order_by(ReadinessReport.created_at.desc())
     if repo:
         stmt = stmt.where(ReadinessReport.repo == repo)
-    return session.scalars(stmt.limit(200)).all()
+    p = access.current()
+    rows = session.scalars(stmt.limit(200)).all()
+    if p.unrestricted or p.is_admin:
+        return rows
+    ok = {}
+    out = []
+    for r in rows:  # reports without a project were run by an admin; keep them to admins
+        if r.project_id and r.project_id not in ok:
+            proj = session.get(Project, r.project_id)
+            ok[r.project_id] = bool(proj and access.can(session, p, proj))
+        if r.project_id and ok[r.project_id]:
+            out.append(r)
+    return out

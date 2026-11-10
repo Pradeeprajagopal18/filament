@@ -102,10 +102,11 @@ def search_memory(agent: Agent, inp: dict) -> dict:
 
 
 def _repos(agent: Agent):
+    from filament import access
     from filament.models import RepoRecord
 
-    return agent.session.scalars(select(RepoRecord).where(
-        RepoRecord.workspace_id == agent.project.workspace_id)).all()
+    return access.filter_repos(agent.session, agent.session.scalars(select(RepoRecord).where(
+        RepoRecord.workspace_id == agent.project.workspace_id)).all())
 
 
 def search_repos(agent: Agent, inp: dict) -> dict:

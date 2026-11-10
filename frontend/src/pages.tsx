@@ -1,26 +1,30 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, type Artifact, type Gap, type Memory, type Project, type Run, type UsageRow } from './api'
+import { ProjectAccessTab } from './access'
+import { api, type Artifact, type Gap, type Me, type Memory, type Project, type Run, type UsageRow } from './api'
 import { Badge, Content, ErrorLine, Tokens } from './components'
 import { DeliveryTab } from './delivery'
 
 const TYPE_ORDER = ['issue', 'idea', 'opportunity', 'feature_request', 'prd', 'story', 'flow', 'component_view', 'ui_mock', 'adr', 'api_contract', 'doc', 'task', 'pull_request', 'test_plan', 'review', 'release', 'slo', 'incident']
 
 // -- Project: run agents, browse the graph, approve at the human gate --------------
-export function ProjectPage({ project }: { project: Project }) {
-  const [tab, setTab] = useState<'delivery' | 'design'>('delivery')
+export function ProjectPage({ project, ws, me }: { project: Project; ws: string; me: Me | null }) {
+  const [tab, setTab] = useState<'delivery' | 'design' | 'access'>('delivery')
   return (
     <div className="page">
       <header className="page-head">
         <div>
-          <h1>{project.name}</h1>
+          <h1>{project.name}{project.restricted && <span className="badge lock" title="Only its members can see this project">restricted</span>}</h1>
           {project.description && <p className="muted">{project.description}</p>}
         </div>
       </header>
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={tab === 'delivery'} className={tab === 'delivery' ? 'active' : ''} onClick={() => setTab('delivery')}>Delivery</button>
         <button role="tab" aria-selected={tab === 'design'} className={tab === 'design' ? 'active' : ''} onClick={() => setTab('design')}>Design & graph</button>
+        {me?.mode === 'oidc' && <button role="tab" aria-selected={tab === 'access'} className={tab === 'access' ? 'active' : ''} onClick={() => setTab('access')}>Access</button>}
       </div>
-      {tab === 'delivery' ? <DeliveryTab project={project} /> : <ProjectDesign project={project} />}
+      {tab === 'delivery' && <DeliveryTab project={project} />}
+      {tab === 'design' && <ProjectDesign project={project} />}
+      {tab === 'access' && <ProjectAccessTab project={project} ws={ws} me={me} />}
     </div>
   )
 }

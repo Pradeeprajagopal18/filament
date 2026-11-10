@@ -43,6 +43,14 @@ console = Console()
 API = os.environ.get("FIL_API", "http://localhost:8000/api")
 
 
+def _h(extra: dict | None = None) -> dict:
+    """A personal token (FILAMENT_TOKEN) when the server uses SSO; see `fil auth token`."""
+    h = dict(extra or {})
+    if tok := os.environ.get("FILAMENT_TOKEN"):
+        h["Authorization"] = f"Bearer {tok}"
+    return h
+
+
 def _ws(ws: str | None) -> str:
     ws = ws or os.environ.get("FIL_WORKSPACE")
     if not ws:
@@ -52,14 +60,19 @@ def _ws(ws: str | None) -> str:
 
 def _call(method: str, path: str, **kwargs):
     try:
+        kwargs["headers"] = _h(kwargs.get("headers"))
         resp = httpx.request(method, f"{API}{path}", timeout=300, **kwargs)
     except httpx.ConnectError:
         console.print(f"[red]Cannot reach Filament API at {API}. Is the server running?[/red]")
         raise typer.Exit(1) from None
+    if resp.status_code == 401:
+        console.print("[red]Sign-in required. Create a token in the UI (My tokens) or with "
+                      "`fil auth token create` and set FILAMENT_TOKEN.[/red]")
+        raise typer.Exit(1)
     if resp.status_code >= 400:
         console.print(f"[red]{resp.status_code}: {resp.text}[/red]")
         raise typer.Exit(1)
-    return resp.json()
+    return resp.json() if resp.content else None
 
 
 # -- Launchpad -------------------------------------------------------------------
@@ -373,7 +386,7 @@ def mcp_update(
 @mcp_app.command("remove")
 def mcp_remove(name: str, ws: str | None = typer.Option(None)):
     sid = _mcp_id(name, ws)
-    httpx.delete(f"{API}/mcp/{sid}", timeout=30).raise_for_status()
+    httpx.delete(f"{API}/mcp/{sid}", timeout=30, headers=_h()).raise_for_status()
     console.print(f"Removed {name}")
 
 
@@ -444,7 +457,7 @@ def agent_set(agent: str, runner: str | None = None, model: str | None = None,
 @config_app.command("export")
 def config_export(ws: str | None = typer.Option(None)):
     """Print MCP servers, runners and agent defaults as YAML."""
-    resp = httpx.get(f"{API}/workspaces/{_ws(ws)}/config", timeout=30)
+    resp = httpx.get(f"{API}/workspaces/{_ws(ws)}/config", timeout=30, headers=_h())
     resp.raise_for_status()
     print(resp.text, end="")
 
@@ -454,7 +467,7 @@ def config_apply(file: Path = typer.Option(..., "-f", "--file"),
                  ws: str | None = typer.Option(None)):
     """Create or update everything in a YAML file (all-or-nothing)."""
     r = _call("POST", f"/workspaces/{_ws(ws)}/config", content=file.read_text(),
-              headers={"Content-Type": "text/plain"})
+              headers=_h({"Content-Type": "text/plain"}))
     console.print(f"Applied: {r['applied']}")
 
 
@@ -547,7 +560,7 @@ def repo_generate(repo_id: str, item: list[str] = typer.Option(
 @repo_app.command("openapi")
 def repo_openapi(repo_id: str, out: str | None = typer.Option(None, "-o")):
     """Print or save the OpenAPI document (from the repo's spec or inferred from code)."""
-    resp = httpx.get(f"{API}/repos/{repo_id}/openapi", timeout=60)
+    resp = httpx.get(f"{API}/repos/{repo_id}/openapi", timeout=60, headers=_h())
     if resp.status_code >= 400:
         console.print(f"[red]{resp.status_code}: {resp.text}[/red]")
         raise typer.Exit(1)
@@ -783,7 +796,8 @@ def mcp_metrics(hours: int = typer.Option(24), ws: str | None = typer.Option(Non
 
 # -- code graph ---------------------------------------------------------------------------------
 def _code_get(repo_id: str, path: str, **params):
-    resp = httpx.get(f"{API}/repos/{repo_id}/code{path}", params=params, timeout=120)
+    resp = httpx.get(f"{API}/repos/{repo_id}/code{path}", params=params, timeout=120,
+                     headers=_h())
     data = resp.json()
     if resp.status_code == 409:
         console.print(f"[yellow]{data['detail']}[/yellow]")
@@ -1028,3 +1042,122 @@ def delivery_resolve(incident_id: str, by: str = "human", note: str = ""):
 
 if __name__ == "__main__":
     app()
+
+
+# -- sign-in and access ---------------------------------------------------------------------------
+auth_app = typer.Typer(help="Who you are, and personal tokens for the CLI and MCP clients",
+                       no_args_is_help=True)
+app.add_typer(auth_app, name="auth")
+token_app = typer.Typer(help="Personal tokens", no_args_is_help=True)
+auth_app.add_typer(token_app, name="token")
+access_app = typer.Typer(help="People & access (workspace admins)", no_args_is_help=True)
+app.add_typer(access_app, name="access")
+
+
+@auth_app.command("whoami")
+def whoami():
+    me = _call("GET", "/auth/me")
+    console.print(f"{me['email']} ({me['name']}){'  admin' if me['is_admin'] else ''}  "
+                  f"via {me['via']}  mode={me['mode']}")
+    for w in me["workspaces"]:
+        console.print(f"  {w['name']} [{w['id']}]: {w['role']}")
+    for r in me["checkpoint_roles"]:
+        console.print(f"  checkpoint {r['role']} on {r['project_id'] or 'all projects'}")
+
+
+@token_app.command("create")
+def token_create(name: str, days: int = typer.Option(90, help="0 for no expiry")):
+    """Prints the token once. Requires a signed-in session token already (or use the UI)."""
+    out = _call("POST", "/auth/tokens", json={"name": name, "days": days or None})
+    console.print(out["token"])
+    console.print(f"[dim]{out['note']} Use it with: export FILAMENT_TOKEN=...[/dim]")
+
+
+@token_app.command("list")
+def token_list():
+    for t in _call("GET", "/auth/tokens"):
+        console.print(f"{t['id']}  {t['prefix']}…  {t['name']}  expires {t['expires_at']}  "
+                      f"last used {t['last_used_at']}")
+
+
+@token_app.command("revoke")
+def token_revoke(token_id: str):
+    _call("DELETE", f"/auth/tokens/{token_id}")
+    console.print("Revoked")
+
+
+@access_app.command("people")
+def access_people(ws: str = typer.Option(None, "--ws")):
+    for u in _call("GET", f"/workspaces/{_ws(ws)}/people"):
+        teams = ", ".join(f"{t['team_id']}:{t['role']}" for t in u["teams"])
+        console.print(f"{u['id']}  {u['email']}  {u['workspace_role'] or '-'}  "
+                      f"github={u['github_login'] or '-'}  {'' if u['active'] else 'disabled '}"
+                      f"{teams}")
+
+
+@access_app.command("add")
+def access_add(email: str, role: str = typer.Option("member", help="admin | member"),
+               github: str = typer.Option(None, help="GitHub username"),
+               ws: str = typer.Option(None, "--ws")):
+    u = _call("POST", f"/workspaces/{_ws(ws)}/people",
+              json={"email": email, "workspace_role": role, "github_login": github})
+    console.print(f"Added {u['email']} ({u['id']})")
+
+
+@access_app.command("set")
+def access_set(user_id: str, role: str = typer.Option(None, help="admin | member | none"),
+               github: str = typer.Option(None, help="GitHub username ('' clears)"),
+               active: bool = typer.Option(None, "--active/--disabled"),
+               ws: str = typer.Option(None, "--ws")):
+    body = {k: v for k, v in {"workspace_role": role, "github_login": github,
+                              "active": active}.items() if v is not None}
+    u = _call("PATCH", f"/workspaces/{_ws(ws)}/people/{user_id}", json=body)
+    console.print(f"{u['email']}: {u['workspace_role']} github={u['github_login']}")
+
+
+@access_app.command("restrict")
+def access_restrict(project_id: str, off: bool = typer.Option(False, "--off")):
+    """Make a project visible only to its members (or open it again with --off)."""
+    out = _call("PATCH", f"/projects/{project_id}/access", json={"restricted": not off})
+    console.print(f"restricted={out['restricted']}")
+
+
+@access_app.command("members")
+def access_members(project_id: str,
+                   member: list[str] = typer.Option(None, help="user_id=role (repeatable); "
+                                                    "replaces the list")):
+    if member:
+        body = [{"user_id": m.split("=", 1)[0], "role": m.split("=", 1)[1]} for m in member]
+        out = _call("PUT", f"/projects/{project_id}/members", json=body)
+    else:
+        out = _call("GET", f"/projects/{project_id}/access")
+    console.print(f"restricted={out['restricted']}  team={(out['team'] or {}).get('name')}")
+    for m in out["members"]:
+        console.print(f"  {m['email']}: {m['role']}")
+
+
+@access_app.command("checkpoint")
+def access_checkpoint(user_id: str, role: str, project: str = typer.Option(None),
+                      ws: str = typer.Option(None, "--ws")):
+    """Assign a checkpoint role: product_owner, tech_lead, engineer, release_manager, on_call."""
+    _call("PUT", f"/workspaces/{_ws(ws)}/checkpoint-roles",
+          json={"user_id": user_id, "role": role, "project_id": project})
+    console.print(f"{user_id} is {role} on {project or 'every project'}")
+
+
+@access_app.command("team-group")
+def access_team_group(team_id: str, group: str, role: str = "contributor",
+                      ws: str = typer.Option(None, "--ws")):
+    """Members of this SSO group join the team at each sign-in."""
+    _call("PUT", f"/workspaces/{_ws(ws)}/teams/{team_id}", json={"sso_group": group,
+                                                                 "sso_role": role})
+    console.print(f"SSO group {group} -> team {team_id} ({role})")
+
+
+@access_app.command("audit")
+def access_audit(ws: str = typer.Option(None, "--ws"), action: str = None, limit: int = 50):
+    rows = _call("GET", f"/workspaces/{_ws(ws)}/audit", params={"limit": limit,
+                                                               **({"action": action} if action
+                                                                  else {})})
+    for e in rows:
+        console.print(f"{e['at'][:19]}  {e['actor']:<28} {e['action']:<20} {e['resource']}")

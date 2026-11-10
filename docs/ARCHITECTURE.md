@@ -49,6 +49,29 @@ flowchart TB
 | `mcp_calls` | Every gateway call: actor, status, latency, bytes before/after projection, redactions |
 | `code_graphs` | One per repo: the normalized code graph (symbols, links with relation and confidence), engine version and commit |
 | `repo_scans` | Scan history: trigger, grade, commit and the diff against the previous scan (breaking changes, drift, reference refresh) |
+| `users`, `memberships` | People from the SSO, and their roles on workspaces (admin, member), teams and projects (viewer, contributor, maintainer, owner); team memberships from SSO groups are marked `sso` |
+| `checkpoint_roles` | Who signs off each delivery checkpoint, per project or workspace-wide |
+| `api_tokens` | Personal tokens for the CLI and MCP clients (SHA-256 hash only) |
+| `audit_events` | Sign-ins, role and visibility changes, sign-offs, releases, denied requests |
+
+## Access control
+
+`filament/auth.py` signs people in with OIDC (Authorization Code + PKCE; the id_token is checked
+against the IdP's keys, issuer, audience, expiry and nonce), sets a signed HttpOnly session
+cookie and resolves `Authorization: Bearer fil_...` tokens. `filament/api/guard.py` is a
+dependency on every router: it finds the workspace, project and repo a path points at
+(`access.resolve`) and applies the route's rule (open, signed in, admin, maintainer, viewer for
+reads, contributor for writes). Handlers then filter lists and check finer rules: checkpoint
+roles (`access.check_sign_off`), the project a new repo goes into, memory scopes. Repo
+visibility is `access.can_see_repo`: project access plus, for private repos, GitHub's
+collaborator permission for the user's GitHub login, falling back to an explicit project role.
+The system map is passed through `repos.system.redact` for repos the viewer can't open.
+
+The principal lives in a context variable (`access.current()`), set by the async guard so sync
+handlers and inline agent runs see it; queued runs restore it from `Run.requested_by`
+(`user:<id>`). Agent-facing reads (`context.py`, agent tools, code tools, delivery triage) go
+through `access.filter_repos` / `filter_memory`. With `auth_mode=none` the principal is a local
+admin and nothing is filtered.
 
 ## How a run works
 

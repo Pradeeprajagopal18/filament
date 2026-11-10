@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
+from filament import access
 from filament import schemas as s
 from filament.api.graph import get_or_404
 from filament.context import keywords
@@ -23,6 +24,23 @@ STOPWORDS = {"the", "and", "for", "with", "how", "what", "why", "who", "does", "
 @router.post("/workspaces/{ws_id}/memory", response_model=s.MemoryOut, status_code=201)
 def add_memory(ws_id: str, body: s.MemoryIn, session: Session = Depends(get_session)):
     get_or_404(session, Workspace, ws_id)
+    p = access.current()
+    if body.scope == "project" and body.scope_ref:
+        proj = get_or_404(session, Project, body.scope_ref)
+        access.require(session, p, access.Target(ws_id, proj), "contributor")
+    elif body.scope == "team" and not access.can_see_memory(session, p, MemoryEntry(
+            workspace_id=ws_id, scope="team", scope_ref=body.scope_ref)):
+        raise HTTPException(403, "Only members of that team can add to its memory")
+    elif body.scope == "org" and not p.unrestricted and not access.is_ws_admin(session, p, ws_id) \
+            and not body.author.startswith("agent:"):
+        # Org-wide memory is what every agent reads first; people add it through review.
+        body.author = body.author if body.author != "human" else access.actor()
+        entry = MemoryEntry(workspace_id=ws_id, status="proposed", **body.model_dump())
+        session.add(entry)
+        session.commit()
+        return entry
+    if p.user_id and not body.author.startswith("agent:"):
+        body.author = access.actor()
     # Human-written entries are confirmed; agent-written ones start as proposed.
     status = "proposed" if body.author.startswith("agent:") else "confirmed"
     entry = MemoryEntry(workspace_id=ws_id, status=status, **body.model_dump())
@@ -39,7 +57,8 @@ def list_memory(ws_id: str, scope: str | None = None, status: str | None = None,
         stmt = stmt.where(MemoryEntry.scope == scope)
     if status:
         stmt = stmt.where(MemoryEntry.status == status)
-    return session.scalars(stmt.order_by(MemoryEntry.created_at.desc())).all()
+    return access.filter_memory(session, session.scalars(
+        stmt.order_by(MemoryEntry.created_at.desc())).all())
 
 
 @router.post("/memory/{entry_id}/{action}", response_model=s.MemoryOut)
@@ -48,7 +67,19 @@ def change_memory_status(entry_id: str, action: str, session: Session = Depends(
     if target is None:
         raise HTTPException(400, "action must be 'confirm' or 'retire'")
     entry = get_or_404(session, MemoryEntry, entry_id)
+    p = access.current()
+    if not access.can_see_memory(session, p, entry):
+        raise HTTPException(404, "Not found")
+    if entry.scope == "org" and not p.unrestricted \
+            and not access.is_ws_admin(session, p, entry.workspace_id):
+        raise HTTPException(403, "Only a workspace admin can confirm or retire org-wide memory")
+    if entry.scope == "project" and entry.scope_ref:
+        proj = session.get(Project, entry.scope_ref)
+        if proj and not access.can(session, p, proj, "maintainer"):
+            raise HTTPException(403, "A project maintainer confirms or retires its memory")
     entry.status = target
+    access.audit(session, f"memory.{action}", workspace_id=entry.workspace_id,
+                 resource=entry.id)
     session.commit()
     return entry
 
@@ -62,13 +93,18 @@ def _search(session: Session, ws_id: str, project_id: str | None, question: str,
     if project_id:
         art_stmt = art_stmt.where(Artifact.project_id == project_id)
     candidates: list[tuple[int, str, str, str]] = []
+    p = access.current()
+    ok_projects = {x.id for x in access.visible_projects(session, p, session.scalars(
+        select(Project).where(Project.workspace_id == ws_id)))}
     for a in session.scalars(art_stmt):
+        if a.project_id not in ok_projects:
+            continue
         score = len(q & keywords(a.title + " " + a.content))
         if score:
             candidates.append((score, f"artifact:{a.id}", a.title, a.content[:1500]))
     mem_stmt = select(MemoryEntry).where(MemoryEntry.workspace_id == ws_id,
                                          MemoryEntry.status != "retired")
-    for m in session.scalars(mem_stmt):
+    for m in access.filter_memory(session, session.scalars(mem_stmt).all()):
         score = len(q & keywords(m.content))
         if score:
             candidates.append((score + 1, f"memory:{m.id}", f"{m.scope} {m.kind}", m.content))

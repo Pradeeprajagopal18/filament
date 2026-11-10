@@ -5,6 +5,7 @@ import type {
   ChangeImpact, CodeExplain, CodeGraphView, CodeLookup, CodePath, CodeSym, Endpoint, GatewayCall, GatewayServer, GatewayTool, Impact, JsonSchema, RepoAnalysis, RepoDetail, RepoScan, Runner, ScanChanges, SystemMap, TraceEvent, UsageRow, Workspace,
   AdvanceBody, DeliveryBoard, Handoff, ReleaseOut, WorkItem,
   MapDirection, MapFocus,
+  ApiTokenRow, AuditRow, CheckpointRoleRow, Me, Person, ProjectAccess, Team,
 } from './api'
 import demoRepos from './demo-repos.json'
 import demoDelivery from './demo-delivery.json'
@@ -272,7 +273,8 @@ function sysMermaid(nodes: DemoSystem['nodes'], edges: SysEdge[], highlight?: st
   const lines = ['flowchart LR']
   for (const n of nodes) {
     const label = n.label.replace(/"/g, "'")
-    lines.push(n.kind === 'repo' ? `  ${nid(n.id)}(["${label}<br/><small>${(n.kinds ?? []).slice(0, 2).join('/')}</small>"])` : `  ${nid(n.id)}["${label}"]`)
+    const kinds = [(n.kinds ?? []).slice(0, 2).join('/'), n.restricted ? 'restricted' : ''].filter(Boolean).join(' · ')
+    lines.push(n.kind === 'repo' ? `  ${nid(n.id)}(["${label}<br/><small>${kinds}</small>"])` : `  ${nid(n.id)}["${label}"]`)
   }
   for (const e of edges) {
     const k = e.endpoints.length
@@ -281,7 +283,7 @@ function sysMermaid(nodes: DemoSystem['nodes'], edges: SysEdge[], highlight?: st
     lines.push(`  ${nid(e.source)} ${arrow}|${lbl}| ${nid(e.target)}`)
   }
   const styles: Record<string, string> = { frontend: '#f3e8ff', api: '#e6f0ff', backend: '#e6f7ef', infrastructure: '#fff1e0', config: '#fdf6d8' }
-  for (const n of nodes) lines.push(n.kind === 'repo' ? `  style ${nid(n.id)} fill:${(n.kinds ?? []).map(k => styles[k]).find(Boolean) ?? '#eef1f5'},stroke:#888` : `  style ${nid(n.id)} fill:#f9ece7,stroke:#c4825b`)
+  for (const n of nodes) lines.push(n.restricted ? `  style ${nid(n.id)} fill:#f1f1f1,stroke:#999,stroke-dasharray:4 3` : n.kind === 'repo' ? `  style ${nid(n.id)} fill:${(n.kinds ?? []).map(k => styles[k]).find(Boolean) ?? '#eef1f5'},stroke:#888` : `  style ${nid(n.id)} fill:#f9ece7,stroke:#c4825b`)
   if (highlight) lines.push(`  style ${nid(highlight)} stroke:#c77d12,stroke-width:3px`)
   return lines.join('\n')
 }
@@ -405,6 +407,71 @@ function link(project_id: string, s: Artifact, t: Artifact, kind: string) {
   db.links.push({ id: id(), project_id, source_id: s.id, target_id: t.id, kind })
 }
 
+// -- people & access (same rules as filament/access.py) -------------------------------------------
+type DemoPerson = Person
+const people: DemoPerson[] = [
+  { id: 'u-priya', email: 'priya@acme.com', name: 'Priya Shah', github_login: 'priya-s', is_admin: true, active: true, groups: ['eng-leads'], last_login_at: now(), workspace_role: 'admin', teams: [], projects: [] },
+  { id: 'u-sam', email: 'sam@acme.com', name: 'Sam Lee', github_login: 'samlee', is_admin: false, active: true, groups: ['eng-web'], last_login_at: now(), workspace_role: 'member', teams: [{ team_id: 't-web', role: 'contributor', source: 'sso' }], projects: [] },
+  { id: 'u-maria', email: 'maria@acme.com', name: 'Maria Gomez', github_login: 'mgomez', is_admin: false, active: true, groups: ['eng-payments'], last_login_at: now(), workspace_role: 'member', teams: [{ team_id: 't-pay', role: 'contributor', source: 'sso' }], projects: [] },
+  { id: 'u-devon', email: 'devon@acme.com', name: 'Devon Park', github_login: null, is_admin: false, active: true, groups: ['sre'], last_login_at: null, workspace_role: 'member', teams: [], projects: [] },
+]
+const teams: Team[] = [
+  { id: 't-pay', workspace_id: 'acme', name: 'Payments', sso_group: 'eng-payments', sso_role: 'contributor' },
+  { id: 't-web', workspace_id: 'acme', name: 'Web', sso_group: 'eng-web', sso_role: 'contributor' },
+]
+const checkpointRows: CheckpointRoleRow[] = [
+  { id: 'c1', user_id: 'u-priya', email: 'priya@acme.com', role: 'product_owner', project_id: null },
+  { id: 'c2', user_id: 'u-maria', email: 'maria@acme.com', role: 'tech_lead', project_id: null },
+  { id: 'c3', user_id: 'u-devon', email: 'devon@acme.com', role: 'on_call', project_id: null },
+]
+const auditLog: AuditRow[] = [
+  { at: new Date(Date.now() - 3600_000).toISOString(), actor: 'priya@acme.com', action: 'project.restricted', resource: 'checkout-api', detail: { restricted: true } },
+  { at: new Date(Date.now() - 1800_000).toISOString(), actor: 'sam@acme.com', action: 'access.denied', resource: 'GET /api/repos/{repo_id}', detail: {} },
+]
+const tokenRows: ApiTokenRow[] = [{ id: 'tk1', name: 'laptop CLI', prefix: 'fil_Q2x9aB', created_at: now(), expires_at: new Date(Date.now() + 80 * 864e5).toISOString(), last_used_at: now() }]
+let viewer = 'u-priya'
+const viewerPerson = () => people.find(x => x.id === viewer)!
+/** The preview signs you in as Priya (admin); switch to Sam to see what a member who isn't on the Payments team sees. */
+export function demoViewAs(user: string) { viewer = user }
+export const DEMO_PEOPLE = () => people.filter(x => ['u-priya', 'u-sam'].includes(x.id)).map(x => ({ id: x.id, label: `${x.name.split(' ')[0]} (${x.is_admin ? 'admin' : 'member'})` }))
+const restrictedProjects = new Set<string>()
+function projectOk(pid: string): boolean {
+  const me = viewerPerson()
+  if (me.is_admin || !restrictedProjects.has(pid)) return true
+  const proj = db.projects.find(x => x.id === pid)
+  return me.projects.some(m => m.project_id === pid) || me.teams.some(m => m.team_id === proj?.team_id)
+}
+const repoOk = (r: { project_id: string }) => projectOk(r.project_id)
+function redactMap(m: SystemMap): SystemMap {
+  const hidden = new Set(db.repos.filter(r => !repoOk(r)).map(r => r.id))
+  if (!hidden.size) return m
+  const nodes = m.nodes.map(n => hidden.has(n.id) ? { id: n.id, label: n.label, kind: 'repo', kinds: n.kinds, grade: null, endpoints: 0, pages: 0, restricted: true } : n)
+  const edges = m.edges.map(e => hidden.has(e.source) || hidden.has(e.target) ? { ...e, endpoints: [], evidence: hidden.has(e.source) ? [] : e.evidence } : e)
+  return { ...m, nodes, edges, unresolved: m.unresolved.filter(u => !hidden.has(u.repo_id) && !hidden.has(u.target_id)), mermaid: sysMermaid(nodes, edges, m.focus?.id) }
+}
+function projectAccess(pid: string): ProjectAccess {
+  const proj = db.projects.find(x => x.id === pid)!
+  const team = teams.find(x => x.id === proj.team_id) ?? null
+  const me = viewerPerson()
+  const explicit = me.projects.find(m => m.project_id === pid)?.role ?? (me.teams.some(m => m.team_id === proj.team_id) ? 'contributor' : null)
+  return {
+    project_id: pid, restricted: restrictedProjects.has(pid), team: team && { id: team.id, name: team.name, sso_group: team.sso_group ?? null },
+    members: people.flatMap(x => x.projects.filter(m => m.project_id === pid).map(m => ({ user_id: x.id, email: x.email, name: x.name, role: m.role }))),
+    my_role: me.is_admin ? 'owner' : explicit ?? (restrictedProjects.has(pid) ? null : 'contributor'),
+    checkpoints: Object.fromEntries(['product_owner', 'tech_lead', 'engineer', 'release_manager', 'on_call'].map(r => [r, checkpointRows.filter(c => c.role === r && (!c.project_id || c.project_id === pid)).map(c => { const x = people.find(y => y.id === c.user_id); return { user_id: c.user_id, email: x?.email ?? '', name: x?.name ?? '' } })])),
+  }
+}
+function audit(action: string, resource: string, detail: Record<string, unknown> = {}) {
+  auditLog.unshift({ at: now(), actor: viewerPerson().email, action, resource, detail })
+}
+function signOff(): undefined {
+  if (!viewerPerson().is_admin) throw new Error("403: This checkpoint needs its role (product owner, tech lead, engineer, release manager or on-call, assigned under People & access). Sam doesn't hold one.")
+  return undefined
+}
+function needAdmin() {
+  if (!viewerPerson().is_admin) throw new Error('403: Only a workspace admin can do this')
+}
+
 function seed() {
   const ws: Workspace = { id: 'acme', name: 'Acme Engineering' }
   db.workspaces.push(ws)
@@ -415,6 +482,10 @@ function seed() {
   db.runners.push({ id: id(), name: 'k8s-agents', kind: 'kubernetes', description: 'Agent pods in the platform cluster', labels: ['prod'], config: { namespace: 'agents' }, is_default: false, max_concurrency: 8, timeout_s: 900, last_seen_at: now(), queued: 0 })
   db.agentSettings.requirements = { model: 'claude-opus-5-5', max_turns: 10 }
   for (const s of [...SAMPLES].reverse()) onboard(ws.id, s.analysis.repo)
+  // The payments service is private and lives in a restricted project owned by the Payments team.
+  const pay = db.repos.find(r => r.name === 'checkout-api')
+  const payProject = pay && db.projects.find(x => x.id === pay.project_id)
+  if (pay && payProject) { payProject.team_id = 't-pay'; restrictedProjects.add(payProject.id); (pay as RepoDetail & { private?: boolean }).private = true }
   db.agentSettings.flow = { runner: 'k8s-agents' }
   const mk = (x: Partial<McpServer> & { name: string }): McpServer => {
     const s: McpServer = { id: id(), description: '', scope: 'workspace', scope_ref: null, transport: 'http', command: null, args: [], url: null, env: {}, headers: {}, enabled: true, allowed_tools: [], write_tools: [], min_autonomy_for_writes: 'L2', timeout_s: 30, tools_cache: [], last_test_ok: null, last_test_error: null, last_tested_at: null, ...x }
@@ -746,17 +817,73 @@ export const demoApi = {
   addSlo: async (): Promise<{ id: string }> => { throw new Error('Preview: the sample project already has an SLO.') },
   sloCheck: async () => clone({ slos: delivery.board.slos, actions: [] }),
   releaseAction: async (rid: string, action: 'promote' | 'rollback'): Promise<ReleaseOut> => {
+    signOff()
     await sleep(400)
     return clone(play(`${action}:${rid}`) as ReleaseOut)
   },
-  resolveIncident: async (iid: string) => clone(play(`resolve:${iid}`) as { id: string; state: string }),
+  resolveIncident: async (iid: string) => signOff() ?? clone(play(`resolve:${iid}`) as { id: string; state: string }),
   health: async (): Promise<Health> => ({ status: 'ok', offline: false, model: 'claude-sonnet-5-5 (simulated)', version: '0.1.0-demo' }),
   workspaces: async () => clone(db.workspaces),
   createWorkspace: async (name: string) => { const w = { id: id(), name }; db.workspaces.push(w); return w },
-  projects: async (ws: string) => clone(db.projects.filter(p => p.workspace_id === ws)),
-  createProject: async (ws: string, name: string, description: string) => {
-    const p = { id: id(), workspace_id: ws, name, description }; db.projects.push(p); return clone(p)
+  projects: async (ws: string) => clone(db.projects.filter(p => p.workspace_id === ws && projectOk(p.id)).map(p => ({ ...p, restricted: restrictedProjects.has(p.id) }))),
+  createProject: async (ws: string, name: string, description: string, restricted = false) => {
+    const p = { id: id(), workspace_id: ws, name, description }; db.projects.push(p)
+    if (restricted) restrictedProjects.add(p.id)
+    viewerPerson().projects.push({ project_id: p.id, role: 'owner' })
+    return clone({ ...p, restricted })
   },
+  me: async (): Promise<Me> => {
+    const x = viewerPerson()
+    return { mode: 'oidc', id: x.id, email: x.email, name: x.name, is_admin: x.is_admin, github_login: x.github_login, via: 'session', workspaces: db.workspaces.map(w => ({ id: w.id, name: w.name, role: x.is_admin ? 'admin' : 'member' })), checkpoint_roles: checkpointRows.filter(c => c.user_id === x.id).map(c => ({ workspace_id: 'acme', project_id: c.project_id, role: c.role })) }
+  },
+  logout: async () => { throw new Error('Preview: signing out works on the real server (it clears the SSO session cookie).') },
+  tokens: async () => clone(tokenRows),
+  createToken: async (name: string, days: number | null) => {
+    const raw = 'fil_' + Array.from({ length: 40 }, () => 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 56)]).join('')
+    tokenRows.unshift({ id: id(), name, prefix: raw.slice(0, 10), created_at: now(), expires_at: days ? new Date(Date.now() + days * 864e5).toISOString() : null, last_used_at: null })
+    return { id: tokenRows[0].id, token: raw, note: 'Copy it now; it is not shown again. (Preview: this token works nowhere.)' }
+  },
+  revokeToken: async (tid: string) => { tokenRows.splice(tokenRows.findIndex(x => x.id === tid), 1) },
+  people: async () => { needAdmin(); return clone(people) },
+  invite: async (_ws: string, email: string, workspace_role: string, github_login: string | null) => {
+    needAdmin()
+    const x: DemoPerson = { id: id(), email: email.toLowerCase(), name: email.split('@')[0], github_login, is_admin: false, active: true, groups: [], last_login_at: null, workspace_role: workspace_role as 'admin' | 'member', teams: [], projects: [] }
+    people.push(x); audit('people.add', x.id, { email }); return clone(x)
+  },
+  updatePerson: async (_ws: string, uid: string, body: { workspace_role?: string; github_login?: string; active?: boolean; teams?: { team_id: string; role: string }[] }) => {
+    needAdmin()
+    const x = people.find(y => y.id === uid)!
+    if (body.workspace_role) x.workspace_role = body.workspace_role as 'admin' | 'member'
+    if (body.github_login !== undefined) x.github_login = body.github_login || null
+    if (body.active !== undefined) x.active = body.active
+    if (body.teams) x.teams = [...x.teams.filter(m => m.source === 'sso'), ...body.teams.map(m => ({ ...m, source: 'manual' }))]
+    audit('people.update', uid, body); return clone(x)
+  },
+  teams: async () => clone(teams),
+  createTeam: async (ws: string, name: string) => { needAdmin(); const tm = { id: id(), workspace_id: ws, name, sso_group: null, sso_role: 'contributor' }; teams.push(tm); return clone(tm) },
+  setTeamGroup: async (_ws: string, tid: string, sso_group: string, sso_role: string) => {
+    needAdmin(); const tm = teams.find(x => x.id === tid)!; tm.sso_group = sso_group || null; tm.sso_role = sso_role
+    audit('team.sso', tid, { group: sso_group }); return clone(tm)
+  },
+  projectAccess: async (pid: string) => clone(projectAccess(pid)),
+  setRestricted: async (pid: string, restricted: boolean) => {
+    if (!['owner', 'maintainer'].includes(projectAccess(pid).my_role ?? '')) throw new Error('403: You need the maintainer role on this project')
+    if (restricted) restrictedProjects.add(pid); else restrictedProjects.delete(pid)
+    audit('project.restricted', pid, { restricted }); return clone(projectAccess(pid))
+  },
+  setMembers: async (pid: string, members: { user_id: string; role: string }[]) => {
+    for (const x of people) x.projects = x.projects.filter(m => m.project_id !== pid)
+    for (const m of members) people.find(x => x.id === m.user_id)?.projects.push({ project_id: pid, role: m.role })
+    audit('project.members', pid, { members }); return clone(projectAccess(pid))
+  },
+  checkpointRoles: async () => clone(checkpointRows),
+  addCheckpointRole: async (_ws: string, user_id: string, role: string, project_id: string | null) => {
+    needAdmin()
+    const row = { id: id(), user_id, email: people.find(x => x.id === user_id)?.email ?? '', role, project_id }
+    checkpointRows.push(row); audit('checkpoint.assign', user_id, { role }); return clone(row)
+  },
+  removeCheckpointRole: async (_ws: string, rid: string) => { needAdmin(); checkpointRows.splice(checkpointRows.findIndex(x => x.id === rid), 1) },
+  audit: async () => { needAdmin(); return clone(auditLog) },
   artifacts: async (p: string) => clone(db.artifacts.filter(a => a.project_id === p)),
   graph: async (p: string) => clone({ nodes: db.artifacts.filter(a => a.project_id === p), edges: db.links.filter(l => l.project_id === p) }),
   impact: async (a: string) => {
@@ -772,6 +899,7 @@ export const demoApi = {
     return clone({ affected: db.artifacts.filter(x => seen.has(x.id)) })
   },
   decide: async (aid: string, decision: 'approved' | 'rejected') => {
+    signOff()
     if (DD.artifacts[aid]) {
       if (decision === 'rejected') throw new Error('409: In this preview, approve to follow the scenario. Rejecting sends the work back on the real server.')
       play('approve', aid)
@@ -840,10 +968,10 @@ export const demoApi = {
   },
   scan: async (repo: string) => { await sleep(900); const r = simulateScan(repo); db.readiness.unshift(r); return clone(r) },
   readiness: async () => clone(db.readiness),
-  repos: async (ws: string) => db.repos.filter(r => r.workspace_id === ws).map(stripSample),
+  repos: async (ws: string) => db.repos.filter(r => r.workspace_id === ws && repoOk(r)).map(stripSample),
   onboardRepo: async (ws: string, ref: string) => { await sleep(1200); return stripSample(onboard(ws, ref)) },
   repo: async (rid: string) => {
-    const r = db.repos.find(x => x.id === rid); if (!r) throw new Error('404: Repo not found')
+    const r = db.repos.find(x => x.id === rid); if (!r || !repoOk(r)) throw new Error('404: Repo not found')
     return stripSample(r)
   },
   rescanRepo: async (rid: string) => {
@@ -866,8 +994,8 @@ export const demoApi = {
   systemMap: async (ws: string, f?: MapFocus): Promise<SystemMap> => {
     const { consumers: _c, ...rest } = demoSystem(ws)
     void _c
-    if (f?.focus) return clone(focusMap({ ...rest, consumers: {} }, f.focus, f.direction, f.depth))
-    return clone(rest)
+    if (f?.focus) return clone(redactMap(focusMap({ ...rest, consumers: {} }, f.focus, f.direction, f.depth)))
+    return clone(redactMap(rest))
   },
   setRepoSpecUrl: async (): Promise<RepoDetail> => {
     throw new Error('Preview: reading a live spec needs the real server, which can reach your running services.')

@@ -6,6 +6,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from filament import access
 from filament.delivery import github
 from filament.delivery import service as svc
 from filament.models import Artifact, Project
@@ -34,15 +35,18 @@ class TaskError(Exception):
 def _task(session: Session, ws_id: str, task_id: str) -> tuple[Artifact, Project]:
     task = session.get(Artifact, task_id or "")
     project = session.get(Project, task.project_id) if task else None
-    if task is None or task.type != "task" or project is None or project.workspace_id != ws_id:
+    if task is None or task.type != "task" or project is None or project.workspace_id != ws_id \
+            or not access.can(session, access.current(), project) \
+            and not access.current().unrestricted:
         raise TaskError(f"No coding task {task_id} in this workspace")
     return task, project
 
 
 def run(session: Session, ws_id: str, name: str, args: dict) -> dict:
     if name == "filament_list_tasks":
-        projects = {p.id for p in session.scalars(select(Project).where(
-            Project.workspace_id == ws_id))}
+        projects = {p.id for p in access.visible_projects(session, access.current(),
+                                                          session.scalars(select(Project).where(
+                                                              Project.workspace_id == ws_id)))}
         tasks = session.scalars(select(Artifact).where(Artifact.type == "task",
                                                        Artifact.project_id.in_(projects))).all()
         open_ = [t for t in tasks
@@ -57,7 +61,10 @@ def run(session: Session, ws_id: str, name: str, args: dict) -> dict:
         pr = github.pull_request(args.get("url", ""))
     except github.GitHubError as exc:
         raise TaskError(str(exc)) from exc
-    art = svc.attach_pull_request(session, project, task, pr, author="omni")
+    if not access.current().unrestricted and not access.can(session, access.current(), project,
+                                                             "contributor"):
+        raise TaskError("You need the contributor role on this project to link a PR")
+    art = svc.attach_pull_request(session, project, task, pr, author=access.actor("omni"))
     session.commit()
     return {"linked": True, "pull_request_id": art.id,
             "next": "QA checks CI and the Review agent does a first pass."}

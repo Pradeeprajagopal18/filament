@@ -15,6 +15,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
+from filament import access
 from filament.delivery import checks
 from filament.models import Approval, Artifact, Link, Project, RepoRecord, SloSample
 
@@ -246,8 +247,8 @@ def import_issues(session: Session, project: Project, repo: str, state: str = "o
 
 
 def triage_context(session: Session, project: Project, issue: Artifact) -> dict:
-    repos = session.scalars(select(RepoRecord).where(
-        RepoRecord.workspace_id == project.workspace_id)).all()
+    repos = access.filter_repos(session, session.scalars(select(RepoRecord).where(
+        RepoRecord.workspace_id == project.workspace_id)).all())
     terms: set[str] = set()
     for r in repos:
         terms |= {r.name.lower()}
@@ -271,8 +272,8 @@ def repo_for(session: Session, project: Project, hint: str | None,
              text: str = "") -> RepoRecord | None:
     """The onboarded repo a work item is about: an explicit hint, else the one its text names,
     else the only repo in the workspace."""
-    repos = session.scalars(select(RepoRecord).where(
-        RepoRecord.workspace_id == project.workspace_id)).all()
+    repos = access.filter_repos(session, session.scalars(select(RepoRecord).where(
+        RepoRecord.workspace_id == project.workspace_id)).all())
     if not repos:
         return None
     if not hint and text:

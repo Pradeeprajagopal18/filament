@@ -51,6 +51,7 @@ work in the same place, and every agent output is linked, cited and reviewable.
 | Review Agent | First-pass PR scorecard: secrets, endpoints other repos call, hotspots, missing tests, migrations, debug output, size. Posts on the PR only at autonomy L3+ |
 | Release Agent | Rollout behind a flag in steps sized to risk, with rollback criteria tied to SLOs and the teams to tell. Production releases always need a release manager |
 | SRE Agent | Watches SLO burn rates; on a breach during a rollout it rolls back, opens an incident for on-call and files a follow-up issue that goes back to triage |
+| Access control | Sign-in with the company SSO (OIDC). Open and restricted projects with viewer/contributor/maintainer/owner roles, teams synced from SSO groups, private repos that mirror GitHub permissions, a system map that shows every repo but hides details of the ones you can't open, checkpoint roles for sign-offs, personal tokens for the CLI and MCP, and an audit log |
 | `fil` CLI | Every capability from the terminal |
 
 ## Quick start
@@ -128,6 +129,45 @@ Public repos need nothing. For private repos, pick one:
 git never prompts for a password: if credentials are missing the scan stops at once and says
 what to set.
 
+### Who can see what (SSO and access)
+
+On a laptop nobody signs in (`FILAMENT_AUTH_MODE=none`, the default). For a team, turn on the
+company SSO (any OpenID Connect provider: Okta, Entra ID, Google, Keycloak):
+
+```bash
+FILAMENT_AUTH_MODE=oidc
+FILAMENT_OIDC_ISSUER=https://acme.okta.com/oauth2/default
+FILAMENT_OIDC_CLIENT_ID=...            # register redirect URI <FILAMENT_UI_URL>/api/auth/callback
+FILAMENT_OIDC_CLIENT_SECRET=...        # if your IdP issues one (PKCE is always used)
+FILAMENT_SESSION_SECRET=<long random>  # signs session cookies
+FILAMENT_ADMIN_EMAILS='["you@acme.com"]'
+FILAMENT_UI_URL=https://filament.acme.internal
+```
+
+The rules:
+
+- **Workspaces**: everyone who signs in is a member (set `FILAMENT_WORKSPACE_DEFAULT_ROLE=none`
+  to require an admin to add people). Admins manage connectors, runners, agents, config and
+  People & access.
+- **Projects** are open (every member can see and contribute) or **restricted** (only their
+  members, their team and admins). Roles: viewer, contributor, maintainer, owner. Whoever
+  creates a project owns it. Teams map to SSO groups, synced at each sign-in.
+- **Private repos mirror GitHub**: you see one if GitHub says you can read it (your GitHub
+  username, from an SSO claim via `FILAMENT_OIDC_GITHUB_CLAIM` or set by an admin; checked with
+  the org token, cached 15 minutes). When GitHub can't tell, a role on the repo's project counts.
+  Only people who can read a private repo on GitHub (or admins) can onboard it.
+- **The system map** always shows every repo and how they connect, so the picture is whole.
+  Repos you can't open are dashed and carry no details (no endpoints, evidence or grade).
+- **Checkpoints** need their role (product owner, tech lead, engineer, release manager,
+  on-call), assigned under People & access. When nobody holds it, project owners and
+  maintainers sign off. Who signed is taken from the session, not the request.
+- Things you can't see answer 404, so their existence doesn't leak. Agents act as the person
+  who started the run and see only what that person can. Sign-ins, role changes, sign-offs,
+  releases and denied requests go to the audit log.
+
+The CLI and MCP clients use a personal token: create one under **My tokens** (or
+`fil auth token create`) and set `FILAMENT_TOKEN`. Only a hash is stored.
+
 ## CLI
 
 ```bash
@@ -141,6 +181,10 @@ fil repo impact <id>                             # who depends on this repo
 fil repo rescan <id> | --due                     # rescan and show what changed
 fil repo schedule <id> 24                        # rescan interval in hours (0 = manual)
 fil delivery board <project-id>                  # work items and stage states
+fil auth whoami                                  # who you are (FILAMENT_TOKEN=fil_...)
+fil access restrict <project-id>                 # members only (--off to open it again)
+fil access set <user-id> --github <username>     # mirror their GitHub repo access
+fil access checkpoint <user-id> release_manager  # who signs off production releases
 fil delivery advance <item-id>                   # run the next stage's agent
 fil delivery handoff <task-id> --prompt          # claude "$(fil delivery handoff <task-id> --prompt)"
 fil delivery slo add <project-id> "Checkout availability" --objective 99.9

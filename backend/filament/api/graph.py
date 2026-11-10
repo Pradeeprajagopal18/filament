@@ -6,10 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
+from filament import access
 from filament import schemas as s
 from filament.context import neighbours
 from filament.db import get_session
-from filament.models import Approval, Artifact, Link, Project, Team, Workspace
+from filament.models import Approval, Artifact, Link, Membership, Project, Team, Workspace
 
 router = APIRouter()
 
@@ -32,7 +33,9 @@ def create_workspace(body: s.WorkspaceIn, session: Session = Depends(get_session
 
 @router.get("/workspaces", response_model=list[s.WorkspaceOut])
 def list_workspaces(session: Session = Depends(get_session)):
-    return session.scalars(select(Workspace).order_by(Workspace.created_at)).all()
+    p = access.current()
+    rows = session.scalars(select(Workspace).order_by(Workspace.created_at)).all()
+    return [w for w in rows if p.unrestricted or access.workspace_role(session, p, w.id)]
 
 
 @router.post("/workspaces/{ws_id}/teams", response_model=s.TeamOut, status_code=201)
@@ -55,6 +58,13 @@ def create_project(ws_id: str, body: s.ProjectIn, session: Session = Depends(get
     get_or_404(session, Workspace, ws_id)
     project = Project(workspace_id=ws_id, **body.model_dump())
     session.add(project)
+    session.flush()
+    p = access.current()
+    if p.user_id:  # whoever creates a project owns it
+        session.add(Membership(user_id=p.user_id, scope="project", scope_id=project.id,
+                               role="owner"))
+    access.audit(session, "project.create", workspace_id=ws_id, resource=project.id,
+                 restricted=project.restricted)
     session.commit()
     return project
 
@@ -62,7 +72,7 @@ def create_project(ws_id: str, body: s.ProjectIn, session: Session = Depends(get
 @router.get("/workspaces/{ws_id}/projects", response_model=list[s.ProjectOut])
 def list_projects(ws_id: str, session: Session = Depends(get_session)):
     stmt = select(Project).where(Project.workspace_id == ws_id).order_by(Project.created_at)
-    return session.scalars(stmt).all()
+    return access.visible_projects(session, access.current(), session.scalars(stmt).all())
 
 
 @router.get("/projects/{project_id}", response_model=s.ProjectOut)
@@ -145,20 +155,26 @@ def list_approvals(project_id: str, status: str = "pending",
 
 @router.post("/artifacts/{artifact_id}/approve", response_model=s.ArtifactOut)
 def decide(artifact_id: str, body: s.ApprovalDecision, session: Session = Depends(get_session)):
+    from filament.delivery.service import ROLE_FOR
+
     art = get_or_404(session, Artifact, artifact_id)
     pending = session.scalars(select(Approval).where(
         Approval.artifact_id == artifact_id, Approval.status == "pending")).all()
+    project = session.get(Project, art.project_id)
+    for role in {ap.role for ap in pending} or {ROLE_FOR.get(art.type)}:
+        access.check_sign_off(session, project, role)
     if not pending:
-        from filament.delivery.service import ROLE_FOR
-
         pending = [Approval(artifact_id=artifact_id, role=ROLE_FOR.get(art.type))]
         session.add(pending[0])
+    by = access.actor(body.decided_by)
     for ap in pending:
         ap.status = body.decision
-        ap.decided_by = body.decided_by
+        ap.decided_by = by
         ap.comment = body.comment
         ap.decided_at = datetime.now(UTC)
     art.status = "approved" if body.decision == "approved" else "rejected"
+    access.audit(session, f"checkpoint.{body.decision}", workspace_id=project.workspace_id,
+                 resource=art.id, type=art.type, role=pending[0].role)
     session.commit()
     return art
 

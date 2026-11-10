@@ -38,12 +38,15 @@ class TeamOut(ORM):
     id: str
     workspace_id: str
     name: str
+    sso_group: str | None = None
+    sso_role: str = "contributor"
 
 
 class ProjectIn(BaseModel):
     name: str
     description: str = ""
     team_id: str | None = None
+    restricted: bool = False
 
 
 class ProjectOut(ORM):
@@ -52,6 +55,7 @@ class ProjectOut(ORM):
     team_id: str | None
     name: str
     description: str
+    restricted: bool = False
     created_at: datetime
 
 
@@ -382,6 +386,7 @@ class RepoIn(BaseModel):
 class RepoPatch(BaseModel):
     scan_interval_hours: int | None = None
     spec_url: str | None = Field(default=None, description="Empty string clears it")
+    private: bool | None = Field(default=None, description="Workspace admins only")
 
 
 class RepoSummary(ORM):
@@ -397,6 +402,7 @@ class RepoSummary(ORM):
     scanned_at: datetime
     scan_interval_hours: int | None = None
     spec_url: str | None = None
+    private: bool | None = None
     next_scan_at: datetime | None = None
     last_error: str | None = None
     commit: str | None = None

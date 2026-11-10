@@ -60,7 +60,9 @@ def relevant_memory(session: Session, project: Project, query: str, limit: int =
         standard = 2 if e.kind == "standard" else 0  # standards always matter to agents
         return (overlap + standard) * boost
 
-    ranked = sorted(entries, key=score, reverse=True)
+    from filament import access
+
+    ranked = sorted(access.filter_memory(session, entries), key=score, reverse=True)
     return [e for e in ranked if score(e) > 0][:limit]
 
 
@@ -69,12 +71,13 @@ def relevant_repos(session: Session, project: Project, query: str, limit: int = 
 
     Summaries are compact (capped endpoint and screen lists); agents call get_repo for more.
     """
+    from filament import access
     from filament.models import RepoRecord
     from filament.repos import context as rc
     from filament.repos.service import system_for
 
-    repos = session.scalars(select(RepoRecord).where(
-        RepoRecord.workspace_id == project.workspace_id)).all()
+    repos = access.filter_repos(session, session.scalars(select(RepoRecord).where(
+        RepoRecord.workspace_id == project.workspace_id)).all())
     if not repos:
         return []
     own = [r for r in repos if r.project_id == project.id]
@@ -84,6 +87,12 @@ def relevant_repos(session: Session, project: Project, query: str, limit: int = 
     if not picked:
         return []
     system = system_for(session, project.workspace_id)
+    visible = {r.id for r in repos}
+    hidden = {n["id"] for n in system["nodes"] if n["kind"] == "repo" and n["id"] not in visible}
+    if hidden:
+        from filament.repos.system import redact
+
+        system = redact(system, hidden)
     items = []
     for r in picked[:limit + 1]:
         s = rc.summary(r, system, endpoints=15, pages=8, query=query)

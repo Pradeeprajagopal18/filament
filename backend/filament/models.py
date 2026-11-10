@@ -41,6 +41,9 @@ class Team(Base):
     id: Mapped[str] = mapped_column(String(12), primary_key=True, default=new_id)
     workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id"))
     name: Mapped[str] = mapped_column(String(200))
+    # SSO group whose members belong to this team (synced at each sign-in).
+    sso_group: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    sso_role: Mapped[str] = mapped_column(String(20), default="contributor")
 
 
 class Project(Base):
@@ -50,6 +53,9 @@ class Project(Base):
     workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id"))
     team_id: Mapped[str | None] = mapped_column(ForeignKey("teams.id"), nullable=True)
     name: Mapped[str] = mapped_column(String(200))
+    # Restricted projects are visible only to their members (team, explicit, admins); others
+    # are open to every workspace member as a contributor.
+    restricted: Mapped[bool] = mapped_column(Boolean, default=False)
     description: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
@@ -305,6 +311,9 @@ class RepoRecord(Base):
     # Where a running instance serves its generated spec (springdoc /v3/api-docs, FastAPI
     # /openapi.json, swaggo /swagger/doc.json...). Scans read it as the contract when set.
     spec_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Visibility on the git host (None = unknown, e.g. a local path). Private repos are shown
+    # only to people who can read them there (or who hold a role on the repo's project).
+    private: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     next_scan_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     commit: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -392,3 +401,84 @@ class CodeGraph(Base):
     commit: Mapped[str | None] = mapped_column(String(64), nullable=True)
     graph: Mapped[dict] = mapped_column(JSON, default=dict)  # {nodes, edges}
     built_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+# -- access control -------------------------------------------------------------------------------
+class User(Base):
+    """A person, signed in through the company's SSO (OIDC)."""
+
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String(12), primary_key=True, default=new_id)
+    sub: Mapped[str] = mapped_column(String(255), unique=True)  # the IdP's subject id
+    email: Mapped[str] = mapped_column(String(255), index=True)
+    name: Mapped[str] = mapped_column(String(200), default="")
+    # GitHub username, from an SSO claim or set by an admin (never self-asserted), used to
+    # mirror GitHub repo permissions.
+    github_login: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False)  # admin of every workspace
+    groups: Mapped[list] = mapped_column(JSON, default=list)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class Membership(Base):
+    """A role for a user on a workspace (admin | member), team (maintainer | contributor |
+    viewer) or project (owner | maintainer | contributor | viewer)."""
+
+    __tablename__ = "memberships"
+    __table_args__ = (UniqueConstraint("user_id", "scope", "scope_id"),)
+
+    id: Mapped[str] = mapped_column(String(12), primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    scope: Mapped[str] = mapped_column(String(20))  # workspace | team | project
+    scope_id: Mapped[str] = mapped_column(String(12), index=True)
+    role: Mapped[str] = mapped_column(String(20))
+    source: Mapped[str] = mapped_column(String(20), default="manual")  # manual | sso
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class CheckpointRole(Base):
+    """Who may sign off a delivery checkpoint (product_owner, tech_lead, engineer,
+    release_manager, on_call), for one project or (project_id None) the whole workspace."""
+
+    __tablename__ = "checkpoint_roles"
+    __table_args__ = (UniqueConstraint("user_id", "workspace_id", "project_id", "role"),)
+
+    id: Mapped[str] = mapped_column(String(12), primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    project_id: Mapped[str | None] = mapped_column(ForeignKey("projects.id"), nullable=True)
+    role: Mapped[str] = mapped_column(String(30))
+
+
+class ApiToken(Base):
+    """A personal token for the CLI and MCP clients. Only a hash is stored."""
+
+    __tablename__ = "api_tokens"
+
+    id: Mapped[str] = mapped_column(String(12), primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    name: Mapped[str] = mapped_column(String(100))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    prefix: Mapped[str] = mapped_column(String(12))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class AuditEvent(Base):
+    """Who did what: sign-ins, role changes, approvals, releases, denied access."""
+
+    __tablename__ = "audit_events"
+
+    id: Mapped[str] = mapped_column(String(12), primary_key=True, default=new_id)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)
+    user_id: Mapped[str | None] = mapped_column(String(12), nullable=True, index=True)
+    actor: Mapped[str] = mapped_column(String(255), default="")
+    action: Mapped[str] = mapped_column(String(60), index=True)
+    workspace_id: Mapped[str | None] = mapped_column(String(12), nullable=True, index=True)
+    resource: Mapped[str] = mapped_column(String(120), default="")
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
