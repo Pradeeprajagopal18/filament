@@ -29,6 +29,9 @@ def env(monkeypatch):
         monkeypatch.setenv(k, v)
     get_settings.cache_clear()
     access._gh_cache.clear()
+    from igniteai import authconfig
+
+    authconfig._override = {}
     engine = make_engine("sqlite://", poolclass=StaticPool)
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
@@ -491,3 +494,131 @@ def test_ldap_sign_in_and_groups(world, directory):
     # Filter injection: a '*' in the name is escaped, so it can't match other entries.
     c.cookies.clear()
     assert c.post("/api/auth/login", json={"username": "*", "password": "x"}).status_code == 401
+
+
+# -- sign-in settings from the web app --------------------------------------------------------
+def test_admin_changes_sign_in_methods(world, directory, monkeypatch):
+    c, Session, ids, H, U = world
+    for k in ("IGNITE_LDAP_URL", "IGNITE_LDAP_BASE_DN"):
+        monkeypatch.delenv(k)
+    get_settings.cache_clear()
+    monkeypatch.setenv("IGNITE_AUTH_METHODS", '["local"]')
+    get_settings.cache_clear()
+    view = c.get("/api/auth/settings", headers=H["boss"]).json()
+    assert view["fields"]["auth_methods"] == {"value": ["local"], "source": "environment"}
+    assert c.get("/api/auth/settings", headers=H["alice"]).status_code == 403
+    # LDAP can't go on half-configured, and secrets are only references.
+    r = c.put("/api/auth/settings", headers=H["boss"], json={"auth_methods": ["local", "ldap"]})
+    assert r.status_code == 422 and "URL" in r.json()["detail"]
+    r = c.put("/api/auth/settings", headers=H["boss"], json={"ldap_bind_password": "hunter2"})
+    assert r.status_code == 422 and "${env:" in r.json()["detail"]
+    monkeypatch.setenv("LDAP_SVC_PW", "svc-pass")
+    form = {"auth_methods": ["local", "ldap"], "ldap_url": "ldaps://ldap.acme.com",
+            "ldap_base_dn": "ou=people,dc=acme,dc=com",
+            "ldap_bind_dn": "cn=svc,ou=apps,dc=acme,dc=com",
+            "ldap_bind_password": "${env:LDAP_SVC_PW}"}
+    t = c.post("/api/auth/settings/test-ldap", headers=H["boss"],
+               json={"settings": form, "username": "erin", "password": "erin-ldap-pass"}).json()
+    assert t["ok"] and "Erin Diaz" in t["message"]
+    r = c.put("/api/auth/settings", headers=H["boss"], json=form).json()
+    assert r["fields"]["ldap_url"]["source"] == "saved"
+    assert r["fields"]["ldap_bind_password"] == {"value": "${env:LDAP_SVC_PW}",
+                                                 "source": "saved", "set": True,
+                                                 "resolves": True}
+    # The saved settings take effect straight away: Erin signs in through the directory.
+    c.cookies.clear()
+    assert c.post("/api/auth/login", json={"username": "erin", "password": "erin-ldap-pass"}
+                  ).status_code == 200
+    audit = c.get(f"/api/workspaces/{ids['ws']}/audit", headers=H["boss"]).json()
+    assert any(a["action"] == "auth.settings" for a in audit)
+    assert "svc-pass" not in str(audit)
+
+
+def test_cannot_lock_admins_out(world, monkeypatch):
+    c, Session, ids, H, U = world
+    monkeypatch.setenv("IGNITE_AUTH_METHODS", '["local","oidc"]')
+    get_settings.cache_clear()
+    # No admin has ever signed in through LDAP or SSO, so local accounts must stay on.
+    r = c.put("/api/auth/settings", headers=H["boss"], json={"auth_methods": []})
+    assert r.status_code == 422
+    r = c.put("/api/auth/settings", headers=H["boss"], json={
+        "auth_methods": ["oidc"], "oidc_issuer": ISSUER, "oidc_client_id": "ignite"})
+    assert r.status_code == 422 and "lock" in r.json()["detail"]
+    with Session() as s:
+        boss = s.get(User, U["boss"])
+        boss.auth_source, boss.last_login_at = "oidc", __import__("datetime").datetime.now()
+        s.commit()
+    r = c.put("/api/auth/settings", headers=H["boss"], json={
+        "auth_methods": ["oidc"], "oidc_issuer": ISSUER, "oidc_client_id": "ignite"})
+    assert r.status_code == 200
+    assert c.get("/api/auth/config").json()["password"] is False
+    assert c.post("/api/auth/login", json={"username": "admin", "password": "admin"}
+                  ).status_code == 400
+    # null puts a value back to the environment.
+    r = c.put("/api/auth/settings", headers=H["boss"], json={"auth_methods": None})
+    assert r.status_code == 200, r.text
+    r = r.json()
+    assert r["fields"]["auth_methods"]["source"] == "environment"
+
+
+def test_reset_auth_from_the_server(world, monkeypatch):
+    from igniteai import authconfig
+
+    c, Session, ids, H, U = world
+    with Session() as s:
+        authconfig.save(s, {"auth_methods": ["oidc"]}, "test")
+        s.commit()
+        authconfig.reset(s)
+        s.commit()
+    assert authconfig.cfg().auth_methods == ["local", "ldap", "oidc"]  # the environment again
+    assert c.get("/api/auth/config").json()["methods"] == ["local", "ldap", "oidc"]
+
+
+# -- features --------------------------------------------------------------------------------
+def test_feature_catalog_matches_routes():
+    from igniteai import features
+    from igniteai.api import code, config, delivery, gateway, memory, repos, runs
+
+    paths = {"/api" + r.path for m in (memory, runs, repos, gateway, code, delivery, config)
+             for r in m.router.routes}
+    for key, (_, _, routes) in features.CATALOG.items():
+        for _, path in routes:
+            assert path in paths, (key, path)
+
+
+def test_admin_limits_features_to_teams_groups_people(world):
+    c, Session, ids, H, U = world
+    ws = ids["ws"]
+    feats = {f["key"]: f for f in c.get(f"/api/workspaces/{ws}/features", headers=H["boss"]
+                                        ).json()}
+    assert feats["delivery"]["mode"] == "everyone"
+    assert c.get(f"/api/workspaces/{ws}/features", headers=H["alice"]).status_code == 403
+    # Delivery only for the Payments team (Alice) and Bob personally; Ask off for everyone.
+    c.put(f"/api/workspaces/{ws}/features/delivery", headers=H["boss"],
+          json={"mode": "some", "teams": [ids["team"]]})
+    c.put(f"/api/workspaces/{ws}/features/ask", headers=H["boss"], json={"mode": "off"})
+    url = f"/api/projects/{ids['open']}/delivery"
+    assert c.get(url, headers=H["alice"]).status_code == 200
+    r = c.get(url, headers=H["bob"])
+    assert r.status_code == 403 and "Delivery pipeline" in r.json()["detail"]
+    assert c.get(url, headers=H["boss"]).status_code == 200  # admins always
+    c.put(f"/api/workspaces/{ws}/features/delivery", headers=H["boss"],
+          json={"mode": "some", "teams": [ids["team"]], "users": [U["bob"]]})
+    assert c.get(url, headers=H["bob"]).status_code == 200
+    assert c.post(f"/api/workspaces/{ws}/ask", headers=H["alice"],
+                  json={"question": "x"}).status_code == 403
+    # Directory/SSO group names work too.
+    c.put(f"/api/workspaces/{ws}/features/memory", headers=H["boss"],
+          json={"mode": "some", "groups": ["Eng-Leads"]})
+    assert c.get(f"/api/workspaces/{ws}/memory", headers=H["bob"]).status_code == 403
+    with Session() as s:
+        s.get(User, U["bob"]).groups = ["eng-leads"]
+        s.commit()
+    assert c.get(f"/api/workspaces/{ws}/memory", headers=H["bob"]).status_code == 200
+    me = c.get("/api/auth/me", headers=H["alice"]).json()
+    mine = next(w for w in me["workspaces"] if w["id"] == ws)["features"]
+    assert "delivery" in mine and "ask" not in mine and "memory" not in mine
+    # Back to everyone.
+    c.put(f"/api/workspaces/{ws}/features/ask", headers=H["boss"], json={"mode": "everyone"})
+    assert c.post(f"/api/workspaces/{ws}/ask", headers=H["alice"],
+                  json={"question": "x"}).status_code != 403

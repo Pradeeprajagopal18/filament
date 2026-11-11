@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   api, CHECKPOINT_ROLES, DEMO, PROJECT_ROLES,
-  type ApiTokenRow, type AuthConfig, type AuditRow, type CheckpointRoleRow, type Me, type Person, type Project, type ProjectAccess, type Team,
+  type ApiTokenRow, type AuthConfig, type AuthSettings, type FeatureRow, type TestResult, type AuditRow, type CheckpointRoleRow, type Me, type Person, type Project, type ProjectAccess, type Team,
 } from './api'
 import { ErrorLine } from './components'
 
@@ -77,7 +77,194 @@ export function ChangePassword({ me, onDone }: { me: Me; onDone: () => void }) {
 }
 
 // -- People & access (workspace admins) --------------------------------------------------------
-export function PeoplePage({ ws, projects }: { ws: string; projects: Project[] }) {
+// -- Admin: people, features, sign-in -----------------------------------------------------------
+export function AdminPage({ ws, projects, me }: { ws: string; projects: Project[]; me: Me | null }) {
+  const [tab, setTab] = useState<'people' | 'features' | 'signin'>('people')
+  const tabs: [typeof tab, string][] = [['people', 'People'], ['features', 'Features'], ...(me?.is_admin ? [['signin', 'Sign-in'] as [typeof tab, string]] : [])]
+  return (
+    <div className="page">
+      <h1>People & access</h1>
+      <div className="tabs" role="tablist">
+        {tabs.map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)}>{l}</button>)}
+      </div>
+      {tab === 'people' && <PeoplePage ws={ws} projects={projects} />}
+      {tab === 'features' && <FeaturesPanel ws={ws} />}
+      {tab === 'signin' && <SignInSettings />}
+    </div>
+  )
+}
+
+function FeaturesPanel({ ws }: { ws: string }) {
+  const [rows, setRows] = useState<FeatureRow[]>([])
+  const [teams, setTeams] = useState<Team[]>([])
+  const [people, setPeople] = useState<Person[]>([])
+  const [open, setOpen] = useState('')
+  const [error, setError] = useState('')
+  const load = useCallback(async () => {
+    try {
+      const [f, t, p] = await Promise.all([api.features(ws), api.teams(ws), api.people(ws)])
+      setRows(f); setTeams(t); setPeople(p); setError('')
+    } catch (e) { setError(clean(e)) }
+  }, [ws])
+  useEffect(() => { load() }, [load])
+  const who = (f: FeatureRow) => f.mode === 'everyone' ? 'Everyone' : f.mode === 'off' ? 'Off (admins only)'
+    : [...f.teams.map(id => teams.find(t => t.id === id)?.name ?? id), ...f.groups.map(g => `group ${g}`), ...f.users.map(id => people.find(p => p.id === id)?.email || people.find(p => p.id === id)?.username || id)].join(', ') || 'Nobody yet'
+  return (
+    <>
+      <p className="muted">Choose who can use each part of Ignite in this workspace. It's enforced by the API, not just hidden in the menu. Admins always have everything, and project and repo access still apply.</p>
+      <ErrorLine error={error} />
+      <section className="card">
+        <ul className="plain features">
+          {rows.map(f => (
+            <li key={f.key}>
+              <div className="row nowrap spread">
+                <div className="grow"><b>{f.name}</b><div className="muted small">{f.description}</div>
+                  <div className="small">{who(f)} <span className="muted">· {f.people} {f.people === 1 ? 'person' : 'people'} besides admins</span></div></div>
+                <button className="secondary small" onClick={() => setOpen(open === f.key ? '' : f.key)}>{open === f.key ? 'Close' : 'Change'}</button>
+              </div>
+              {open === f.key && <FeatureEditor f={f} teams={teams} people={people} onSave={async body => {
+                try { await api.setFeature(ws, f.key, body); setOpen(''); await load() } catch (e) { setError(clean(e)) }
+              }} />}
+            </li>
+          ))}
+        </ul>
+      </section>
+    </>
+  )
+}
+
+function FeatureEditor({ f, teams, people, onSave }: { f: FeatureRow; teams: Team[]; people: Person[]; onSave: (b: { mode: string; teams: string[]; groups: string[]; users: string[] }) => void }) {
+  const [mode, setMode] = useState(f.mode)
+  const [sel, setSel] = useState({ teams: f.teams, users: f.users })
+  const [groups, setGroups] = useState(f.groups.join(', '))
+  const toggle = (k: 'teams' | 'users', id: string) => setSel(s => ({ ...s, [k]: s[k].includes(id) ? s[k].filter(x => x !== id) : [...s[k], id] }))
+  return (
+    <div className="feature-edit">
+      <div className="seg" role="radiogroup" aria-label={`Who can use ${f.name}`}>
+        {(['everyone', 'some', 'off'] as const).map(m => <button key={m} role="radio" aria-checked={mode === m} className={mode === m ? 'active' : ''} onClick={() => setMode(m)}>{m === 'everyone' ? 'Everyone' : m === 'some' ? 'Only some' : 'Off'}</button>)}
+      </div>
+      {mode === 'some' && (
+        <>
+          <p className="small"><b>Teams</b></p>
+          <div className="chips">{teams.map(t => <label key={t.id} className="check"><input type="checkbox" checked={sel.teams.includes(t.id)} onChange={() => toggle('teams', t.id)} /> {t.name}</label>)}</div>
+          <label className="setting">Directory or SSO groups <span className="muted small">(comma-separated)</span>
+            <input value={groups} onChange={e => setGroups(e.target.value)} placeholder="eng-leads, release-managers" /></label>
+          <p className="small"><b>People</b></p>
+          <div className="chips">{people.filter(p => !p.is_admin).map(p => <label key={p.id} className="check"><input type="checkbox" checked={sel.users.includes(p.id)} onChange={() => toggle('users', p.id)} /> {p.name || p.email || p.username}</label>)}</div>
+        </>
+      )}
+      <button onClick={() => onSave({ mode, teams: sel.teams, users: sel.users, groups: groups.split(',').map(g => g.trim()).filter(Boolean) })}>Save</button>
+    </div>
+  )
+}
+
+const METHOD_LABEL: Record<string, [string, string]> = {
+  local: ['Ignite accounts', 'Usernames and passwords kept in Ignite. The first admin account lives here.'],
+  ldap: ['Company directory (LDAP / Active Directory)', 'People sign in with their directory password; groups map to teams.'],
+  oidc: ['Single sign-on (OIDC)', 'Okta, Entra ID, Google, Keycloak and other OpenID Connect providers.'],
+}
+const LDAP_FIELDS: [string, string, string][] = [
+  ['ldap_url', 'Server URL', 'ldaps://ldap.acme.com:636'], ['ldap_base_dn', 'Where people are (base DN)', 'ou=people,dc=acme,dc=com'],
+  ['ldap_bind_dn', 'Service account (bind DN)', 'cn=ignite-svc,ou=apps,dc=acme,dc=com'], ['ldap_bind_password', 'Service account password', '${env:IGNITE_LDAP_BIND_PASSWORD}'],
+  ['ldap_user_filter', 'User filter', '(sAMAccountName={username})'], ['ldap_group_attr', 'Group attribute', 'memberOf'],
+  ['ldap_email_attr', 'Email attribute', 'mail'], ['ldap_name_attr', 'Name attribute', 'displayName'], ['ldap_github_attr', 'GitHub username attribute (optional)', ''],
+  ['ldap_ca_file', 'CA certificate file on the server (optional)', '/etc/ssl/certs/acme-ca.pem'],
+]
+const OIDC_FIELDS: [string, string, string][] = [
+  ['oidc_issuer', 'Issuer URL', 'https://acme.okta.com/oauth2/default'], ['oidc_client_id', 'Client ID', ''],
+  ['oidc_client_secret', 'Client secret (if your provider issues one)', '${env:IGNITE_OIDC_CLIENT_SECRET}'],
+  ['oidc_scopes', 'Scopes', 'openid email profile groups'], ['oidc_groups_claim', 'Groups claim', 'groups'], ['oidc_github_claim', 'GitHub username claim (optional)', ''],
+]
+
+function SignInSettings() {
+  const [s, setS] = useState<AuthSettings | null>(null)
+  const [form, setForm] = useState<Record<string, unknown>>({})
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [tests, setTests] = useState<Record<string, TestResult>>({})
+  const [probe, setProbe] = useState({ username: '', password: '' })
+  const load = useCallback(() => api.authSettings().then(x => { setS(x); setForm(Object.fromEntries(Object.entries(x.fields).map(([k, f]) => [k, f.value]))) }).catch(e => setMsg({ ok: false, text: clean(e) })), [])
+  useEffect(() => { load() }, [load])
+  if (!s) return msg ? <p className="error">{msg.text}</p> : <p className="muted">Loading…</p>
+  const methods = (form.auth_methods as string[]) ?? []
+  const changes = Object.fromEntries(Object.entries(form).filter(([k, v]) => JSON.stringify(v) !== JSON.stringify(s.fields[k]?.value)))
+  const set = (k: string, v: unknown) => setForm(f => ({ ...f, [k]: v }))
+  const field = ([k, l, ph]: [string, string, string]) => {
+    const f = s.fields[k]
+    return (
+      <label key={k} className="setting">{l}
+        <input value={(form[k] as string) ?? ''} placeholder={ph} onChange={e => set(k, e.target.value)} />
+        {f?.source === 'environment' && f.value != null && <span className="muted small">from the server's environment</span>}
+        {k.endsWith('password') || k.endsWith('secret') ? <span className={`small ${f?.set && f.resolves === false ? 'error' : 'muted'}`}>{f?.set && f.resolves === false ? "That variable isn't set on the server." : 'Never pasted here: set it on the server and enter ${env:NAME}.'}</span> : null}
+      </label>
+    )
+  }
+  async function save() {
+    setMsg(null)
+    try { const x = await api.saveAuthSettings(changes); setS(x); setMsg({ ok: true, text: 'Saved. It applies to the next sign-in.' }) } catch (e) { setMsg({ ok: false, text: clean(e) }) }
+  }
+  async function test(kind: 'ldap' | 'oidc') {
+    try {
+      const r = kind === 'ldap' ? await api.testLdap(form, probe.username || undefined, probe.password || undefined) : await api.testOidc(form)
+      setTests(t => ({ ...t, [kind]: r }))
+    } catch (e) { setTests(t => ({ ...t, [kind]: { ok: false, message: clean(e) } })) }
+  }
+  return (
+    <>
+      <p className="muted">How people sign in to Ignite. Changes here override the server's IGNITE_* settings and take effect straight away.{s.updated_by && ` Last changed by ${s.updated_by}.`}</p>
+      <section className="card">
+        <h3>Sign-in methods</h3>
+        {(['local', 'ldap', 'oidc'] as const).map(m => (
+          <label key={m} className="opt">
+            <input type="checkbox" checked={methods.includes(m)} onChange={e => set('auth_methods', e.target.checked ? [...methods, m] : methods.filter(x => x !== m))} />
+            <span><b>{METHOD_LABEL[m][0]}</b><span className="muted small"> {METHOD_LABEL[m][1]}</span></span>
+          </label>
+        ))}
+        <p className="muted small">At least one method stays on. Ignite accounts can only be turned off after an admin has signed in through LDAP or SSO, so nobody gets locked out. If it still goes wrong, run <code>ign admin reset-auth</code> on the server.</p>
+      </section>
+      {methods.includes('ldap') && (
+        <section className="card">
+          <h3>Company directory</h3>
+          {!s.ldap_available && <p className="error small">The server is missing the ldap3 package.</p>}
+          <div className="settings-grid">{LDAP_FIELDS.map(field)}</div>
+          <label className="opt"><input type="checkbox" checked={!!form.ldap_start_tls} onChange={e => set('ldap_start_tls', e.target.checked)} /><span className="small">Use StartTLS (for ldap:// URLs)</span></label>
+          <p className="small"><b>Test</b> <span className="muted">(optionally sign someone in to check their groups)</span></p>
+          <div className="row">
+            <input placeholder="username (optional)" value={probe.username} onChange={e => setProbe({ ...probe, username: e.target.value })} aria-label="Test username" />
+            <input type="password" placeholder="password" value={probe.password} onChange={e => setProbe({ ...probe, password: e.target.value })} aria-label="Test password" />
+            <button className="secondary" onClick={() => test('ldap')}>Test connection</button>
+          </div>
+          {tests.ldap && <p className={`small ${tests.ldap.ok ? 'ok' : 'error'}`}>{tests.ldap.message}</p>}
+        </section>
+      )}
+      {methods.includes('oidc') && (
+        <section className="card">
+          <h3>Single sign-on</h3>
+          <div className="settings-grid">{OIDC_FIELDS.map(field)}</div>
+          <p className="small">Redirect URI to register with your provider: <code>{s.redirect_uri}</code></p>
+          <button className="secondary" onClick={() => test('oidc')}>Test provider</button>
+          {tests.oidc && <p className={`small ${tests.oidc.ok ? 'ok' : 'error'}`}>{tests.oidc.message}</p>}
+        </section>
+      )}
+      <section className="card">
+        <h3>Accounts and sessions</h3>
+        <div className="settings-grid">
+          {([['password_min_length', 'Minimum password length'], ['max_failed_logins', 'Wrong passwords before a lockout'], ['lockout_minutes', 'Lockout (minutes)'], ['session_hours', 'Stay signed in (hours)']] as const).map(([k, l]) => (
+            <label key={k} className="setting">{l}<input type="number" min={1} value={String(form[k] ?? '')} onChange={e => set(k, Number(e.target.value))} /></label>
+          ))}
+          <label className="setting">Admins (emails, comma-separated)<input value={((form.admin_emails as string[]) ?? []).join(', ')} onChange={e => set('admin_emails', e.target.value.split(',').map(x => x.trim()).filter(Boolean))} placeholder="you@acme.com" /><span className="muted small">Become admins when they first sign in through LDAP or SSO.</span></label>
+          <label className="setting">New people
+            <select value={String(form.workspace_default_role ?? 'member')} onChange={e => set('workspace_default_role', e.target.value)}>
+              <option value="member">join every workspace as members</option><option value="none">wait for an admin to add them</option>
+            </select></label>
+        </div>
+      </section>
+      {msg && <p className={msg.ok ? 'ok' : 'error'} role="status">{msg.text}</p>}
+      <div className="row"><button disabled={!Object.keys(changes).length} onClick={save}>Save changes</button>{Object.keys(changes).length > 0 && <button className="link" onClick={load}>Discard</button>}</div>
+    </>
+  )
+}
+
+function PeoplePage({ ws, projects }: { ws: string; projects: Project[] }) {
   const [people, setPeople] = useState<Person[]>([])
   const [teams, setTeams] = useState<Team[]>([])
   const [roles, setRoles] = useState<CheckpointRoleRow[]>([])
@@ -102,8 +289,7 @@ export function PeoplePage({ ws, projects }: { ws: string; projects: Project[] }
   const projectName = (id: string | null) => (id ? projects.find(p => p.id === id)?.name ?? id : 'every project')
 
   return (
-    <div className="page">
-      <h1>People & access</h1>
+    <div>
       <p className="muted">People sign in with {[methods.includes('local') && 'Ignite accounts', methods.includes('ldap') && 'the company directory (LDAP)', methods.includes('oidc') && 'the company SSO'].filter(Boolean).join(', ') || 'an account'}. Open projects are visible to everyone in the workspace; restricted projects only to their members and teams. Private repos follow GitHub: someone sees one if they can read it there (set their GitHub username below), otherwise only with a role on its project.</p>
       <ErrorLine error={error} />
       {secret && (

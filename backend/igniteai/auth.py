@@ -38,7 +38,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from igniteai import access
-from igniteai.config import get_settings
+from igniteai.authconfig import cfg
 from igniteai.db import get_session
 from igniteai.models import ApiToken, Membership, Team, User
 
@@ -54,11 +54,11 @@ class AuthError(RuntimeError):
 
 
 def enabled() -> bool:
-    return get_settings().auth_mode != "none"
+    return cfg().auth_mode != "none"
 
 
 def methods() -> list[str]:
-    s = get_settings()
+    s = cfg()
     out = [m for m in s.auth_methods if m in {"local", "ldap", "oidc"}]
     if s.auth_mode == "oidc" and "oidc" not in out:  # older setting: auth_mode=oidc
         out.append("oidc")
@@ -72,7 +72,7 @@ def secret() -> str:
     """The key that signs session cookies: IGNITE_SESSION_SECRET, else one generated once and
     kept (owner-only) in the data directory so sessions survive restarts."""
     global _secret
-    s = get_settings()
+    s = cfg()
     if s.session_secret:
         return s.session_secret
     if _secret is None:
@@ -94,7 +94,7 @@ def secret() -> str:
 
 
 def redirect_url() -> str:
-    s = get_settings()
+    s = cfg()
     return s.oidc_redirect_url or f"{s.ui_url.rstrip('/')}/api/auth/callback"
 
 
@@ -113,7 +113,7 @@ def _discovery(issuer: str, _bucket: int) -> dict:
 
 
 def discovery() -> dict:
-    s = get_settings()
+    s = cfg()
     if not (s.oidc_issuer and s.oidc_client_id):
         raise AuthError("SSO is not configured: set IGNITE_OIDC_ISSUER and "
                         "IGNITE_OIDC_CLIENT_ID")
@@ -131,7 +131,7 @@ def _b64(raw: bytes) -> str:
 
 def start_login(next_path: str = "/") -> tuple[str, str]:
     """(authorize URL, flow cookie value)."""
-    s, conf = get_settings(), discovery()
+    s, conf = cfg(), discovery()
     verifier, state, nonce = _b64(secrets.token_bytes(32)), _b64(secrets.token_bytes(16)), \
         _b64(secrets.token_bytes(16))
     challenge = _b64(hashlib.sha256(verifier.encode()).digest())
@@ -166,7 +166,7 @@ def exchange(code: str, flow: dict) -> dict:
     """Swap the code for tokens and return the verified id_token claims."""
     import httpx
 
-    s, conf = get_settings(), discovery()
+    s, conf = cfg(), discovery()
     data = {"grant_type": "authorization_code", "code": code, "redirect_uri": redirect_url(),
             "client_id": s.oidc_client_id, "code_verifier": flow["verifier"]}
     if s.oidc_client_secret:
@@ -185,7 +185,7 @@ def exchange(code: str, flow: dict) -> dict:
 
 
 def verify_id_token(id_token: str, nonce: str, conf: dict, key=None) -> dict:
-    s = get_settings()
+    s = cfg()
     try:
         signing = key or _jwks(conf["jwks_uri"]).get_signing_key_from_jwt(id_token).key
         claims = jwt.decode(id_token, signing, algorithms=["RS256", "ES256", "PS256"],
@@ -231,7 +231,7 @@ _DUMMY = hash_password(secrets.token_urlsafe(12))
 
 
 def password_problem(new: str, user: User, current: str | None = None) -> str | None:
-    s = get_settings()
+    s = cfg()
     if len(new) < s.password_min_length:
         return f"Use at least {s.password_min_length} characters"
     low = new.lower()
@@ -260,7 +260,7 @@ def bootstrap(session: Session) -> User | None:
         return None
     user = User(sub="local:admin", username="admin", email="", name="Administrator",
                 auth_source="local", is_admin=True, active=True, groups=[])
-    set_password(user, get_settings().bootstrap_admin_password, must_change=True)
+    set_password(user, cfg().bootstrap_admin_password, must_change=True)
     session.add(user)
     session.commit()
     log.warning("Created the first admin account: sign in as 'admin' and choose a new password")
@@ -274,7 +274,7 @@ def _locked(user: User) -> bool:
 
 
 def _failed(session: Session, user: User) -> None:
-    s = get_settings()
+    s = cfg()
     user.failed_logins = (user.failed_logins or 0) + 1
     if user.failed_logins >= s.max_failed_logins:
         user.locked_until = datetime.now(UTC) + timedelta(minutes=s.lockout_minutes)
@@ -289,10 +289,10 @@ _unknown_failures: dict[str, list[float]] = {}
 def _throttle_unknown(name: str) -> None:
     """Slow down guessing against names that don't exist (or live only in LDAP)."""
     now = time.monotonic()
-    window = get_settings().lockout_minutes * 60
+    window = cfg().lockout_minutes * 60
     hits = [t for t in _unknown_failures.get(name, []) if now - t < window]
-    if len(hits) >= get_settings().max_failed_logins:
-        raise AuthError(f"Too many attempts; try again in {get_settings().lockout_minutes} "
+    if len(hits) >= cfg().max_failed_logins:
+        raise AuthError(f"Too many attempts; try again in {cfg().lockout_minutes} "
                         "minutes")
     hits.append(now)
     _unknown_failures[name] = hits[-50:]
@@ -311,7 +311,7 @@ def password_login(session: Session, username: str, password: str) -> User:
     if user is not None and user.auth_source == "local" and "local" in ms:
         if _locked(user):
             raise AuthError(f"Account locked after too many attempts; try again in "
-                            f"{get_settings().lockout_minutes} minutes or ask an admin")
+                            f"{cfg().lockout_minutes} minutes or ask an admin")
         if not check_password(password, user.password_hash):
             _failed(session, user)
             raise AuthError(WRONG)
@@ -320,7 +320,7 @@ def password_login(session: Session, username: str, password: str) -> User:
         user.failed_logins, user.last_login_at = 0, datetime.now(UTC)
         session.commit()
         return user
-    if "ldap" in ms and get_settings().ldap_url:
+    if "ldap" in ms and cfg().ldap_url:
         if user is not None and _locked(user):
             raise AuthError("Account locked after too many attempts; try again later")
         _throttle_unknown(name.lower())
@@ -343,7 +343,7 @@ def _ldap_server():
 
     import ldap3
 
-    s = get_settings()
+    s = cfg()
     tls = ldap3.Tls(validate=ssl.CERT_REQUIRED, ca_certs_file=s.ldap_ca_file,
                     version=ssl.PROTOCOL_TLS_CLIENT)
     return ldap3.Server(s.ldap_url, use_ssl=s.ldap_url.startswith("ldaps://"), tls=tls,
@@ -355,7 +355,7 @@ def _ldap_connect(server, user: str | None, password: str | None):
     import ldap3
     from ldap3.core.exceptions import LDAPException
 
-    s = get_settings()
+    s = cfg()
     try:
         conn = ldap3.Connection(server, user=user, password=password,
                                 receive_timeout=s.ldap_timeout_s, read_only=True)
@@ -373,7 +373,7 @@ def ldap_authenticate(username: str, password: str) -> dict:
     """Find the person with the service account, then check their password by binding as them."""
     from ldap3.utils.conv import escape_filter_chars
 
-    s = get_settings()
+    s = cfg()
     if not password:  # an empty password is an anonymous bind on many servers: never "success"
         raise AuthError(WRONG)
     server = _ldap_server()
@@ -409,7 +409,7 @@ def ldap_authenticate(username: str, password: str) -> dict:
 
 
 def upsert_ldap_user(session: Session, entry: dict) -> User:
-    s = get_settings()
+    s = cfg()
     user = session.scalar(select(User).where(User.sub == f"ldap:{entry['dn']}"))
     if user is None and entry["email"]:  # invited by email before their first sign-in?
         user = session.scalar(select(User).where(User.sub == f"pending:{entry['email']}"))
@@ -436,7 +436,7 @@ def upsert_ldap_user(session: Session, entry: dict) -> User:
 
 # -- users ----------------------------------------------------------------------------------------
 def upsert_user(session: Session, claims: dict) -> User:
-    s = get_settings()
+    s = cfg()
     email = (claims.get("email") or claims.get("preferred_username") or "").lower()
     if not email:
         raise AuthError("Your SSO account has no email claim")
@@ -490,7 +490,7 @@ def sync_groups(session: Session, user: User) -> None:
 
 # -- sessions -------------------------------------------------------------------------------------
 def session_cookie(user: User) -> str:
-    s = get_settings()
+    s = cfg()
     return jwt.encode({"uid": user.id, "iat": int(time.time()), "t": time.time(),
                        "exp": int(time.time()) + s.session_hours * 3600},
                       secret(), algorithm="HS256")

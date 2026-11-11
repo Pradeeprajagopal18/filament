@@ -7,8 +7,8 @@ import { DeliveryTab } from './delivery'
 const TYPE_ORDER = ['issue', 'idea', 'opportunity', 'feature_request', 'prd', 'story', 'flow', 'component_view', 'ui_mock', 'adr', 'api_contract', 'doc', 'task', 'pull_request', 'test_plan', 'review', 'release', 'slo', 'incident']
 
 // -- Project: run agents, browse the graph, approve at the human gate --------------
-export function ProjectPage({ project, ws, me }: { project: Project; ws: string; me: Me | null }) {
-  const [tab, setTab] = useState<'delivery' | 'design' | 'access'>('delivery')
+export function ProjectPage({ project, ws, me, can = () => true }: { project: Project; ws: string; me: Me | null; can?: (feature: string) => boolean }) {
+  const [tab, setTab] = useState<'delivery' | 'design' | 'access'>(can('delivery') ? 'delivery' : 'design')
   return (
     <div className="page">
       <header className="page-head">
@@ -18,7 +18,7 @@ export function ProjectPage({ project, ws, me }: { project: Project; ws: string;
         </div>
       </header>
       <div className="tabs" role="tablist">
-        <button role="tab" aria-selected={tab === 'delivery'} className={tab === 'delivery' ? 'active' : ''} onClick={() => setTab('delivery')}>Delivery</button>
+        {can('delivery') && <button role="tab" aria-selected={tab === 'delivery'} className={tab === 'delivery' ? 'active' : ''} onClick={() => setTab('delivery')}>Delivery</button>}
         <button role="tab" aria-selected={tab === 'design'} className={tab === 'design' ? 'active' : ''} onClick={() => setTab('design')}>Design & graph</button>
         {me?.mode === 'login' && <button role="tab" aria-selected={tab === 'access'} className={tab === 'access' ? 'active' : ''} onClick={() => setTab('access')}>Access</button>}
       </div>

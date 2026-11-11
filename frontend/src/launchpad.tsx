@@ -32,16 +32,17 @@ function ago(iso?: string | null) {
   return d >= 0 ? `${d}d ago` : `in ${-d}d`
 }
 
-export function LaunchpadPage({ ws }: { ws: string }) {
+export function LaunchpadPage({ ws, can = () => true }: { ws: string; can?: (feature: string) => boolean }) {
+  const repoAccess = can('launchpad'), mapAccess = can('system_map')
   const [ref, setRef] = useState('')
   const [repos, setRepos] = useState<RepoSummary[]>([])
   const [current, setCurrent] = useState<RepoDetail | null>(null)
-  const [view, setView] = useState<'repos' | 'map'>('repos')
+  const [view, setView] = useState<'repos' | 'map'>(repoAccess ? 'repos' : 'map')
   const [mapFocus, setMapFocus] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => { api.repos(ws).then(setRepos).catch(e => setError(String(e))) }, [ws])
+  useEffect(() => { if (repoAccess) api.repos(ws).then(setRepos).catch(e => setError(String(e))) }, [ws, repoAccess])
 
   async function onboard() {
     setBusy(true); setError('')
@@ -68,19 +69,19 @@ export function LaunchpadPage({ ws }: { ws: string }) {
     <div className="page">
       <h1>Launchpad</h1>
       <p className="muted">Onboard any repo: an app, an API, a frontend, infrastructure or config. Ignite works out what it is, checks what matters for that kind of repo, documents its API, screens and dependencies, and rescans it to keep that knowledge current.</p>
-      <section className="card row">
+      {repoAccess && <section className="card row">
         <input value={ref} onChange={e => setRef(e.target.value)} placeholder="github.com/acme/checkout-api or /path/to/repo"
           onKeyDown={e => e.key === 'Enter' && ref.trim() && !busy && onboard()} />
         <button disabled={!ref.trim() || busy} onClick={onboard}>{busy ? 'Analyzing…' : 'Onboard repo'}</button>
-      </section>
+      </section>}
       <ErrorLine error={error} />
       <div className="tabs" role="tablist">
-        <button role="tab" aria-selected={view === 'repos'} className={view === 'repos' ? 'active' : ''} onClick={() => setView('repos')}>
+        {repoAccess && <button role="tab" aria-selected={view === 'repos'} className={view === 'repos' ? 'active' : ''} onClick={() => setView('repos')}>
           Repos<span className="count">{repos.length}</span>
-        </button>
-        <button role="tab" aria-selected={view === 'map'} className={view === 'map' ? 'active' : ''} onClick={() => setView('map')}>System map</button>
+        </button>}
+        {mapAccess && <button role="tab" aria-selected={view === 'map'} className={view === 'map' ? 'active' : ''} onClick={() => setView('map')}>System map</button>}
       </div>
-      {view === 'map' && <SystemMapView ws={ws} repos={repos} onOpen={open} focus={mapFocus} setFocus={setMapFocus} />}
+      {view === 'map' && mapAccess && <SystemMapView ws={ws} repos={repos} onOpen={open} focus={mapFocus} setFocus={setMapFocus} />}
       {view === 'repos' && repos.length === 0 && <section className="card muted">No repos yet. Onboard one above.</section>}
       {view === 'repos' && (
         <div className="repo-grid">

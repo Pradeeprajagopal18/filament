@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ChangePassword, PeoplePage, SignIn, TokensPage } from './access'
+import { AdminPage, ChangePassword, SignIn, TokensPage } from './access'
 import { api, DEMO, MUST_CHANGE, SIGNED_OUT, type Health, type Me, type Project, type Workspace } from './api'
 import { DEMO_PEOPLE, demoViewAs } from './demo'
 import { GatewayPage } from './gateway'
@@ -57,7 +57,11 @@ export default function App() {
     return () => { window.removeEventListener(SIGNED_OUT, out); window.removeEventListener(MUST_CHANGE, change) }
   }, [])
   const isAdmin = !me || me.mode === 'none' || !!me.workspaces.find(w => w.id === ws && w.role === 'admin')
-  const nav = NAV.filter(n => (isAdmin || !ADMIN_ONLY.has(n.kind)) && (n.kind !== 'tokens' || me?.mode === 'login') && (n.kind !== 'people' || me?.mode === 'login'))
+  // Features an admin turned off for this person (the API enforces it; this keeps the menu honest).
+  const feats = me?.workspaces.find(w => w.id === ws)?.features
+  const has = (f: string) => !feats || isAdmin || feats.includes(f)
+  const NEEDS: Partial<Record<View['kind'], string[]>> = { memory: ['memory'], ask: ['ask'], gaps: ['ask'], launchpad: ['launchpad', 'system_map'], gateway: ['mcp_tools'] }
+  const nav = NAV.filter(n => (!NEEDS[n.kind] || NEEDS[n.kind]!.some(has)) && (isAdmin || !ADMIN_ONLY.has(n.kind)) && (n.kind !== 'tokens' || me?.mode === 'login') && (n.kind !== 'people' || me?.mode === 'login'))
   function switchUser(u: string) {
     demoViewAs(u); setAsUser(u); setView({ kind: 'launchpad' }); setMenuOpen(false); loadAll()
   }
@@ -131,16 +135,16 @@ export default function App() {
       <main>
         {DEMO && <div className="demo-banner">Interactive preview · sample data · the delivery steps replay a run of the real agents. Open a work item and follow the seven stages.</div>}
         {error && <p className="error">{error}</p>}
-        {ws && view.kind === 'project' && <ProjectPage key={view.project.id + asUser} project={view.project} ws={ws} me={me} />}
+        {ws && view.kind === 'project' && <ProjectPage key={view.project.id + asUser} project={view.project} ws={ws} me={me} can={has} />}
         {ws && view.kind === 'memory' && <MemoryPage ws={ws} />}
         {ws && view.kind === 'ask' && <AskPage ws={ws} />}
         {ws && view.kind === 'usage' && <UsagePage ws={ws} />}
         {ws && view.kind === 'gaps' && <GapsPage ws={ws} />}
-        {ws && view.kind === 'launchpad' && <LaunchpadPage key={asUser} ws={ws} />}
+        {ws && view.kind === 'launchpad' && <LaunchpadPage key={asUser} ws={ws} can={has} />}
         {ws && view.kind === 'connectors' && <ConnectorsPage ws={ws} />}
         {ws && view.kind === 'gateway' && <GatewayPage ws={ws} />}
         {ws && view.kind === 'runners' && <RunnersPage ws={ws} />}
-        {ws && view.kind === 'people' && <PeoplePage key={asUser} ws={ws} projects={projects} />}
+        {ws && view.kind === 'people' && <AdminPage key={asUser} ws={ws} projects={projects} me={me} />}
         {view.kind === 'tokens' && <TokensPage key={asUser} />}
       </main>
     </div>

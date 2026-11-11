@@ -135,8 +135,9 @@ what to set.
 ### Signing in
 
 Everyone signs in. A new install starts with one account, **admin / admin**, and asks for a
-new password at first sign-in; nothing else works until it's changed. Choose any mix of
-sign-in methods with `IGNITE_AUTH_METHODS` (default `["local"]`):
+new password at first sign-in; nothing else works until it's changed. Admins choose the
+sign-in methods under **People & access → Sign-in** in the web app (with test buttons for LDAP
+and SSO); the `IGNITE_*` settings below are only the defaults until then. Any mix of:
 
 - **local**: accounts kept in Ignite. Admins create them under People & access (or
   `ign access add --local <username>`) and hand over a one-time password; passwords are hashed
@@ -161,11 +162,26 @@ sign-in methods with `IGNITE_AUTH_METHODS` (default `["local"]`):
   IGNITE_UI_URL=https://ignite.acme.internal
   ```
 
-For example `IGNITE_AUTH_METHODS='["local","ldap","oidc"]'` shows a username/password form
+Secrets (the LDAP service password, the SSO client secret) are never stored: set them on the
+server and enter a reference such as `${env:IGNITE_LDAP_BIND_PASSWORD}` in the form. So nobody
+gets locked out, at least one method stays on, and Ignite accounts can only be turned off after
+an admin has signed in through LDAP or SSO. If it still goes wrong, `ign admin reset-auth` on
+the server drops the saved settings (`--reset-admin` also gives `admin` a one-time password).
+
+With all three on (`IGNITE_AUTH_METHODS='["local","ldap","oidc"]'`) the sign-in screen shows a username/password form
 (local accounts first, then the directory) and a "Sign in with SSO" button. People listed in
 `IGNITE_ADMIN_EMAILS` become admins when they first sign in through LDAP or SSO. Session
 cookies are signed with `IGNITE_SESSION_SECRET` (or a key Ignite generates and keeps in its
 data directory). For a laptop with no sign-in at all, set `IGNITE_AUTH_MODE=none`.
+
+### Who can use which features
+
+Under **People & access → Features**, workspace admins choose who can use each area: Launchpad,
+the system map, API docs and mocks, the code graph, the delivery pipeline, running agents, Ask,
+team memory and MCP tools. Each is on for everyone, on for chosen teams, directory or SSO
+groups and people, or off. The API enforces it (not just the menu); admins always have every
+feature, and project and repo access still apply on top. `ign access feature` does the same
+from the terminal.
 
 ### Who can see what
 

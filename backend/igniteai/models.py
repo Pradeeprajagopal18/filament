@@ -492,3 +492,35 @@ class AuditEvent(Base):
     workspace_id: Mapped[str | None] = mapped_column(String(12), nullable=True, index=True)
     resource: Mapped[str] = mapped_column(String(120), default="")
     detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class AuthSetting(Base):
+    """Sign-in settings changed by an admin in the web app. One row; it overrides the matching
+    IGNITE_* environment settings. Secrets are kept as ${env:NAME} references, never values."""
+
+    __tablename__ = "auth_settings"
+
+    id: Mapped[str] = mapped_column(String(20), primary_key=True, default="auth")
+    data: Mapped[dict] = mapped_column(JSON, default=dict)
+    updated_by: Mapped[str] = mapped_column(String(255), default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now,
+                                                 onupdate=now)
+
+
+class FeatureAccess(Base):
+    """Who may use one area of the app in a workspace (Launchpad, delivery, Ask, ...).
+    No row means everyone. Admins always have every feature."""
+
+    __tablename__ = "feature_access"
+    __table_args__ = (UniqueConstraint("workspace_id", "feature"),)
+
+    id: Mapped[str] = mapped_column(String(12), primary_key=True, default=new_id)
+    workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    feature: Mapped[str] = mapped_column(String(40))
+    mode: Mapped[str] = mapped_column(String(10), default="everyone")  # everyone | some | off
+    teams: Mapped[list] = mapped_column(JSON, default=list)    # team ids
+    groups: Mapped[list] = mapped_column(JSON, default=list)   # directory / SSO group names
+    users: Mapped[list] = mapped_column(JSON, default=list)    # user ids
+    updated_by: Mapped[str] = mapped_column(String(255), default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now,
+                                                 onupdate=now)

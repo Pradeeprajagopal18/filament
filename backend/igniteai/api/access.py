@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from igniteai import access, auth
 from igniteai.api.graph import get_or_404
-from igniteai.config import get_settings
+from igniteai.authconfig import cfg
 from igniteai.db import get_session
 from igniteai.models import (
     ApiToken,
@@ -31,13 +31,13 @@ CHECKPOINT_ROLES = ["product_owner", "tech_lead", "engineer", "release_manager",
 
 
 def _cookie_secure() -> bool:
-    return get_settings().ui_url.startswith("https://")
+    return cfg().ui_url.startswith("https://")
 
 
 # -- sign-in --------------------------------------------------------------------------------------
 @router.get("/auth/config")
 def auth_config():
-    s = get_settings()
+    s = cfg()
     ms = auth.methods() if auth.enabled() else []
     return {"mode": "none" if s.auth_mode == "none" else "login", "methods": ms,
             "password": bool({"local", "ldap"} & set(ms)),
@@ -52,7 +52,7 @@ class LoginIn(BaseModel):
 def _session_response(user: User, body: dict) -> JSONResponse:
     resp = JSONResponse(body)
     resp.set_cookie(auth.SESSION_COOKIE, auth.session_cookie(user),
-                    max_age=get_settings().session_hours * 3600, httponly=True, samesite="lax",
+                    max_age=cfg().session_hours * 3600, httponly=True, samesite="lax",
                     secure=_cookie_secure(), path="/")
     return resp
 
@@ -115,7 +115,7 @@ def login(next: str = "/"):
 @router.get("/auth/callback")
 def callback(request: Request, code: str = "", state: str = "", error: str = "",
              session: Session = Depends(get_session)):
-    ui = get_settings().ui_url.rstrip("/")
+    ui = cfg().ui_url.rstrip("/")
     if error:
         return RedirectResponse(f"{ui}/?login_error={error}", status_code=302)
     try:
@@ -133,7 +133,7 @@ def callback(request: Request, code: str = "", state: str = "", error: str = "",
     session.commit()
     resp = RedirectResponse(ui + flow.get("next", "/"), status_code=302)
     resp.set_cookie(auth.SESSION_COOKIE, auth.session_cookie(user),
-                    max_age=get_settings().session_hours * 3600, httponly=True, samesite="lax",
+                    max_age=cfg().session_hours * 3600, httponly=True, samesite="lax",
                     secure=_cookie_secure(), path="/")
     resp.delete_cookie(auth.FLOW_COOKIE, path="/api/auth")
     return resp
@@ -153,7 +153,10 @@ def me(session: Session = Depends(get_session)):
     for ws in session.scalars(select(Workspace).order_by(Workspace.created_at)):
         role = access.workspace_role(session, p, ws.id)
         if role:
-            workspaces.append({"id": ws.id, "name": ws.name, "role": role})
+            from igniteai import features
+
+            workspaces.append({"id": ws.id, "name": ws.name, "role": role,
+                               "features": features.allowed_set(session, p, ws.id)})
     roles = []
     if p.user_id:
         roles = [{"workspace_id": r.workspace_id, "project_id": r.project_id, "role": r.role}
@@ -214,6 +217,177 @@ def revoke_token(token_id: str, session: Session = Depends(get_session)):
     session.commit()
 
 
+# -- sign-in settings (admins) -------------------------------------------------------------------
+@router.get("/auth/settings")
+def get_auth_settings(session: Session = Depends(get_session)):
+    from igniteai import authconfig
+    from igniteai.models import AuthSetting
+
+    row = session.get(AuthSetting, "auth")
+    return {"fields": authconfig.view(), "redirect_uri": auth.redirect_url(),
+            "updated_by": row.updated_by if row else None,
+            "updated_at": row.updated_at if row else None,
+            "ldap_available": _ldap_available()}
+
+
+def _ldap_available() -> bool:
+    try:
+        import ldap3  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
+@router.put("/auth/settings")
+def put_auth_settings(body: dict, session: Session = Depends(get_session)):
+    """Change sign-in settings. Send only what changes; null puts a value back to the server's
+    environment default."""
+    from igniteai import authconfig
+
+    p = access.current()
+    me_user = session.get(User, p.user_id) if p.user_id else None
+    try:
+        data = authconfig.validate(session, body, me_user.auth_source if me_user else None)
+    except authconfig.ConfigError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    before = authconfig.view()
+    authconfig.save(session, data, access.actor())
+    after = authconfig.view()
+    changed = {k: after[k]["value"] for k in after if after[k]["value"] != before[k]["value"]}
+    access.audit(session, "auth.settings", resource="sign-in", changed=changed)
+    session.commit()
+    auth.bootstrap(session)  # local accounts just turned on with no admin yet
+    return get_auth_settings(session)
+
+
+class LdapTestIn(BaseModel):
+    settings: dict = {}           # unsaved form values to try
+    username: str | None = None   # optionally also try signing someone in
+    password: str | None = None
+
+
+def _trial(overrides: dict) -> dict:
+    """Apply unsaved form values for the length of a test; returns what to restore."""
+    from igniteai import authconfig
+
+    saved = dict(authconfig._override)
+    authconfig._override = {**saved, **{k: v for k, v in overrides.items()
+                                        if k in authconfig.FIELDS and v not in (None, "")}}
+    return saved
+
+
+@router.post("/auth/settings/test-ldap")
+def test_ldap(body: LdapTestIn, session: Session = Depends(get_session)):
+    from igniteai import authconfig
+
+    if not _ldap_available():
+        return {"ok": False, "message": "The ldap3 package isn't installed on the server"}
+    saved = _trial(body.settings)
+    try:
+        c = cfg()
+        if not c.ldap_url:
+            return {"ok": False, "message": "Enter the server URL first"}
+        if c.ldap_bind_dn and not c.ldap_bind_password:
+            return {"ok": False, "message": "The service account password reference doesn't "
+                                            "resolve: is that variable set on the server?"}
+        conn = auth._ldap_connect(auth._ldap_server(), c.ldap_bind_dn, c.ldap_bind_password)
+        if conn is None:
+            return {"ok": False, "message": "Connected, but the service account couldn't sign "
+                                            "in (check the bind DN and password)"}
+        conn.unbind()
+        if body.username:
+            entry = auth.ldap_authenticate(body.username, body.password or "")
+            groups = [g for g in entry["groups"] if not g.lower().startswith("cn=")]
+            email = entry["email"] or "no email"
+            return {"ok": True, "message": f"Signed in {entry['name']} <{email}>, "
+                                           f"{len(groups)} groups"}
+        return {"ok": True, "message": "Connected and the service account signed in"}
+    except auth.AuthError as exc:
+        return {"ok": False, "message": str(exc)}
+    except Exception as exc:  # noqa: BLE001 - show what went wrong, never a 500
+        return {"ok": False, "message": f"{type(exc).__name__}: {exc}"[:300]}
+    finally:
+        authconfig._override = saved
+
+
+@router.post("/auth/settings/test-oidc")
+def test_oidc(body: LdapTestIn, session: Session = Depends(get_session)):
+    from igniteai import authconfig
+
+    saved = _trial(body.settings)
+    try:
+        c = cfg()
+        if not (c.oidc_issuer and c.oidc_client_id):
+            return {"ok": False, "message": "Enter the issuer and client ID first"}
+        auth._discovery.cache_clear()
+        conf = auth.discovery()
+        missing = [k for k in ("authorization_endpoint", "token_endpoint", "jwks_uri")
+                   if k not in conf]
+        if missing:
+            return {"ok": False, "message": f"The issuer's configuration lacks {missing}"}
+        found = conf.get("issuer", c.oidc_issuer)
+        return {"ok": True, "message": f"Found the provider at {found}. Register this "
+                                       f"redirect URI with it: {auth.redirect_url()}"}
+    except auth.AuthError as exc:
+        return {"ok": False, "message": str(exc)}
+    finally:
+        authconfig._override = saved
+
+
+# -- features (admins) ---------------------------------------------------------------------------
+@router.get("/workspaces/{ws_id}/features")
+def list_features(ws_id: str, session: Session = Depends(get_session)):
+    from igniteai import features
+
+    out = features.describe(session, ws_id)
+    for f in out:
+        f["people"] = features.who_has(session, ws_id, f["key"])
+    return out
+
+
+class FeatureIn(BaseModel):
+    mode: str                       # everyone | some | off
+    teams: list[str] = []
+    groups: list[str] = []
+    users: list[str] = []
+
+
+@router.put("/workspaces/{ws_id}/features/{feature}")
+def set_feature(ws_id: str, feature: str, body: FeatureIn,
+                session: Session = Depends(get_session)):
+    from igniteai import features
+    from igniteai.models import FeatureAccess
+
+    if feature not in features.CATALOG:
+        raise HTTPException(404, f"Unknown feature {feature}")
+    if body.mode not in {"everyone", "some", "off"}:
+        raise HTTPException(422, "mode must be everyone, some or off")
+    team_ids = {t.id for t in session.scalars(select(Team).where(Team.workspace_id == ws_id))}
+    if set(body.teams) - team_ids:
+        raise HTTPException(422, "Unknown team")
+    if any(session.get(User, u) is None for u in body.users):
+        raise HTTPException(422, "Unknown person")
+    row = session.scalar(select(FeatureAccess).where(FeatureAccess.workspace_id == ws_id,
+                                                     FeatureAccess.feature == feature))
+    if body.mode == "everyone":
+        if row is not None:
+            session.delete(row)
+    else:
+        if row is None:
+            row = FeatureAccess(workspace_id=ws_id, feature=feature)
+            session.add(row)
+        row.mode = body.mode
+        some = body.mode == "some"
+        row.teams = sorted(set(body.teams)) if some else []
+        row.groups = sorted({g.strip() for g in body.groups if g.strip()}) if some else []
+        row.users = sorted(set(body.users)) if some else []
+        row.updated_by = access.actor()
+    access.audit(session, "feature.access", workspace_id=ws_id, resource=feature,
+                 **body.model_dump())
+    session.commit()
+    return next(f for f in list_features(ws_id, session) if f["key"] == feature)
+
+
 # -- people ---------------------------------------------------------------------------------------
 def _person(session: Session, ws_id: str, user: User) -> dict:
     ms = session.scalars(select(Membership).where(Membership.user_id == user.id)).all()
@@ -224,7 +398,7 @@ def _person(session: Session, ws_id: str, user: User) -> dict:
             "github_login": user.github_login, "is_admin": user.is_admin, "active": user.active,
             "groups": user.groups, "last_login_at": user.last_login_at,
             "workspace_role": "admin" if user.is_admin else (ws_role or (
-                "member" if get_settings().workspace_default_role == "member" else None)),
+                "member" if cfg().workspace_default_role == "member" else None)),
             "teams": [{"team_id": m.scope_id, "role": m.role, "source": m.source}
                       for m in ms if m.scope == "team"],
             "projects": [{"project_id": m.scope_id, "role": m.role}
@@ -322,10 +496,10 @@ def _set_ws_role(session: Session, ws_id: str, user: User, role: str) -> None:
                                                 Membership.scope == "workspace",
                                                 Membership.scope_id == ws_id))
     if role == "none" or (role == "member"
-                          and get_settings().workspace_default_role == "member"):
+                          and cfg().workspace_default_role == "member"):
         if m:
             session.delete(m)
-        if role == "none" and get_settings().workspace_default_role == "member":
+        if role == "none" and cfg().workspace_default_role == "member":
             raise HTTPException(422, "Everyone who signs in is a member "
                                 "(IGNITE_WORKSPACE_DEFAULT_ROLE=member); deactivate the "
                                 "person instead")

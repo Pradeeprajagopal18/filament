@@ -23,6 +23,9 @@ async def lifespan(_: FastAPI):
     from igniteai.db import SessionLocal
 
     with SessionLocal() as session:
+        from igniteai.authconfig import refresh
+
+        refresh(session)
         bootstrap(session)
     task = asyncio.create_task(scheduler_loop()) if get_settings().repo_scheduler_enabled \
         else None

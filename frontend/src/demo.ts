@@ -5,7 +5,7 @@ import type {
   ChangeImpact, CodeExplain, CodeGraphView, CodeLookup, CodePath, CodeSym, Endpoint, GatewayCall, GatewayServer, GatewayTool, Impact, JsonSchema, RepoAnalysis, RepoDetail, RepoScan, Runner, ScanChanges, SystemMap, TraceEvent, UsageRow, Workspace,
   AdvanceBody, DeliveryBoard, Handoff, ReleaseOut, WorkItem,
   MapDirection, MapFocus,
-  ApiTokenRow, AuditRow, AuthConfig, CheckpointRoleRow, Me, Person, ProjectAccess, Team,
+  ApiTokenRow, AuditRow, AuthConfig, AuthSettings, FeatureRow, TestResult, CheckpointRoleRow, Me, Person, ProjectAccess, Team,
 } from './api'
 import demoRepos from './demo-repos.json'
 import demoDelivery from './demo-delivery.json'
@@ -472,6 +472,46 @@ function signOff(): undefined {
   if (!viewerPerson().is_admin) throw new Error("403: This checkpoint needs its role (product owner, tech lead, engineer, release manager or on-call, assigned under People & access). Sam doesn't hold one.")
   return undefined
 }
+// Sign-in settings as an admin would see them, and per-feature access.
+const authEnv: Record<string, unknown> = {
+  auth_methods: ['local'], workspace_default_role: 'member', admin_emails: [], password_min_length: 12, max_failed_logins: 5,
+  lockout_minutes: 15, session_hours: 12, ldap_url: null, ldap_start_tls: false, ldap_ca_file: null, ldap_bind_dn: null,
+  ldap_bind_password: null, ldap_base_dn: null, ldap_user_filter: '(|(uid={username})(sAMAccountName={username})(mail={username}))',
+  ldap_email_attr: 'mail', ldap_name_attr: 'displayName', ldap_group_attr: 'memberOf', ldap_github_attr: null, ldap_timeout_s: 10,
+  oidc_issuer: null, oidc_client_id: null, oidc_client_secret: null, oidc_scopes: 'openid email profile groups', oidc_groups_claim: 'groups', oidc_github_claim: null,
+}
+const authSaved: Record<string, unknown> = {
+  auth_methods: ['local', 'ldap', 'oidc'], ldap_url: 'ldaps://ldap.acme.com:636', ldap_base_dn: 'ou=people,dc=acme,dc=com',
+  ldap_bind_dn: 'cn=ignite-svc,ou=apps,dc=acme,dc=com', ldap_bind_password: '${env:IGNITE_LDAP_BIND_PASSWORD}',
+  oidc_issuer: 'https://acme.okta.com/oauth2/default', oidc_client_id: '0oa1ignite', admin_emails: ['priya@acme.com'],
+}
+let authMeta: { by: string | null; at: string | null } = { by: 'priya@acme.com', at: now() }
+function authView(): AuthSettings {
+  const fields = Object.fromEntries(Object.keys(authEnv).map(k => {
+    const saved = k in authSaved, value = saved ? authSaved[k] : authEnv[k]
+    return [k, k.endsWith('password') || k.endsWith('secret') ? { value, source: saved ? 'saved' : 'environment', set: !!value, resolves: !!value } : { value, source: saved ? 'saved' : 'environment' }]
+  })) as AuthSettings['fields']
+  return { fields, redirect_uri: 'https://ignite.acme.internal/api/auth/callback', updated_by: authMeta.by, updated_at: authMeta.at, ldap_available: true }
+}
+const FEATURES: [string, string, string][] = [
+  ['launchpad', 'Launchpad', 'Onboard repos, scan them, readiness checks, references'], ['system_map', 'System map', 'How repos connect, and who depends on a repo'],
+  ['api_docs', 'API docs and mocks', 'API contracts and the mock server'], ['code_intel', 'Code graph', 'Explain, path, query, change impact, data model'],
+  ['delivery', 'Delivery pipeline', 'Work items, hand-offs, PRs, releases, SLOs, incidents'], ['agents', 'Run agents', 'Start agent runs (everyone can still read their results)'],
+  ['ask', 'Ask', 'Questions answered from the project graph and memory; knowledge gaps'], ['memory', 'Team memory', 'Read, add, confirm and retire shared memory'],
+  ['mcp_tools', 'MCP tools', 'Browse and call gateway tools, and the Omni MCP endpoint'],
+]
+const featurePolicy: Record<string, { mode: 'everyone' | 'some' | 'off'; teams: string[]; groups: string[]; users: string[] }> = {
+  delivery: { mode: 'some', teams: ['t-pay', 't-web'], groups: [], users: [] },
+  mcp_tools: { mode: 'some', teams: [], groups: ['eng-leads'], users: ['u-maria'] },
+  ask: { mode: 'some', teams: ['t-pay'], groups: ['eng-leads'], users: [] },
+}
+function featureOk(x: DemoPerson, key: string) {
+  const f = featurePolicy[key]
+  if (x.is_admin || !f || f.mode === 'everyone') return true
+  if (f.mode === 'off') return false
+  return f.users.includes(x.id) || x.teams.some(m => f.teams.includes(m.team_id)) || x.groups.some(g => f.groups.map(y => y.toLowerCase()).includes(g.toLowerCase()))
+}
+
 function needAdmin() {
   if (!viewerPerson().is_admin) throw new Error('403: Only a workspace admin can do this')
 }
@@ -872,10 +912,47 @@ export const demoApi = {
     people.push(x); passwords[u] = temp; audit('people.add', x.id, { local: true })
     return clone({ ...x, temporary_password: temp })
   },
+  authSettings: async () => { if (!viewerPerson().is_admin) throw new Error('403: Only an admin can do this'); return clone(authView()) },
+  saveAuthSettings: async (changes: Record<string, unknown>) => {
+    needAdmin()
+    const merged = { ...authSaved, ...changes }
+    const methods = (merged.auth_methods ?? authEnv.auth_methods) as string[]
+    if (!methods.length) throw new Error('422: Keep at least one sign-in method on')
+    for (const [k, v] of Object.entries(changes)) if ((k.endsWith('password') || k.endsWith('secret')) && v && !/^\$\{env:[A-Za-z_][A-Za-z0-9_]*\}$/.test(String(v))) throw new Error(`422: Don't paste the ${k.replace(/_/g, ' ')} itself: put it in the server's environment and enter a reference such as \${env:IGNITE_${k.toUpperCase()}}`)
+    if (methods.includes('ldap') && !String(merged.ldap_url ?? '').match(/^ldaps?:\/\//)) throw new Error('422: LDAP needs a server URL starting with ldaps:// or ldap://')
+    if (methods.includes('oidc') && !String(merged.oidc_issuer ?? '').startsWith('https://')) throw new Error('422: SSO needs the issuer URL (https://...)')
+    if (!methods.includes('local') && viewerPerson().auth_source === 'local') throw new Error("422: You're signed in with an Ignite account. Sign in through LDAP or SSO before turning Ignite accounts off")
+    for (const [k, v] of Object.entries(changes)) { if (v === null) delete authSaved[k]; else authSaved[k] = v }
+    authMeta = { by: viewerPerson().email || viewerPerson().username, at: now() }
+    audit('auth.settings', 'sign-in', { changed: Object.keys(changes) })
+    return clone(authView())
+  },
+  testLdap: async (settings: Record<string, unknown>, username?: string): Promise<TestResult> => {
+    if (!settings.ldap_url) return { ok: false, message: 'Enter the server URL first' }
+    if (username) { const x = people.find(y => y.username === username.toLowerCase() && y.auth_source === 'ldap'); return x ? { ok: true, message: `Signed in ${x.name} <${x.email}>, ${x.groups.length} groups` } : { ok: false, message: 'Wrong username or password' } }
+    return { ok: true, message: 'Connected and the service account signed in' }
+  },
+  testOidc: async (settings: Record<string, unknown>): Promise<TestResult> => settings.oidc_issuer && settings.oidc_client_id
+    ? { ok: true, message: `Found the provider at ${settings.oidc_issuer}. Register this redirect URI with it: https://ignite.acme.internal/api/auth/callback` }
+    : { ok: false, message: 'Enter the issuer and client ID first' },
+  features: async (): Promise<FeatureRow[]> => {
+    needAdmin()
+    return FEATURES.map(([key, name, description]) => {
+      const f = featurePolicy[key] ?? { mode: 'everyone', teams: [], groups: [], users: [] }
+      return { key, name, description, ...clone(f), people: people.filter(x => x.active && !x.is_admin && featureOk(x, key)).length, updated_by: featurePolicy[key] ? 'priya@acme.com' : null }
+    })
+  },
+  setFeature: async (_ws: string, key: string, body: { mode: string; teams: string[]; groups: string[]; users: string[] }) => {
+    needAdmin()
+    if (body.mode === 'everyone') delete featurePolicy[key]
+    else featurePolicy[key] = { mode: body.mode as 'some' | 'off', teams: body.mode === 'some' ? body.teams : [], groups: body.mode === 'some' ? body.groups : [], users: body.mode === 'some' ? body.users : [] }
+    audit('feature.access', key, body)
+    return (await demoApi.features()).find(f => f.key === key)!
+  },
   me: async (): Promise<Me> => {
     if (!signedIn) throw new Error('401: Sign in required')
     const x = viewerPerson()
-    return { mode: 'login', username: x.username, auth_source: x.auth_source, must_change_password: x.must_change_password, id: x.id, email: x.email, name: x.name, is_admin: x.is_admin, github_login: x.github_login, via: 'session', workspaces: db.workspaces.map(w => ({ id: w.id, name: w.name, role: x.is_admin ? 'admin' : 'member' })), checkpoint_roles: checkpointRows.filter(c => c.user_id === x.id).map(c => ({ workspace_id: 'acme', project_id: c.project_id, role: c.role })) }
+    return { mode: 'login', username: x.username, auth_source: x.auth_source, must_change_password: x.must_change_password, id: x.id, email: x.email, name: x.name, is_admin: x.is_admin, github_login: x.github_login, via: 'session', workspaces: db.workspaces.map(w => ({ id: w.id, name: w.name, role: x.is_admin ? 'admin' : 'member', features: FEATURES.map(f => f[0]).filter(k => featureOk(x, k)) })), checkpoint_roles: checkpointRows.filter(c => c.user_id === x.id).map(c => ({ workspace_id: 'acme', project_id: c.project_id, role: c.role })) }
   },
   logout: async () => { signedIn = false; return { ok: true } },
   tokens: async () => clone(tokenRows),

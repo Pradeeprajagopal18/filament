@@ -182,7 +182,7 @@ export interface Me {
   mode: 'none' | 'login'; id: string | null; email: string; name: string; is_admin: boolean
   username: string | null; auth_source: 'local' | 'ldap' | 'oidc'; must_change_password: boolean
   github_login: string | null; via: string
-  workspaces: { id: string; name: string; role: 'admin' | 'member' }[]
+  workspaces: { id: string; name: string; role: 'admin' | 'member'; features?: string[] }[]
   checkpoint_roles: { workspace_id: string; project_id: string | null; role: string }[]
 }
 export interface Person {
@@ -197,6 +197,10 @@ export interface ProjectAccess {
   members: { user_id: string; email: string; name: string; role: string }[]; my_role: string | null
   checkpoints: Record<string, { user_id: string; email: string; name: string }[]>
 }
+export interface AuthField { value: unknown; source: 'saved' | 'environment'; set?: boolean; resolves?: boolean }
+export interface AuthSettings { fields: Record<string, AuthField>; redirect_uri: string; updated_by: string | null; updated_at: string | null; ldap_available: boolean }
+export interface TestResult { ok: boolean; message: string }
+export interface FeatureRow { key: string; name: string; description: string; mode: 'everyone' | 'some' | 'off'; teams: string[]; groups: string[]; users: string[]; people: number; updated_by: string | null }
 export interface CheckpointRoleRow { id: string; user_id: string; email: string; role: string; project_id: string | null }
 export interface ApiTokenRow { id: string; name: string; prefix: string; created_at: string; expires_at: string | null; last_used_at: string | null }
 export interface AuditRow { at: string; actor: string; action: string; resource: string; detail: Record<string, unknown> }
@@ -296,6 +300,12 @@ const httpApi = {
   addCheckpointRole: (ws: string, user_id: string, role: string, project_id: string | null) =>
     call<CheckpointRoleRow>('PUT', `/workspaces/${ws}/checkpoint-roles`, { user_id, role, project_id }),
   removeCheckpointRole: (ws: string, id: string) => call<void>('DELETE', `/workspaces/${ws}/checkpoint-roles/${id}`),
+  authSettings: () => call<AuthSettings>('GET', '/auth/settings'),
+  saveAuthSettings: (changes: Record<string, unknown>) => call<AuthSettings>('PUT', '/auth/settings', changes),
+  testLdap: (settings: Record<string, unknown>, username?: string, password?: string) => call<TestResult>('POST', '/auth/settings/test-ldap', { settings, username, password }),
+  testOidc: (settings: Record<string, unknown>) => call<TestResult>('POST', '/auth/settings/test-oidc', { settings }),
+  features: (ws: string) => call<FeatureRow[]>('GET', `/workspaces/${ws}/features`),
+  setFeature: (ws: string, key: string, body: { mode: string; teams: string[]; groups: string[]; users: string[] }) => call<FeatureRow>('PUT', `/workspaces/${ws}/features/${key}`, body),
   audit: (ws: string) => call<AuditRow[]>('GET', `/workspaces/${ws}/audit?limit=100`),
   artifacts: (p: string) => call<Artifact[]>('GET', `/projects/${p}/artifacts`),
   graph: (p: string) => call<{ nodes: Artifact[]; edges: Link[] }>('GET', `/projects/${p}/graph`),

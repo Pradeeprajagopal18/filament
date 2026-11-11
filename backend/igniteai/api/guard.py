@@ -11,7 +11,7 @@ from __future__ import annotations
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from igniteai import access, auth
+from igniteai import access, auth, authconfig, features
 from igniteai.db import get_session
 
 OPEN = {
@@ -23,6 +23,12 @@ OPEN = {
 # Only workspace admins (or global admins where there is no workspace in the path).
 ADMIN = {
     ("POST", "/api/workspaces"),
+    ("GET", "/api/auth/settings"),
+    ("GET", "/api/workspaces/{ws_id}/features"),
+    ("PUT", "/api/workspaces/{ws_id}/features/{feature}"),
+    ("PUT", "/api/auth/settings"),
+    ("POST", "/api/auth/settings/test-ldap"),
+    ("POST", "/api/auth/settings/test-oidc"),
     ("POST", "/api/repos/scan-due"),
     ("POST", "/api/readiness/scan"),
     ("GET", "/api/workspaces/{ws_id}/config"),
@@ -108,6 +114,7 @@ def rule(method: str, path: str) -> str:
 async def guard(request: Request, session: Session = Depends(get_session)):
     """Async on purpose: the principal it sets is then visible to sync handlers (FastAPI copies
     the context into the worker thread) and to agent runs they start."""
+    authconfig.refresh(session)  # sign-in settings an admin may have changed in the web app
     route = request.scope.get("route")
     path = getattr(route, "path", request.url.path)
     if not path.startswith("/api/"):  # the matched route can be the router's un-prefixed copy
@@ -139,6 +146,15 @@ async def guard(request: Request, session: Session = Depends(get_session)):
                                  params=dict(request.path_params))
                     session.commit()
                 raise
+        feature = features.feature_for(request.method, path)
+        if feature and target.workspace_id \
+                and not features.allowed(session, p, target.workspace_id, feature):
+            access.audit(session, "access.denied", workspace_id=target.workspace_id,
+                         resource=f"{request.method} {path}", p=p, feature=feature)
+            session.commit()
+            name = features.CATALOG[feature][0]
+            raise HTTPException(403, f"{name} isn't turned on for you in this workspace; "
+                                     "ask a workspace admin")
     token = access.set_current(p)
     try:
         yield p

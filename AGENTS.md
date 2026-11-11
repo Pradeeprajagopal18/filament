@@ -45,6 +45,8 @@ Guidance for AI coding agents (and humans) working in this repo.
 - New routes are covered by `api/guard.py` automatically; add them to its ADMIN / MAINTAINER /
   SIGNED_IN sets when the default (viewer reads, contributor writes) is wrong, and filter lists
   with `access.*` helpers. Agent-facing reads of repos or memory go through `access.filter_*`.
+- A route that belongs to a user-facing area goes in `features.CATALOG` (a test checks every
+  catalog route exists). Sign-in settings are read with `authconfig.cfg()`, not `get_settings()`.
 
 ## Do not touch
 - Do not commit `.env`, databases (`*.db`) or API keys.

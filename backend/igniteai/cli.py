@@ -1199,3 +1199,79 @@ def access_audit(ws: str = typer.Option(None, "--ws"), action: str = None, limit
                                                                   else {})})
     for e in rows:
         console.print(f"{e['at'][:19]}  {e['actor']:<28} {e['action']:<20} {e['resource']}")
+
+
+# -- sign-in settings and features ---------------------------------------------------------------
+admin_app = typer.Typer(help="Server-side recovery (run on the Ignite server)",
+                        no_args_is_help=True)
+app.add_typer(admin_app, name="admin")
+
+
+@admin_app.command("reset-auth")
+def admin_reset_auth(reset_admin: bool = typer.Option(
+        False, "--reset-admin", help="Also give the local 'admin' account a one-time password")):
+    """Locked out? Drop the sign-in settings saved in the web app (back to the IGNITE_*
+    environment, which turns Ignite accounts on by default). Talks to the database directly."""
+    import secrets
+
+    from igniteai import auth, authconfig
+    from igniteai.db import SessionLocal, init_db
+    from igniteai.models import User
+
+    init_db()
+    with SessionLocal() as s:
+        authconfig.reset(s)
+        s.commit()
+        created = auth.bootstrap(s)
+        console.print("Sign-in settings reset to the server's environment.")
+        if created:
+            console.print("Created 'admin' with password 'admin' (change it at sign-in).")
+        elif reset_admin:
+            user = s.query(User).filter(User.username == "admin").first()
+            if user is None:
+                console.print("[red]There's no local 'admin' account.[/red]")
+                raise typer.Exit(1)
+            temp = secrets.token_urlsafe(12)
+            auth.set_password(user, temp, must_change=True)
+            user.active = True
+            s.commit()
+            console.print(f"admin's one-time password: {temp}")
+
+
+@auth_app.command("settings")
+def auth_settings(set_: list[str] = typer.Option(None, "--set", help="key=value (repeatable); "
+                                                  "lists as a,b; empty value = environment")):
+    """Show or change sign-in settings (admins). Example: --set auth_methods=local,ldap"""
+    if set_:
+        body = {}
+        for kv in set_:
+            k, _, v = kv.partition("=")
+            body[k] = (v.split(",") if k in {"auth_methods", "admin_emails"} else v) if v \
+                else None
+        out = _call("PUT", "/auth/settings", json=body)
+    else:
+        out = _call("GET", "/auth/settings")
+    for k, f in out["fields"].items():
+        val = f["value"]
+        if f.get("resolves") is False and f.get("set"):
+            val = f"{val} (not set on the server!)"
+        console.print(f"{k:<24} {val!s:<50} [dim]{f['source']}[/dim]")
+    console.print(f"[dim]SSO redirect URI: {out['redirect_uri']}[/dim]")
+
+
+@access_app.command("feature")
+def access_feature(feature: str = typer.Argument(None),
+                   mode: str = typer.Option(None, help="everyone | some | off"),
+                   team: list[str] = typer.Option(None, help="team id (repeatable)"),
+                   group: list[str] = typer.Option(None, help="directory/SSO group (repeatable)"),
+                   user: list[str] = typer.Option(None, help="user id (repeatable)"),
+                   ws: str = typer.Option(None, "--ws")):
+    """List features, or set who can use one."""
+    if feature and mode:
+        _call("PUT", f"/workspaces/{_ws(ws)}/features/{feature}",
+              json={"mode": mode, "teams": team or [], "groups": group or [],
+                    "users": user or []})
+    for f in _call("GET", f"/workspaces/{_ws(ws)}/features"):
+        who = f["mode"] if f["mode"] != "some" else \
+            ", ".join(f["teams"] + f["groups"] + f["users"]) or "nobody"
+        console.print(f"{f['key']:<12} {f['name']:<20} {who}  [dim]({f['people']} people)[/dim]")

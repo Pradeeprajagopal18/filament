@@ -56,6 +56,13 @@ flowchart TB
 
 ## Access control
 
+Sign-in settings come from `igniteai/authconfig.py`: `IGNITE_*` defaults with whatever an admin
+saved in the web app on top (refreshed on every request, secrets as `${env:NAME}` references,
+with checks that keep at least one admin able to sign in). Feature access is
+`igniteai/features.py`: a catalog mapping each feature to its route templates, and a policy per
+workspace (everyone / some teams, groups, people / off) that the guard checks after project and
+repo access.
+
 `igniteai/auth.py` signs people in three ways, any mix at once: local accounts (scrypt
 hashes, lockout after repeated failures, a bootstrap admin / admin that must be changed before
 anything else works), LDAP (service-account search with escaped filters, then a bind as the

@@ -28,7 +28,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from igniteai import gitaccess
-from igniteai.config import get_settings
+from igniteai.authconfig import cfg
 from igniteai.models import (
     Artifact,
     AuditEvent,
@@ -124,7 +124,7 @@ def workspace_role(session: Session, p: Principal, ws_id: str) -> str | None:
         return "admin"
     if explicit:
         return "member"
-    return "member" if get_settings().workspace_default_role == "member" else None
+    return "member" if cfg().workspace_default_role == "member" else None
 
 
 def is_ws_admin(session: Session, p: Principal, ws_id: str) -> bool:

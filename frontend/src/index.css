@@ -393,3 +393,24 @@ td.actions { display: flex; flex-direction: column; gap: 4px; align-items: flex-
 .card .row:not(.nowrap) { flex-wrap: wrap; }
 .card .row:not(.nowrap) > input, .card .row:not(.nowrap) > select { flex: 1 1 150px; min-width: 0; }
 .signin label { text-align: left; align-items: stretch; }
+ul.features li { padding: 12px 0; border-bottom: 1px solid var(--line); }
+ul.features li:last-child { border-bottom: 0; }
+.feature-edit { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; padding: 12px; background: #faf9f6; border-radius: 8px; }
+.feature-edit p { margin: 4px 0 0; }
+.feature-edit > button { align-self: flex-start; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+label.check { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; }
+label.opt { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; cursor: pointer; }
+label.opt input { margin-top: 3px; }
+.settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px 16px; }
+label.setting { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; }
+label.setting span { font-weight: 400; }
+p.ok, .ok { color: var(--good, #2e7d32); }
+label.opt input, label.check input { width: auto; min-width: 0; flex: none; }
+label.opt { color: inherit; }
+label.setting { align-items: stretch; color: inherit; }
+label.setting input, label.setting select { width: 100%; box-sizing: border-box; }
+ul.features .row > .grow { min-width: 0; }
+ul.features .row > button { flex: none; }
+.feature-edit label.setting { font-size: 12px; }
+label.opt { text-align: left; font-size: 14px; }
