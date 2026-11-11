@@ -4,10 +4,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from filament.agents import REGISTRY
-from filament.agents.base import Agent
-from filament.agents.tools import SPECIALIST_TOOLS
-from filament.config import get_settings
+from igniteai.agents import REGISTRY
+from igniteai.agents.base import Agent
+from igniteai.agents.tools import SPECIALIST_TOOLS
+from igniteai.config import get_settings
 
 
 @pytest.fixture

@@ -5,10 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from filament.agents import REGISTRY
-from filament.agents.base import Agent
-from filament.agents.tools import SPECIALIST_TOOLS
-from filament.config import get_settings
+from igniteai.agents import REGISTRY
+from igniteai.agents.base import Agent
+from igniteai.agents.tools import SPECIALIST_TOOLS
+from igniteai.config import get_settings
 
 SERVER = str(Path(__file__).parent / "fixtures" / "mcp_demo_server.py")
 
@@ -167,9 +167,9 @@ def test_agent_defaults_and_overrides_resolve_in_order(client, project):
 
 
 def test_queued_run_executes_on_a_worker(client, project):
-    from filament.db import get_session
-    from filament.models import Runner
-    from filament.runtime import work_once
+    from igniteai.db import get_session
+    from igniteai.models import Runner
+    from igniteai.runtime import work_once
 
     ws, p = project
     runner = client.post(f"/api/workspaces/{ws['id']}/runners",

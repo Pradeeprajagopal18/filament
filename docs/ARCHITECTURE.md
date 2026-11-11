@@ -1,13 +1,13 @@
 # Architecture
 
-Filament v0.1 is a single FastAPI service, a React UI and a CLI over one HTTP API.
+Ignite v0.1 is a single FastAPI service, a React UI and a CLI over one HTTP API.
 The full target architecture is in the product spec; this note describes what exists in code.
 
 ```mermaid
 flowchart TB
   subgraph Surfaces
     UI[React workspace]
-    CLI[fil CLI]
+    CLI[ign CLI]
     API_Clients[REST clients]
   end
   subgraph Service["FastAPI service"]
@@ -32,7 +32,7 @@ flowchart TB
   Routes --> DB
 ```
 
-## Data model (`backend/filament/models.py`)
+## Data model (`backend/igniteai/models.py`)
 
 | Table | Purpose |
 | --- | --- |
@@ -56,9 +56,12 @@ flowchart TB
 
 ## Access control
 
-`filament/auth.py` signs people in with OIDC (Authorization Code + PKCE; the id_token is checked
-against the IdP's keys, issuer, audience, expiry and nonce), sets a signed HttpOnly session
-cookie and resolves `Authorization: Bearer fil_...` tokens. `filament/api/guard.py` is a
+`igniteai/auth.py` signs people in three ways, any mix at once: local accounts (scrypt
+hashes, lockout after repeated failures, a bootstrap admin / admin that must be changed before
+anything else works), LDAP (service-account search with escaped filters, then a bind as the
+user; never an empty password) and OIDC (Authorization Code + PKCE; the id_token is checked
+against the IdP's keys, issuer, audience, expiry and nonce). It sets a signed HttpOnly session
+cookie (ended by a password change) and resolves `Authorization: Bearer ign_...` tokens. `igniteai/api/guard.py` is a
 dependency on every router: it finds the workspace, project and repo a path points at
 (`access.resolve`) and applies the route's rule (open, signed in, admin, maintainer, viewer for
 reads, contributor for writes). Handlers then filter lists and check finer rules: checkpoint
@@ -99,7 +102,7 @@ admin and nothing is filtered.
   `${env:NAME}` references resolved in the runner's environment at call time.
 - **Runners** decide where a run executes. Resolution: the run's own override, then the agent's
   workspace setting, then the workspace default runner, then `inline`. The resolved config is
-  stored on the run (`runs.config`). Non-inline runs are `queued`; `fil runner start <name>`
+  stored on the run (`runs.config`). Non-inline runs are `queued`; `ign runner start <name>`
   claims them atomically (safe with several workers) and runs the agent on that machine.
 - **Config as code**: `GET/POST /api/workspaces/{id}/config` exports/applies YAML, upserting by
   name in one transaction.
@@ -121,7 +124,7 @@ admin and nothing is filtered.
   `result`; register it in `agents/__init__.py`, add a test.
 - **New tool:** add a handler and `Tool` entry in `agents/tools.py`; write tools must go through
   `Agent.save_artifact` / `Agent.remember`.
-- **New readiness check:** add it in `repos/checks.py::run_checks` with a weight, a fix, the repo kinds it applies to and, if Filament can draft it, a `generate` id.
+- **New readiness check:** add it in `repos/checks.py::run_checks` with a weight, a fix, the repo kinds it applies to and, if Ignite can draft it, a `generate` id.
 - **New repo kind or framework:** detection lives in `repos/profile.py`; routes in `repos/api_extract.py`; pages in `repos/ui_extract.py`; connections in `repos/deps.py`. Add a fixture repo in `tests/test_repos.py`.
 
 ## Repo intelligence (Launchpad)
@@ -134,18 +137,18 @@ Onboarding a repo runs one deterministic pass (no model, so it is fast, repeatab
 4. **UI**: routes → components → a wireframe of each page's real headings, inputs, buttons and child components.
 5. **Components**: a graph of what the repo connects to, every node backed by file:line evidence.
 
-Missing items (agent instructions, overview, architecture, ownership, API contract) are created **in Filament, not in the repo** (Filament usually doesn't own these repos): as reference artifacts in the repo's project, with conventions proposed to project memory. Agents use them immediately.
+Missing items (agent instructions, overview, architecture, ownership, API contract) are created **in Ignite, not in the repo** (Ignite usually doesn't own these repos): as reference artifacts in the repo's project, with conventions proposed to project memory. Agents use them immediately.
 
 ### Across repos and over time
 
 - **System map** (`repos/system.py`): outbound HTTP calls (`repos/consumers.py`) are matched to other repos' endpoints, with the base URL/env var used to disambiguate; config repos link by file name, infrastructure by resource name; shared external services are joined. `GET /workspaces/{ws}/system-map`, `GET /repos/{id}/impact` (dependents, endpoint consumers, calls to endpoints that don't exist).
 - **Agents**: `build_context_pack` adds compact repo summaries (the project's own repo, then the best keyword matches); `search_repos` and `get_repo` tools return capped, code-derived facts.
-- **Kept current** (`repos/service.py`): an in-process scheduler (`FILAMENT_REPO_SCAN_INTERVAL_HOURS`, default 24; per repo via `PATCH /repos/{id}`) and `POST /webhooks/github` rescan repos. Each scan is diffed with the previous (`repos/diff.py`): removed endpoints, new required parameters or fields, removed response fields and new auth are breaking and raise `breaking_change` signals naming consumers. References refresh: drafts update in place; approved references get a pending update a person accepts (`POST /repos/{id}/references/{item}/accept`). Private repos clone with `FILAMENT_GIT_TOKEN` / `GITHUB_TOKEN` from the environment.
+- **Kept current** (`repos/service.py`): an in-process scheduler (`IGNITE_REPO_SCAN_INTERVAL_HOURS`, default 24; per repo via `PATCH /repos/{id}`) and `POST /webhooks/github` rescan repos. Each scan is diffed with the previous (`repos/diff.py`): removed endpoints, new required parameters or fields, removed response fields and new auth are breaking and raise `breaking_change` signals naming consumers. References refresh: drafts update in place; approved references get a pending update a person accepts (`POST /repos/{id}/references/{item}/accept`). Private repos clone with `IGNITE_GIT_TOKEN` / `GITHUB_TOKEN` from the environment.
 - **Contracts** (`repos/api_enrich.py`): request/response models (Pydantic, Java DTOs), query params, auth and error codes from code, plus examples that power the mock server (`/repos/{id}/mock/...`). Checked-in contracts are compared with routes in code (drift). `POST /repos/{id}/enrich-api` runs an optional model pass; only endpoints that exist are updated and the tokens are recorded as an `api-enricher` run.
 
 ### Code graph
 
-- **Build** (`repos/codeparse.py`, `repos/codeindex.py`): Filament's own extractor, no external tool and no model. `codeparse` walks tree-sitter syntax trees (Python, JavaScript, TypeScript/TSX, Java, Go) into per-file facts: symbols with exact start/end lines, imports (type-only ones marked), calls with their receiver, references (annotations, `Depends(fn)`, JSX), declared types of parameters, fields and locals, and notes (docstrings, JSDoc, Go doc comments, NOTE/WHY/DECISION comments). Facts are cached per file by content hash in `FILAMENT_DATA_DIR/codegraph/<hash>`, so rescans parse only changed files. `codeindex` resolves them across files: per-file scopes from imports (Python packages and relative imports, JS/TS relative and `@/` paths, Java packages and imports, Go modules from `go.mod`), then each call through nested functions, the file's scope, `self`/`this`/the Go receiver plus inheritance, or the receiver's declared type (`repo.save()` with `repo: OrderRepo`) → `extracted`. A callee unique in the repo and not a common word is linked by name only → `inferred` (for a method, only when the receiver's name matches the class). Library calls are never guessed into repo code. Subsystems are Louvain communities (networkx, seeded so they stay stable). The graph is stored in `code_graphs`; `FILAMENT_CODE_GRAPH=false` turns it off. The approach follows [Graphify](https://github.com/Graphify-Labs/graphify) (tree-sitter facts, confidence labels, communities); no Graphify code is used.
+- **Build** (`repos/codeparse.py`, `repos/codeindex.py`): Ignite's own extractor, no external tool and no model. `codeparse` walks tree-sitter syntax trees (Python, JavaScript, TypeScript/TSX, Java, Go) into per-file facts: symbols with exact start/end lines, imports (type-only ones marked), calls with their receiver, references (annotations, `Depends(fn)`, JSX), declared types of parameters, fields and locals, and notes (docstrings, JSDoc, Go doc comments, NOTE/WHY/DECISION comments). Facts are cached per file by content hash in `IGNITE_DATA_DIR/codegraph/<hash>`, so rescans parse only changed files. `codeindex` resolves them across files: per-file scopes from imports (Python packages and relative imports, JS/TS relative and `@/` paths, Java packages and imports, Go modules from `go.mod`), then each call through nested functions, the file's scope, `self`/`this`/the Go receiver plus inheritance, or the receiver's declared type (`repo.save()` with `repo: OrderRepo`) → `extracted`. A callee unique in the repo and not a common word is linked by name only → `inferred` (for a method, only when the receiver's name matches the class). Library calls are never guessed into repo code. Subsystems are Louvain communities (networkx, seeded so they stay stable). The graph is stored in `code_graphs`; `IGNITE_CODE_GRAPH=false` turns it off. The approach follows [Graphify](https://github.com/Graphify-Labs/graphify) (tree-sitter facts, confidence labels, communities); no Graphify code is used.
 - **Summary**: named subsystems (communities), hotspots (most-called functions), import cycles (deferred in-function and type-only imports ignored), design notes, and for every endpoint its handler and the services it reaches. Service attribution: a function that uses an alias imported from a known client library (or a module-level client built from one) uses that service; it follows `calls` edges so `place_order → save_order → SQLAlchemy` attributes PostgreSQL to the endpoint. Services are aligned to component view nodes.
 - **Confidence everywhere**: code graph links, component view nodes (env var or host guesses are inferred) and system map edges (endpoint-matched calls are extracted, name-only links are inferred and dashed).
 - **Queries** (`repos/codequery.py`, `api/code.py`): explain, path (BFS, reports the weakest hop), keyword query, change impact (files or diff hunks → changed symbols by line range → reverse traversal → endpoints → consumers from the system map → risk) and conflicts between change sets. Name resolution is strict: ambiguous → 409 with candidates, unknown → 404 with suggestions.
@@ -164,11 +167,11 @@ Missing items (agent instructions, overview, architecture, ownership, API contra
 - **Agents** decide their steps from goals and tools; the checks behind the tools are deterministic (`delivery/checks.py`), so offline runs and tests produce the same results:
   - Triage readiness scoring.
   - Coding handoff brief: start points ranked by word stems against the issue, impact computed from those functions.
-  - QA: test plan from the PR's diff, CI classification, and a retry decision capped by `FILAMENT_DELIVERY_MAX_RETRIES`.
+  - QA: test plan from the PR's diff, CI classification, and a retry decision capped by `IGNITE_DELIVERY_MAX_RETRIES`.
   - Review findings.
   - Release plan.
   - SRE multi-window burn rates (fast burn 14.4x over 5m and 1h pages; slow burn 6x over 1h and 6h tickets).
-- **Coding agents** stay external. The brief is served at `GET /tasks/{id}/handoff`, by `fil delivery handoff`, and to MCP clients through the Omni tools `filament_list_tasks`, `filament_get_task` and `filament_report_pr`. The GitHub webhook links a PR whose branch is `filament/<task id>-…` or whose description says `Filament-Task: <id>`, and records check runs on the PR and its test plan.
+- **Coding agents** stay external. The brief is served at `GET /tasks/{id}/handoff`, by `ign delivery handoff`, and to MCP clients through the Omni tools `ignite_list_tasks`, `ignite_get_task` and `ignite_report_pr`. The GitHub webhook links a PR whose branch is `ignite/<task id>-…` or whose description says `Ignite-Task: <id>`, and records check runs on the PR and its test plan.
 - **SLOs** are `slo` artifacts with samples (`POST /slos/{id}/samples`, from metrics pipelines or monitoring MCPs). The scheduler checks them every tick. When there's a breach during a rollout whose approved plan allows auto-rollback, the release is rolled back, an incident is opened for on-call, and a follow-up issue (`derives_from` the incident) goes back to triage. Open incidents aren't duplicated.
 - **Preview:** `scripts/demo_delivery.py` runs the real backend through the whole journey and records each step. The preview replays those steps in order.
 
@@ -181,7 +184,7 @@ Durable background runs (workflow engine), pgvector semantic memory, Jira and Li
 
 Modelled on a control plane / data plane split:
 
-- **Registry (control plane, `mcp_registry.py`)**: native MCP servers are synced by listing their tools (on add/test, `POST /mcp/{id}/sync`, and by the scheduler every `FILAMENT_MCP_SYNC_INTERVAL_HOURS`). Every repo scan turns the repo's API contract into a *generated* server (`api-<repo>`) with one tool per endpoint: path/query parameters and the request model become the input schema, the HTTP method decides `write`. Generated tools and tools that appear on a re-sync start **disabled**; changed descriptions or schemas wait in `pending` until an owner approves (`/mcp-tools/{id}/approve|reject|rollback`). A native server's first sync is enabled because the owner just added it.
-- **Invoke (data plane)**: agents, the CLI (`fil mcp call`), the API and the Omni endpoint all go through `invoke()`: enabled check, per-tool agent allow-list, rate limit, autonomy for writes, then the call (MCP for native servers; HTTP to the server's base URL, or the contract's example response when none is set, for generated ones), then projection to requested `fields`, redaction of PII and secrets, size cap and a `mcp_calls` row.
-- **Agents**: with few tools each is offered directly (plus an optional `_fields`); above `FILAMENT_MCP_DISCOVERY_THRESHOLD` (15) agents get `gateway_discover_servers`, `gateway_list_tools`, `gateway_get_schema` and `gateway_invoke` instead, so context stays small however many tools exist.
-- **Omni MCP** (`POST /api/workspaces/{ws}/mcp/omni`): a streamable-HTTP MCP server with the same four discovery tools, for Claude Code and other clients. Writes need `X-Filament-Autonomy` at or above the server's minimum.
+- **Registry (control plane, `mcp_registry.py`)**: native MCP servers are synced by listing their tools (on add/test, `POST /mcp/{id}/sync`, and by the scheduler every `IGNITE_MCP_SYNC_INTERVAL_HOURS`). Every repo scan turns the repo's API contract into a *generated* server (`api-<repo>`) with one tool per endpoint: path/query parameters and the request model become the input schema, the HTTP method decides `write`. Generated tools and tools that appear on a re-sync start **disabled**; changed descriptions or schemas wait in `pending` until an owner approves (`/mcp-tools/{id}/approve|reject|rollback`). A native server's first sync is enabled because the owner just added it.
+- **Invoke (data plane)**: agents, the CLI (`ign mcp call`), the API and the Omni endpoint all go through `invoke()`: enabled check, per-tool agent allow-list, rate limit, autonomy for writes, then the call (MCP for native servers; HTTP to the server's base URL, or the contract's example response when none is set, for generated ones), then projection to requested `fields`, redaction of PII and secrets, size cap and a `mcp_calls` row.
+- **Agents**: with few tools each is offered directly (plus an optional `_fields`); above `IGNITE_MCP_DISCOVERY_THRESHOLD` (15) agents get `gateway_discover_servers`, `gateway_list_tools`, `gateway_get_schema` and `gateway_invoke` instead, so context stays small however many tools exist.
+- **Omni MCP** (`POST /api/workspaces/{ws}/mcp/omni`): a streamable-HTTP MCP server with the same four discovery tools, for Claude Code and other clients. Writes need `X-Ignite-Autonomy` at or above the server's minimum.

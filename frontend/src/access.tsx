@@ -1,23 +1,77 @@
 // Sign-in, People & access (admins), project access, and personal tokens.
 import { useCallback, useEffect, useState } from 'react'
 import {
-  api, CHECKPOINT_ROLES, PROJECT_ROLES,
-  type ApiTokenRow, type AuditRow, type CheckpointRoleRow, type Me, type Person, type Project, type ProjectAccess, type Team,
+  api, CHECKPOINT_ROLES, DEMO, PROJECT_ROLES,
+  type ApiTokenRow, type AuthConfig, type AuditRow, type CheckpointRoleRow, type Me, type Person, type Project, type ProjectAccess, type Team,
 } from './api'
 import { ErrorLine } from './components'
 
 const label = (s: string) => s.replace(/_/g, ' ')
+const SOURCE: Record<string, string> = { local: 'Ignite account', ldap: 'directory', oidc: 'SSO' }
 
-export function SignIn({ error }: { error?: string }) {
+const clean = (e: unknown) => String(e).replace(/^Error: (\d{3}: )?/, '')
+
+export function SignIn({ error, onSignedIn }: { error?: string; onSignedIn: () => void }) {
+  const [conf, setConf] = useState<AuthConfig | null>(null)
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState(error ?? '')
+  useEffect(() => { api.authConfig().then(setConf).catch(e => setMsg(clean(e))) }, [])
   const next = typeof window === 'undefined' ? '/' : window.location.pathname + window.location.search.replace(/[?&]login_error=[^&]*/, '')
+  const ldap = conf?.methods.includes('ldap'), local = conf?.methods.includes('local')
+  const hint = ldap && local ? 'Your company account or an Ignite account' : ldap ? 'Your company (directory) account' : 'Your Ignite account'
+  async function submit(e: React.FormEvent) {
+    e.preventDefault(); setBusy(true); setMsg('')
+    try { await api.passwordLogin(username, password); setPassword(''); onSignedIn() } catch (err) { setMsg(clean(err)) } finally { setBusy(false) }
+  }
   return (
     <div className="signin">
       <div className="card">
-        <div className="brand"><span className="bulb" />Filament</div>
-        <p className="muted">Sign in with your company account. You'll see the projects and repos you have access to.</p>
-        {error && <p className="error">{error}</p>}
-        <a className="button" href={`/api/auth/login?next=${encodeURIComponent(next || '/')}`}>Sign in with SSO</a>
+        <div className="brand"><span className="bulb" />Ignite</div>
+        <p className="muted">Sign in to see the projects and repos you have access to.</p>
+        {msg && <p className="error" role="alert">{msg}</p>}
+        {conf?.password && (
+          <form onSubmit={submit} className="stack">
+            <label>Username<input autoComplete="username" value={username} onChange={e => setUsername(e.target.value)} autoFocus /></label>
+            <label>Password<input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} /></label>
+            <p className="muted small">{hint}</p>
+            <button disabled={busy || !username || !password}>{busy ? 'Signing in…' : 'Sign in'}</button>
+          </form>
+        )}
+        {conf?.password && conf.sso_url && <div className="or"><span>or</span></div>}
+        {conf?.sso_url && (DEMO
+          ? <button className={conf.password ? 'secondary' : ''} onClick={async () => { await api.passwordLogin('priya@acme.com', 'sso'); onSignedIn() }}>Sign in with SSO</button>
+          : <a className={conf.password ? 'button secondary-link' : 'button'} href={`${conf.sso_url}?next=${encodeURIComponent(next || '/')}`}>Sign in with SSO</a>)}
+        {DEMO && <p className="muted small">Preview: sign in as <b>admin</b> / <b>admin</b> (the account every new install starts with), or use SSO to come in as Priya.</p>}
       </div>
+    </div>
+  )
+}
+
+export function ChangePassword({ me, onDone }: { me: Me; onDone: () => void }) {
+  const [current, setCurrent] = useState('')
+  const [next, setNext] = useState('')
+  const [again, setAgain] = useState('')
+  const [msg, setMsg] = useState('')
+  const mismatch = again.length > 0 && next !== again
+  async function submit(e: React.FormEvent) {
+    e.preventDefault(); setMsg('')
+    try { await api.changePassword(current, next); onDone() } catch (err) { setMsg(clean(err)) }
+  }
+  return (
+    <div className="signin">
+      <form className="card stack" onSubmit={submit}>
+        <div className="brand"><span className="bulb" />Ignite</div>
+        <h2>Choose a new password</h2>
+        <p className="muted small">{me.username === 'admin' ? 'You signed in with the default admin password. Pick your own before going on; admin / admin stops working.' : 'You signed in with a one-time password. Pick your own before going on.'}</p>
+        {msg && <p className="error" role="alert">{msg}</p>}
+        <label>Current password<input type="password" autoComplete="current-password" value={current} onChange={e => setCurrent(e.target.value)} autoFocus /></label>
+        <label>New password<input type="password" autoComplete="new-password" value={next} onChange={e => setNext(e.target.value)} /></label>
+        <label>New password again<input type="password" autoComplete="new-password" value={again} onChange={e => setAgain(e.target.value)} /></label>
+        <p className={`small ${mismatch ? 'error' : 'muted'}`}>{mismatch ? "The new passwords don't match" : 'At least 12 characters, not easy to guess.'}</p>
+        <button disabled={!current || next.length < 12 || next !== again}>Save and continue</button>
+      </form>
     </div>
   )
 }
@@ -29,6 +83,10 @@ export function PeoplePage({ ws, projects }: { ws: string; projects: Project[] }
   const [roles, setRoles] = useState<CheckpointRoleRow[]>([])
   const [audit, setAudit] = useState<AuditRow[]>([])
   const [invite, setInvite] = useState({ email: '', role: 'member', github: '' })
+  const [local, setLocal] = useState({ username: '', name: '', role: 'member' })
+  const [secret, setSecret] = useState<{ who: string; password: string } | null>(null)
+  const [methods, setMethods] = useState<string[]>([])
+  useEffect(() => { api.authConfig().then(c => setMethods(c.methods)).catch(() => {}) }, [])
   const [assign, setAssign] = useState({ user: '', role: 'product_owner', project: '' })
   const [newTeam, setNewTeam] = useState('')
   const [error, setError] = useState('')
@@ -46,8 +104,15 @@ export function PeoplePage({ ws, projects }: { ws: string; projects: Project[] }
   return (
     <div className="page">
       <h1>People & access</h1>
-      <p className="muted">People sign in with the company SSO. Open projects are visible to everyone in the workspace; restricted projects only to their members and teams. Private repos follow GitHub: someone sees one if they can read it there (set their GitHub username below), otherwise only with a role on its project.</p>
+      <p className="muted">People sign in with {[methods.includes('local') && 'Ignite accounts', methods.includes('ldap') && 'the company directory (LDAP)', methods.includes('oidc') && 'the company SSO'].filter(Boolean).join(', ') || 'an account'}. Open projects are visible to everyone in the workspace; restricted projects only to their members and teams. Private repos follow GitHub: someone sees one if they can read it there (set their GitHub username below), otherwise only with a role on its project.</p>
       <ErrorLine error={error} />
+      {secret && (
+        <section className="card warn">
+          <p className="small">One-time password for <b>{secret.who}</b>. Share it privately; they choose their own at first sign-in. It isn't shown again.</p>
+          <code className="token">{secret.password}</code>
+          <div className="row"><button className="secondary small" onClick={() => { navigator.clipboard?.writeText(secret.password).catch(() => {}) }}>Copy</button><button className="link small" onClick={() => setSecret(null)}>Done</button></div>
+        </section>
+      )}
 
       <section className="card">
         <h3>People</h3>
@@ -57,7 +122,7 @@ export function PeoplePage({ ws, projects }: { ws: string; projects: Project[] }
             <tbody>
               {people.map(p => (
                 <tr key={p.id} className={p.active ? '' : 'disabled'}>
-                  <td><b>{p.name || p.email}</b><div className="muted small">{p.email}{p.last_login_at ? '' : ' · not signed in yet'}</div></td>
+                  <td><b>{p.name || p.email || p.username}</b><div className="muted small">{p.username && p.auth_source === 'local' ? p.username : p.email}{' · '}{SOURCE[p.auth_source] ?? p.auth_source}{p.last_login_at ? '' : ' · not signed in yet'}{p.locked ? ' · locked' : ''}{p.must_change_password ? ' · must set a password' : ''}</div></td>
                   <td>
                     {p.is_admin ? <span className="badge badge-approved">admin</span> : (
                       <select aria-label={`Workspace role for ${p.email}`} value={p.workspace_role ?? 'none'} onChange={e => act(() => api.updatePerson(ws, p.id, { workspace_role: e.target.value }))}>
@@ -70,7 +135,10 @@ export function PeoplePage({ ws, projects }: { ws: string; projects: Project[] }
                       onBlur={e => e.target.value !== (p.github_login ?? '') && act(() => api.updatePerson(ws, p.id, { github_login: e.target.value }))} />
                   </td>
                   <td className="small">{p.teams.map(t => <span key={t.team_id} className="chip" title={t.source === 'sso' ? 'From an SSO group' : 'Added by an admin'}>{teamName(t.team_id)} · {t.role}{t.source === 'sso' ? ' · SSO' : ''}</span>)}</td>
-                  <td><button className="secondary small" onClick={() => act(() => api.updatePerson(ws, p.id, { active: !p.active }))}>{p.active ? 'Disable' : 'Enable'}</button></td>
+                  <td className="actions">
+                    <button className="secondary small" onClick={() => act(() => api.updatePerson(ws, p.id, { active: !p.active }))}>{p.active ? 'Disable' : 'Enable'}</button>
+                    {p.auth_source === 'local' && <button className="link small" onClick={() => act(async () => { const r = await api.resetPassword(ws, p.id); setSecret({ who: p.username ?? p.email, password: r.temporary_password }) })}>{p.locked ? 'Unlock / reset password' : 'Reset password'}</button>}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -80,13 +148,30 @@ export function PeoplePage({ ws, projects }: { ws: string; projects: Project[] }
           <input value={invite.email} onChange={e => setInvite({ ...invite, email: e.target.value })} placeholder="name@company.com" />
           <input value={invite.github} onChange={e => setInvite({ ...invite, github: e.target.value })} placeholder="GitHub username (optional)" />
           <select value={invite.role} onChange={e => setInvite({ ...invite, role: e.target.value })}><option value="member">member</option><option value="admin">admin</option></select>
-          <button disabled={!invite.email.includes('@')} onClick={() => act(async () => { await api.invite(ws, invite.email, invite.role, invite.github || null); setInvite({ email: '', role: 'member', github: '' }) })}>Add person</button>
+          <button disabled={!invite.email.includes('@')} onClick={() => act(async () => { await api.invite(ws, invite.email, invite.role, invite.github || null); setInvite({ email: '', role: 'member', github: '' }) })}>Invite</button>
         </div>
+        <p className="muted small">Invite people from the directory or SSO by email; their roles apply when they first sign in.</p>
+        {methods.includes('local') && (
+          <>
+            <h4>Ignite account</h4>
+            <p className="muted small">For people outside the directory, like contractors or service users. They get a one-time password.</p>
+            <div className="row">
+              <input value={local.username} onChange={e => setLocal({ ...local, username: e.target.value })} placeholder="username" aria-label="Username" />
+              <input value={local.name} onChange={e => setLocal({ ...local, name: e.target.value })} placeholder="Full name" aria-label="Full name" />
+              <select aria-label="Workspace role for the new account" value={local.role} onChange={e => setLocal({ ...local, role: e.target.value })}><option value="member">member</option><option value="admin">admin</option></select>
+              <button className="secondary" disabled={!local.username.trim()} onClick={() => act(async () => {
+                const u = await api.createLocalAccount(ws, local.username.trim(), local.name.trim(), '', local.role)
+                if (u.temporary_password) setSecret({ who: u.username ?? local.username, password: u.temporary_password })
+                setLocal({ username: '', name: '', role: 'member' })
+              })}>Create account</button>
+            </div>
+          </>
+        )}
       </section>
 
       <section className="card">
-        <h3>Teams and SSO groups</h3>
-        <p className="muted small">Everyone in a team's SSO group joins the team when they sign in, and leaves it when they're removed from the group. A team gives its members a role on the team's projects.</p>
+        <h3>Teams and groups</h3>
+        <p className="muted small">Everyone in a team's directory (LDAP) or SSO group joins the team when they sign in, and leaves it when they're removed from the group. A team gives its members a role on the team's projects.</p>
         <ul className="plain">
           {teams.map(t => <TeamRow key={t.id} team={t} onSave={(g, r) => act(() => api.setTeamGroup(ws, t.id, g, r))} />)}
         </ul>
@@ -144,7 +229,7 @@ function TeamRow({ team, onSave }: { team: Team; onSave: (group: string, role: s
   return (
     <li className="row nowrap">
       <b className="team-name">{team.name}</b>
-      <input aria-label={`SSO group for ${team.name}`} value={group} onChange={e => setGroup(e.target.value)} placeholder="SSO group, e.g. eng-payments" />
+      <input aria-label={`SSO group for ${team.name}`} value={group} onChange={e => setGroup(e.target.value)} placeholder="Directory or SSO group, e.g. eng-payments" />
       <select aria-label={`Role for ${team.name}`} value={role} onChange={e => setRole(e.target.value)}>
         {['viewer', 'contributor', 'maintainer'].map(r => <option key={r}>{r}</option>)}
       </select>
@@ -237,7 +322,7 @@ export function TokensPage() {
   return (
     <div className="page">
       <h1>My tokens</h1>
-      <p className="muted">Personal tokens let the <code>fil</code> CLI and MCP clients (Claude Code, Omni) act as you, with your access. Set <code>FILAMENT_TOKEN</code> to use one.</p>
+      <p className="muted">Personal tokens let the <code>ign</code> CLI and MCP clients (Claude Code, Omni) act as you, with your access. Set <code>IGNITE_TOKEN</code> to use one.</p>
       <ErrorLine error={error} />
       {made && (
         <section className="card warn">

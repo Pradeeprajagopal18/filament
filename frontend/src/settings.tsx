@@ -295,7 +295,7 @@ export function RunnersPage({ ws }: { ws: string }) {
           </select>
           <button disabled={!newRunner.name.trim()} onClick={addRunner}>Add runner</button>
         </div>
-        <p className="muted small">Runs for a non-inline runner wait in its queue until a worker picks them up: <code>fil runner start &lt;name&gt;</code> on the machine, container or pod where it should run.</p>
+        <p className="muted small">Runs for a non-inline runner wait in its queue until a worker picks them up: <code>ign runner start &lt;name&gt;</code> on the machine, container or pod where it should run.</p>
         {!showYaml && <ErrorLine error={error} />}
       </section>
     </div>

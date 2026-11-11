@@ -1,5 +1,5 @@
 // MCP gateway: one place that decides which tools agents can reach. Native MCP servers and
-// servers Filament generates from your repos' APIs share a registry (tools start off until an
+// servers Ignite generates from your repos' APIs share a registry (tools start off until an
 // owner enables them), policy, response trimming, redaction and call metrics.
 import { useCallback, useEffect, useState } from 'react'
 import { api, DEMO } from './api'
@@ -34,7 +34,7 @@ export function GatewayPage({ ws }: { ws: string }) {
   return (
     <div className="page">
       <h1>MCP gateway</h1>
-      <p className="muted">Every tool agents can call goes through here: third-party MCP servers you add under Connectors, and servers Filament generates from your repos' APIs. Tools start off until an owner enables them, then policy, rate limits, response trimming and redaction apply to every call.</p>
+      <p className="muted">Every tool agents can call goes through here: third-party MCP servers you add under Connectors, and servers Ignite generates from your repos' APIs. Tools start off until an owner enables them, then policy, rate limits, response trimming and redaction apply to every call.</p>
       <div className="stats">
         <div><b>{servers.length}</b><span>servers</span></div>
         <div><b>{enabled}<small>/{tools}</small></b><span>tools enabled</span></div>
@@ -277,27 +277,27 @@ function Activity({ ws, metrics }: { ws: string; metrics: GatewayMetrics | null 
 }
 
 function Connect({ ws }: { ws: string }) {
-  const origin = DEMO ? 'https://filament.your-company.internal' : window.location.origin
+  const origin = DEMO ? 'https://ignite.your-company.internal' : window.location.origin
   const url = `${origin}/api/workspaces/${ws}/mcp/omni`
   return (
     <>
       <section className="card">
         <h3>One MCP endpoint for everything</h3>
         <p className="small">Point Claude Code, an IDE or any MCP client at the gateway instead of installing servers one by one. It exposes four tools (discover servers, list tools, get a schema, invoke) over every enabled tool, with the same policy, trimming and redaction.</p>
-        <pre className="json">claude mcp add --transport http filament {url}</pre>
-        <p className="muted small">Calls are read-only unless the client sends <code>X-Filament-Autonomy: L3</code> (or the server's minimum) for write tools.</p>
+        <pre className="json">claude mcp add --transport http ignite {url}</pre>
+        <p className="muted small">Calls are read-only unless the client sends <code>X-Ignite-Autonomy: L3</code> (or the server's minimum) for write tools.</p>
       </section>
       <section className="card">
         <h3>Code Mode from the terminal</h3>
-        <pre className="json">{`fil mcp search "cart"
-fil mcp enable api-checkout-api get_cart
-fil mcp call api-checkout-api get_cart --arg cart_id=c1 --fields id,total -o cart.json
-fil mcp metrics`}</pre>
+        <pre className="json">{`ign mcp search "cart"
+ign mcp enable api-checkout-api get_cart
+ign mcp call api-checkout-api get_cart --arg cart_id=c1 --fields id,total -o cart.json
+ign mcp metrics`}</pre>
         <p className="muted small">Results can go to a file and be trimmed to the fields you need, so large responses never enter a model's context.</p>
       </section>
       <section className="card">
-        <h3>Filament's own agents</h3>
-        <p className="small">With a handful of tools, agents see each one directly. Above the discovery threshold (15 by default, <code>FILAMENT_MCP_DISCOVERY_THRESHOLD</code>), they get the same four discovery tools instead, so hundreds of tools don't flood their context.</p>
+        <h3>Ignite's own agents</h3>
+        <p className="small">With a handful of tools, agents see each one directly. Above the discovery threshold (15 by default, <code>IGNITE_MCP_DISCOVERY_THRESHOLD</code>), they get the same four discovery tools instead, so hundreds of tools don't flood their context.</p>
       </section>
     </>
   )

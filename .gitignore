@@ -17,5 +17,5 @@ dist/
 .idea/
 .vscode/
 dist-demo/
-.filament-data/
+.ignite-data/
 graphify-out/

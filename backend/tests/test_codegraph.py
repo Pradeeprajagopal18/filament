@@ -1,5 +1,5 @@
 # ruff: noqa: E501  (fixture source files are embedded verbatim)
-"""Code graph (Filament's own tree-sitter extractor): per-language facts and resolution,
+"""Code graph (Ignite's own tree-sitter extractor): per-language facts and resolution,
 handler-level services, notes as memory, explain/path/query, change and PR impact, conflicts,
 data model, agent and Omni tools, incremental scans."""
 
@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from filament.repos import codegraph, codeindex, codequery
+from igniteai.repos import codegraph, codeindex, codequery
 from tests.test_config import register, run, scripted  # noqa: F401
 
 pytestmark = pytest.mark.skipif(not codegraph.available(), reason="tree-sitter grammars not installed")
@@ -201,7 +201,7 @@ def test_one_bad_call_does_not_fail_the_scan(tmp_path, monkeypatch):
 def test_handler_level_services_notes_and_subsystems(client, ws, repos):
     api, _, _ = repos
     code = api["analysis"]["code"]
-    assert code["engine"] == "filament" and code["symbols"] >= 6
+    assert code["engine"] == "ignite" and code["symbols"] >= 6
     place = code["endpoints"]["POST /v1/orders"]["services"]
     assert [(s["label"], s["via"]) for s in place] == [("Kafka", "publish()")]
     refund = code["endpoints"]["POST /v1/orders/{order_id}/refund"]["services"]
@@ -315,16 +315,16 @@ def test_agent_and_omni_code_tools(client, ws, repos, register):  # noqa: F811
 
 def test_scheduled_rescan_skips_unchanged_commit(client, repos, monkeypatch):
     api, _, _ = repos
-    from filament.db import get_session  # noqa: F401
-    from filament.repos import service
+    from igniteai.db import get_session  # noqa: F401
+    from igniteai.repos import service
 
-    monkeypatch.setattr("filament.readiness.scanner.remote_head", lambda ref: "abc123")
+    monkeypatch.setattr("igniteai.readiness.scanner.remote_head", lambda ref: "abc123")
     calls = []
     monkeypatch.setattr(service, "analyze", lambda ref: calls.append(ref) or {})
     # Pretend the last scan saw the same commit, then run a scheduled scan.
     gen = client.app.dependency_overrides
     session = next(next(iter(gen.values()))())
-    from filament.models import RepoRecord
+    from igniteai.models import RepoRecord
 
     record = session.get(RepoRecord, api["id"])
     record.commit = "abc123"

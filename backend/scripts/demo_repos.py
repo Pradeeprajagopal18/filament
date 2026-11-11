@@ -11,11 +11,11 @@ from pathlib import Path
 
 import yaml
 
-from filament.repos.analyze import analyze_path
-from filament.repos.diff import compare as diff_compare
-from filament.repos.generate import build, conventions, diagrams_for
-from filament.repos.system import RepoView
-from filament.repos.system import build as build_system
+from igniteai.repos.analyze import analyze_path
+from igniteai.repos.diff import compare as diff_compare
+from igniteai.repos.generate import build, conventions, diagrams_for
+from igniteai.repos.system import RepoView
+from igniteai.repos.system import build as build_system
 
 REPOS: dict[str, dict[str, str]] = {
     "github.com/acme/checkout-api": {
@@ -304,7 +304,7 @@ def analyze_files(ref: str, files: dict[str, str]) -> dict:
 def main(out: Path) -> None:
     import os
 
-    os.environ.setdefault("FILAMENT_DATA_DIR", tempfile.mkdtemp(prefix="filament-demo-"))
+    os.environ.setdefault("IGNITE_DATA_DIR", tempfile.mkdtemp(prefix="ignite-demo-"))
     results = []
     analyses = {}
     for ref, files in REPOS.items():

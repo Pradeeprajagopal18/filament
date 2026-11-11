@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { PeoplePage, SignIn, TokensPage } from './access'
-import { api, DEMO, SIGNED_OUT, type Health, type Me, type Project, type Workspace } from './api'
+import { ChangePassword, PeoplePage, SignIn, TokensPage } from './access'
+import { api, DEMO, MUST_CHANGE, SIGNED_OUT, type Health, type Me, type Project, type Workspace } from './api'
 import { DEMO_PEOPLE, demoViewAs } from './demo'
 import { GatewayPage } from './gateway'
 import { LaunchpadPage } from './launchpad'
@@ -13,7 +13,7 @@ type View = { kind: 'project'; project: Project } | { kind: 'memory' | 'ask' | '
 const ADMIN_ONLY = new Set<View['kind']>(['usage', 'connectors', 'gateway', 'runners', 'people'])
 
 const NAV: { kind: Exclude<View['kind'], 'project'>; label: string }[] = [
-  { kind: 'ask', label: 'Ask Filament' },
+  { kind: 'ask', label: 'Ask Ignite' },
   { kind: 'memory', label: 'Shared memory' },
   { kind: 'launchpad', label: 'Launchpad' },
   { kind: 'gaps', label: "What we're missing" },
@@ -28,7 +28,7 @@ const NAV: { kind: Exclude<View['kind'], 'project'>; label: string }[] = [
 export default function App() {
   const [health, setHealth] = useState<Health | null>(null)
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
-  const [ws, setWs] = useState<string>(() => localStorageGet('filament.ws'))
+  const [ws, setWs] = useState<string>(() => localStorageGet('ignite.ws'))
   const [projects, setProjects] = useState<Project[]>([])
   const [view, setView] = useState<View>({ kind: 'ask' })
   const [menuOpen, setMenuOpen] = useState(false)
@@ -36,12 +36,12 @@ export default function App() {
   const [error, setError] = useState('')
   const [me, setMe] = useState<Me | null>(null)
   const [signedOut, setSignedOut] = useState(false)
-  const [asUser, setAsUser] = useState('u-priya')
+  const [asUser, setAsUser] = useState('u-admin')
   const loginError = new URLSearchParams(window.location.search).get('login_error') ?? ''
 
   const loadAll = useCallback(() => {
-    api.health().then(setHealth).catch(() => setError('Cannot reach the Filament API. Start it with `make dev-api`.'))
-    api.me().then(m => { setMe(m); setSignedOut(false) }).catch(() => {})
+    api.health().then(setHealth).catch(() => setError('Cannot reach the Ignite API. Start it with `make dev-api`.'))
+    api.me().then(m => { setMe(m); setSignedOut(false); setAsUser(u => m.id ?? u) }).catch(e => { if (String(e).includes('401')) setSignedOut(true) })
     api.workspaces().then(async list => {
       if (list.length === 0) list = [await api.createWorkspace('My workspace')]
       setWorkspaces(list)
@@ -51,11 +51,13 @@ export default function App() {
   useEffect(() => { loadAll() }, [loadAll])
   useEffect(() => {
     const out = () => setSignedOut(true)
+    const change = () => { api.me().then(setMe).catch(() => {}) }
     window.addEventListener(SIGNED_OUT, out)
-    return () => window.removeEventListener(SIGNED_OUT, out)
+    window.addEventListener(MUST_CHANGE, change)
+    return () => { window.removeEventListener(SIGNED_OUT, out); window.removeEventListener(MUST_CHANGE, change) }
   }, [])
   const isAdmin = !me || me.mode === 'none' || !!me.workspaces.find(w => w.id === ws && w.role === 'admin')
-  const nav = NAV.filter(n => (isAdmin || !ADMIN_ONLY.has(n.kind)) && (n.kind !== 'tokens' || me?.mode === 'oidc') && (n.kind !== 'people' || me?.mode === 'oidc'))
+  const nav = NAV.filter(n => (isAdmin || !ADMIN_ONLY.has(n.kind)) && (n.kind !== 'tokens' || me?.mode === 'login') && (n.kind !== 'people' || me?.mode === 'login'))
   function switchUser(u: string) {
     demoViewAs(u); setAsUser(u); setView({ kind: 'launchpad' }); setMenuOpen(false); loadAll()
   }
@@ -70,7 +72,7 @@ export default function App() {
     })
   }, [ws, asUser]) // eslint-disable-line react-hooks/exhaustive-deps -- reload when the preview user changes
   const go = (v: View) => { setView(v); setMenuOpen(false) }
-  useEffect(() => { loadProjects(); localStorageSet('filament.ws', ws) }, [ws, loadProjects])
+  useEffect(() => { loadProjects(); localStorageSet('ignite.ws', ws) }, [ws, loadProjects])
 
   async function addProject() {
     const p = await api.createProject(ws, newProject, '')
@@ -79,16 +81,17 @@ export default function App() {
     go({ kind: 'project', project: p })
   }
 
-  if (signedOut && !DEMO) return <SignIn error={loginError} />
+  if (signedOut) return <SignIn error={loginError} onSignedIn={() => { setView({ kind: 'launchpad' }); loadAll() }} />
+  if (me?.must_change_password) return <ChangePassword me={me} onDone={loadAll} />
 
   return (
     <div className="app">
       <div className="topbar">
         <button className="menu-btn" aria-label="Menu" onClick={() => setMenuOpen(o => !o)}>☰</button>
-        <div className="brand"><span className="bulb" />Filament</div>
+        <div className="brand"><span className="bulb" />Ignite</div>
       </div>
       <aside className={menuOpen ? 'open' : ''}>
-        <div className="brand"><span className="bulb" />Filament</div>
+        <div className="brand"><span className="bulb" />Ignite</div>
         <select value={ws} onChange={e => setWs(e.target.value)}>
           {workspaces.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
         </select>
@@ -108,14 +111,15 @@ export default function App() {
           <input value={newProject} onChange={e => setNewProject(e.target.value)} placeholder="New project"
             onKeyDown={e => e.key === 'Enter' && newProject.trim() && addProject()} />
         </div>
-        {me && me.mode === 'oidc' && (
+        {me && me.mode === 'login' && (
           <div className="me">
-            <div><b>{me.name || me.email}</b><div className="muted small">{me.email}{isAdmin ? ' · admin' : ''}</div></div>
-            {DEMO ? (
+            <div><b>{me.name || me.email}</b><div className="muted small">{me.email || me.username}{isAdmin ? ' · admin' : ''}</div></div>
+            {DEMO && (
               <label className="small">View as <select value={asUser} onChange={e => switchUser(e.target.value)}>
                 {DEMO_PEOPLE().map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
               </select></label>
-            ) : <button className="link small" onClick={async () => { await api.logout().catch(() => {}); setSignedOut(true) }}>Sign out</button>}
+            )}
+            <button className="link small" onClick={async () => { await api.logout().catch(() => {}); setMe(null); setSignedOut(true) }}>Sign out</button>
           </div>
         )}
         {health && (

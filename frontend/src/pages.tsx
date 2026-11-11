@@ -20,7 +20,7 @@ export function ProjectPage({ project, ws, me }: { project: Project; ws: string;
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={tab === 'delivery'} className={tab === 'delivery' ? 'active' : ''} onClick={() => setTab('delivery')}>Delivery</button>
         <button role="tab" aria-selected={tab === 'design'} className={tab === 'design' ? 'active' : ''} onClick={() => setTab('design')}>Design & graph</button>
-        {me?.mode === 'oidc' && <button role="tab" aria-selected={tab === 'access'} className={tab === 'access' ? 'active' : ''} onClick={() => setTab('access')}>Access</button>}
+        {me?.mode === 'login' && <button role="tab" aria-selected={tab === 'access'} className={tab === 'access' ? 'active' : ''} onClick={() => setTab('access')}>Access</button>}
       </div>
       {tab === 'delivery' && <DeliveryTab project={project} />}
       {tab === 'design' && <ProjectDesign project={project} />}
@@ -203,7 +203,7 @@ export function RunLog({ run }: { run: Run }) {
       </div>
       {summary && <p className="summary">{summary}</p>}
       {run.error && <p className="error">{run.error}</p>}
-      {run.status === 'queued' && <p className="muted">Waiting for a worker on runner <code>{run.config?.runner}</code>. Start one with <code>fil runner start {run.config?.runner}</code>.</p>}
+      {run.status === 'queued' && <p className="muted">Waiting for a worker on runner <code>{run.config?.runner}</code>. Start one with <code>ign runner start {run.config?.runner}</code>.</p>}
       <div className="stats">
         <div><b>{run.turns}</b><span>turns</span></div>
         <div><b><Tokens n={run.input_tokens} /></b><span>input tokens</span></div>
@@ -286,7 +286,7 @@ export function MemoryPage({ ws }: { ws: string }) {
   )
 }
 
-// -- Ask Filament ----------------------------------------------------------------------
+// -- Ask Ignite ----------------------------------------------------------------------
 export function AskPage({ ws }: { ws: string }) {
   const [q, setQ] = useState('')
   const [history, setHistory] = useState<{ q: string; a: string; c: string[]; ok: boolean }[]>([])
@@ -297,7 +297,7 @@ export function AskPage({ ws }: { ws: string }) {
   }
   return (
     <div className="page">
-      <h1>Ask Filament</h1>
+      <h1>Ask Ignite</h1>
       <p className="muted">Answers come from shared memory and the project graph, with sources. Questions nobody can answer become gaps.</p>
       <section className="card row">
         <input value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => e.key === 'Enter' && q.trim() && ask()}
@@ -345,7 +345,7 @@ export function UsagePage({ ws }: { ws: string }) {
             })}
           </tbody>
         </table>
-        {rows.some(r => r.cost_usd == null) && <p className="muted small">Cost shows once model pricing is set in FILAMENT_PRICING.</p>}
+        {rows.some(r => r.cost_usd == null) && <p className="muted small">Cost shows once model pricing is set in IGNITE_PRICING.</p>}
       </section>
     </div>
   )

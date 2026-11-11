@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from filament.readiness import fix_files, grade_for, scan
+from igniteai.readiness import fix_files, grade_for, scan
 
 
 def test_empty_repo_fails_and_gets_fixes(tmp_path: Path):

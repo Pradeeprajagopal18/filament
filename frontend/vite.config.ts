@@ -14,7 +14,7 @@ export default defineConfig({
         target,
         configure: proxy => {
           proxy.on('error', (err: NodeJS.ErrnoException) => {
-            console.error(`\n[filament] Can't reach the API at ${target} (${err.code ?? err.message}). ` +
+            console.error(`\n[ignite] Can't reach the API at ${target} (${err.code ?? err.message}). ` +
               'Is `make dev-api` running? If it uses another port, start the UI with API_PORT=<port> make dev-web.\n')
           })
         },

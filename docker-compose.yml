@@ -3,9 +3,9 @@ services:
   db:
     image: pgvector/pgvector:pg16
     environment:
-      POSTGRES_USER: filament
-      POSTGRES_PASSWORD: filament
-      POSTGRES_DB: filament
+      POSTGRES_USER: ignite
+      POSTGRES_PASSWORD: ignite
+      POSTGRES_DB: ignite
     ports: ["5432:5432"]
     volumes: [pgdata:/var/lib/postgresql/data]
 
@@ -15,15 +15,15 @@ services:
       args:
         PIP_INDEX_URL: ${PIP_INDEX_URL:-}
         PIP_TRUSTED_HOST: ${PIP_TRUSTED_HOST:-}
-    # Every FILAMENT_* setting, ANTHROPIC_* and proxy variables in .env reach the container.
+    # Every IGNITE_* setting, ANTHROPIC_* and proxy variables in .env reach the container.
     env_file:
       - path: .env
         required: false
     environment:
-      FILAMENT_DATABASE_URL: postgresql+psycopg://filament:filament@db:5432/filament
-      FILAMENT_CORS_ORIGINS: '["http://localhost:5173"]'
+      IGNITE_DATABASE_URL: postgresql+psycopg://ignite:ignite@db:5432/ignite
+      IGNITE_CORS_ORIGINS: '["http://localhost:5173"]'
     ports: ["8000:8000"]
-    volumes: [filament-data:/data]
+    volumes: [ignite-data:/data]
     depends_on: [db]
 
   web:
@@ -38,4 +38,4 @@ services:
 
 volumes:
   pgdata:
-  filament-data:
+  ignite-data:

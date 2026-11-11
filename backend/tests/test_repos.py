@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from filament.repos.analyze import analyze_path
+from igniteai.repos.analyze import analyze_path
 
 
 def write(root: Path, files: dict[str, str]) -> Path:

@@ -3,7 +3,7 @@
 Runs the real backend (offline agents, GitHub mocked) through one work item's journey, from
 triage to an SLO breach that rolls back the release and files a follow-up, and writes every
 step's response and resulting board to frontend/src/demo-delivery.json. The preview plays the
-steps back in order, so what it shows is what Filament actually produces.
+steps back in order, so what it shows is what Ignite actually produces.
 
     .venv/bin/python scripts/demo_delivery.py
 """
@@ -17,10 +17,10 @@ import tempfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-os.environ["FILAMENT_DATABASE_URL"] = "sqlite://"
+os.environ["IGNITE_DATABASE_URL"] = "sqlite://"
 os.environ.pop("ANTHROPIC_API_KEY", None)
-os.environ["FILAMENT_REPO_SCHEDULER_ENABLED"] = "false"
-os.environ["FILAMENT_DATA_DIR"] = tempfile.mkdtemp(prefix="filament-demo-")
+os.environ["IGNITE_REPO_SCHEDULER_ENABLED"] = "false"
+os.environ["IGNITE_DATA_DIR"] = tempfile.mkdtemp(prefix="ignite-demo-")
 sys.path.insert(0, str(Path(__file__).parent))
 
 from demo_repos import REPOS, write  # noqa: E402
@@ -28,9 +28,9 @@ from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy.orm import sessionmaker  # noqa: E402
 from sqlalchemy.pool import StaticPool  # noqa: E402
 
-from filament.db import Base, get_session, make_engine  # noqa: E402
-from filament.delivery import github  # noqa: E402
-from filament.main import create_app  # noqa: E402
+from igniteai.db import Base, get_session, make_engine  # noqa: E402
+from igniteai.delivery import github  # noqa: E402
+from igniteai.main import create_app  # noqa: E402
 
 OUT = Path(__file__).resolve().parents[2] / "frontend" / "src" / "demo-delivery.json"
 PR_URL = "https://github.com/acme/checkout-api/pull/42"
@@ -67,7 +67,7 @@ github.check_runs = lambda url, sha=None: GH["checks"]
 
 def main() -> None:
     engine = make_engine("sqlite://", poolclass=StaticPool)
-    from filament import models  # noqa: F401
+    from igniteai import models  # noqa: F401
 
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)

@@ -1,4 +1,4 @@
-// Typed client for the Filament API (same endpoints the CLI uses).
+// Typed client for the Ignite API (same endpoints the CLI uses).
 
 export interface Workspace { id: string; name: string }
 export interface Project { id: string; workspace_id: string; name: string; description: string; restricted?: boolean; team_id?: string | null }
@@ -177,14 +177,17 @@ export interface AgentSetting {
   token_budget: number; context_budget: number; overridden: string[]
 }
 // -- sign-in and access --------------------------------------------------------------------------
+export interface AuthConfig { mode: 'none' | 'login'; methods: ('local' | 'ldap' | 'oidc')[]; password: boolean; sso_url: string | null }
 export interface Me {
-  mode: 'none' | 'oidc'; id: string | null; email: string; name: string; is_admin: boolean
+  mode: 'none' | 'login'; id: string | null; email: string; name: string; is_admin: boolean
+  username: string | null; auth_source: 'local' | 'ldap' | 'oidc'; must_change_password: boolean
   github_login: string | null; via: string
   workspaces: { id: string; name: string; role: 'admin' | 'member' }[]
   checkpoint_roles: { workspace_id: string; project_id: string | null; role: string }[]
 }
 export interface Person {
-  id: string; email: string; name: string; github_login: string | null; is_admin: boolean; active: boolean
+  id: string; email: string; name: string; username: string | null; auth_source: 'local' | 'ldap' | 'oidc'
+  locked: boolean; must_change_password: boolean; temporary_password?: string; github_login: string | null; is_admin: boolean; active: boolean
   groups: string[]; last_login_at: string | null; workspace_role: 'admin' | 'member' | null
   teams: { team_id: string; role: string; source: string }[]; projects: { project_id: string; role: string }[]
 }
@@ -201,9 +204,12 @@ export const CHECKPOINT_ROLES = ['product_owner', 'tech_lead', 'engineer', 'rele
 export const PROJECT_ROLES = ['viewer', 'contributor', 'maintainer', 'owner'] as const
 
 /** Fired when the API says the session is missing or expired, so the shell shows sign-in. */
-export const SIGNED_OUT = 'filament:signed-out'
+export const SIGNED_OUT = 'ignite:signed-out'
+/** Fired when a temporary password (like the first admin / admin) has to be changed first. */
+export const MUST_CHANGE = 'ignite:must-change-password'
 function checkAuth(res: Response) {
-  if (res.status === 401) window.dispatchEvent(new Event(SIGNED_OUT))
+  if (res.status === 401 && !res.url.endsWith('/auth/login') && !res.url.endsWith('/auth/password')) window.dispatchEvent(new Event(SIGNED_OUT))
+  if (res.status === 403) res.clone().json().then(b => { if (b?.detail === 'password_change_required') window.dispatchEvent(new Event(MUST_CHANGE)) }).catch(() => {})
 }
 
 export interface Health { status: string; offline: boolean; model: string; version: string }
@@ -264,6 +270,12 @@ const httpApi = {
   createProject: (ws: string, name: string, description: string, restricted = false) =>
     call<Project>('POST', `/workspaces/${ws}/projects`, { name, description, restricted }),
   me: () => call<Me>('GET', '/auth/me'),
+  authConfig: () => call<AuthConfig>('GET', '/auth/config'),
+  passwordLogin: (username: string, password: string) => call<{ ok: boolean; must_change_password: boolean }>('POST', '/auth/login', { username, password }),
+  changePassword: (current: string, next: string) => call<{ ok: boolean }>('POST', '/auth/password', { current, new: next }),
+  resetPassword: (ws: string, id: string) => call<{ temporary_password: string; note: string }>('POST', `/workspaces/${ws}/people/${id}/reset-password`),
+  createLocalAccount: (ws: string, username: string, name: string, email: string, workspace_role: string) =>
+    call<Person>('POST', `/workspaces/${ws}/people`, { local_username: username, name, email, workspace_role }),
   logout: () => call<{ ok: boolean }>('POST', '/auth/logout'),
   tokens: () => call<ApiTokenRow[]>('GET', '/auth/tokens'),
   createToken: (name: string, days: number | null) => call<{ id: string; token: string; note: string }>('POST', '/auth/tokens', { name, days }),

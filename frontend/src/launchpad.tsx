@@ -1,6 +1,6 @@
 // Launchpad: onboard any repo (app, API, frontend, infrastructure, config, library), see what it is,
 // what it needs, its API contract, mock UI, components, who depends on it and how it changes over
-// time. Filament never writes to these repos: what it creates is kept as references in Filament.
+// time. Ignite never writes to these repos: what it creates is kept as references in Ignite.
 import { useEffect, useMemo, useState } from 'react'
 import { api, DEMO } from './api'
 import type { Artifact, Check, Endpoint, Impact, JsonSchema, MapDirection, RepoDetail, RepoScan, RepoSummary, SystemMap, UiElement } from './api'
@@ -67,7 +67,7 @@ export function LaunchpadPage({ ws }: { ws: string }) {
   return (
     <div className="page">
       <h1>Launchpad</h1>
-      <p className="muted">Onboard any repo: an app, an API, a frontend, infrastructure or config. Filament works out what it is, checks what matters for that kind of repo, documents its API, screens and dependencies, and rescans it to keep that knowledge current.</p>
+      <p className="muted">Onboard any repo: an app, an API, a frontend, infrastructure or config. Ignite works out what it is, checks what matters for that kind of repo, documents its API, screens and dependencies, and rescans it to keep that knowledge current.</p>
       <section className="card row">
         <input value={ref} onChange={e => setRef(e.target.value)} placeholder="github.com/acme/checkout-api or /path/to/repo"
           onKeyDown={e => e.key === 'Enter' && ref.trim() && !busy && onboard()} />
@@ -96,7 +96,7 @@ export function LaunchpadPage({ ws }: { ws: string }) {
                 <span className="muted small">{r.ref}</span>
                 <span className="muted small">Scanned {ago(r.scanned_at)}{r.next_scan_at ? ` · next ${ago(r.next_scan_at)}` : ' · manual'}</span>
                 {r.last_error && <span className="small error-text">Last scan failed</span>}
-                {made > 0 && <span className="small in-filament">{made} reference{made > 1 ? 's' : ''} kept in Filament</span>}
+                {made > 0 && <span className="small in-ignite">{made} reference{made > 1 ? 's' : ''} kept in Ignite</span>}
               </button>
             )
           })}
@@ -195,7 +195,7 @@ function SystemMapView({ ws, repos, onOpen, focus, setFocus }: {
   )
 }
 
-type Tab = 'readiness' | 'api' | 'ui' | 'code' | 'data' | 'components' | 'history' | 'filament'
+type Tab = 'readiness' | 'api' | 'ui' | 'code' | 'data' | 'components' | 'history' | 'ignite'
 
 function RepoView({ repo, onBack, onChange, onOpen, onMap }: {
   repo: RepoDetail; onBack: () => void; onChange: (r: RepoDetail) => void; onOpen: (id: string) => void; onMap: (id: string) => void
@@ -220,7 +220,7 @@ function RepoView({ repo, onBack, onChange, onOpen, onMap }: {
     ['data', 'Data', a.data_model?.entities.length || null],
     ['components', 'Components', (a.components.nodes.filter(n => n.category !== 'self').length + (impact?.dependents.length ?? 0)) || null],
     ['history', 'History', breaking || null],
-    ['filament', 'In Filament', pending || null],
+    ['ignite', 'In Ignite', pending || null],
   ]
 
   async function generate(items: string[]) {
@@ -257,7 +257,7 @@ function RepoView({ repo, onBack, onChange, onOpen, onMap }: {
           {repo.commit && <> · <code>{repo.commit.slice(0, 7)}</code></>}
         </p>
         <details className="small">
-          <summary>Why Filament thinks this is {repo.kinds.map(k => KIND_LABEL[k] ?? k).join(' + ')}</summary>
+          <summary>Why Ignite thinks this is {repo.kinds.map(k => KIND_LABEL[k] ?? k).join(' + ')}</summary>
           <ul>{a.profile.kinds.map(k => <li key={k.kind}><b>{KIND_LABEL[k.kind] ?? k.kind}</b>: {k.evidence.slice(0, 3).join('; ')}</li>)}</ul>
         </details>
         <div className="row wrap scan-row">
@@ -279,20 +279,20 @@ function RepoView({ repo, onBack, onChange, onOpen, onMap }: {
           </button>
         ))}
       </div>
-      {tab === 'readiness' && <ReadinessTab repo={repo} busy={busy} generate={generate} openFilament={() => setTab('filament')} />}
+      {tab === 'readiness' && <ReadinessTab repo={repo} busy={busy} generate={generate} openIgnite={() => setTab('ignite')} />}
       {tab === 'api' && <ApiTab repo={repo} busy={busy} generate={generate} impact={impact} onChange={onChange} />}
       {tab === 'ui' && <UiTab repo={repo} />}
       {tab === 'code' && <CodeTab repo={repo} />}
       {tab === 'data' && <DataTab repo={repo} />}
       {tab === 'components' && <ComponentsTab repo={repo} impact={impact} onOpen={onOpen} />}
       {tab === 'history' && <HistoryTab scans={scans} />}
-      {tab === 'filament' && <FilamentTab repo={repo} />}
+      {tab === 'ignite' && <IgniteTab repo={repo} />}
     </div>
   )
 }
 
-function ReadinessTab({ repo, busy, generate, openFilament }: {
-  repo: RepoDetail; busy: string; generate: (items: string[]) => void; openFilament: () => void
+function ReadinessTab({ repo, busy, generate, openIgnite }: {
+  repo: RepoDetail; busy: string; generate: (items: string[]) => void; openIgnite: () => void
 }) {
   const [showSkipped, setShowSkipped] = useState(false)
   const checks = repo.analysis.readiness.checks
@@ -310,10 +310,10 @@ function ReadinessTab({ repo, busy, generate, openFilament }: {
       {missing.length > 0 && (
         <section className="card callout">
           <div>
-            <strong>Filament can create {missing.length} missing item{missing.length > 1 ? 's' : ''} for you.</strong>
-            <p className="muted small">They're kept in Filament as references for agents and people. The repo isn't touched, and each rescan updates them as the code changes.</p>
+            <strong>Ignite can create {missing.length} missing item{missing.length > 1 ? 's' : ''} for you.</strong>
+            <p className="muted small">They're kept in Ignite as references for agents and people. The repo isn't touched, and each rescan updates them as the code changes.</p>
           </div>
-          <button disabled={!!busy} onClick={() => generate([])}>{busy === 'all' ? 'Creating…' : 'Create all in Filament'}</button>
+          <button disabled={!!busy} onClick={() => generate([])}>{busy === 'all' ? 'Creating…' : 'Create all in Ignite'}</button>
         </section>
       )}
       {groups.map(([kind, cs]) => (
@@ -330,9 +330,9 @@ function ReadinessTab({ repo, busy, generate, openFilament }: {
                     <div className="muted small">{c.status === 'fail' ? <>{c.detail} — <em>{c.fix}</em></> : c.detail}</div>
                   </div>
                   {c.status === 'fail' && c.generate && (made
-                    ? <button className="link small" onClick={openFilament}>✓ In Filament</button>
+                    ? <button className="link small" onClick={openIgnite}>✓ In Ignite</button>
                     : <button className="secondary small" disabled={!!busy} onClick={() => generate([c.generate!])}>
-                        {busy === c.generate ? 'Creating…' : 'Create in Filament'}
+                        {busy === c.generate ? 'Creating…' : 'Create in Ignite'}
                       </button>)}
                 </li>
               )
@@ -387,7 +387,7 @@ function SpecSource({ repo, onChange }: { repo: RepoDetail; onChange: (r: RepoDe
       <h3>Generated spec</h3>
       {gens.length > 0 && <p className="small">
         This service generates its OpenAPI spec with <b>{gens.map(g => GENERATOR_LABEL[g.generator] ?? g.generator).join(' and ')}</b>, served
-        at <code>{gens.map(g => g.spec_path).join(', ')}</code> on a running instance. Filament reads the same annotations from the code; point it at a running instance to read the generated spec itself.
+        at <code>{gens.map(g => g.spec_path).join(', ')}</code> on a running instance. Ignite reads the same annotations from the code; point it at a running instance to read the generated spec itself.
       </p>}
       <div className="row">
         <input value={url} onChange={e => setUrl(e.target.value)} placeholder={suggestion} />
@@ -437,7 +437,7 @@ function ApiTab({ repo, busy, generate, impact, onChange }: {
   }
 
   if (a.endpoints.length === 0) {
-    return <section className="card muted">No API found. Filament looks for OpenAPI, AsyncAPI, gRPC and GraphQL contracts and for routes in FastAPI, Flask, Django, Express, NestJS, Spring and Go code.</section>
+    return <section className="card muted">No API found. Ignite looks for OpenAPI, AsyncAPI, gRPC and GraphQL contracts and for routes in FastAPI, Flask, Django, Express, NestJS, Spring and Go code.</section>
   }
   const saved = !!repo.generated?.api_contract
   const drift = a.drift
@@ -457,15 +457,15 @@ function ApiTab({ repo, busy, generate, impact, onChange }: {
               ? `Read from the running service at ${a.specs.join(', ')} on each scan, and compared with the code.`
               : a.source === 'spec'
               ? `Read from ${a.specs.join(', ')}`
-              : `No contract is checked in, so Filament read the routes, request and response models, auth and error codes from the code${(a.documented ?? 0) > 0 ? ', plus the API documentation annotations' : ''}${models.length ? ` (${models.length} models)` : ''}.`}</p>
+              : `No contract is checked in, so Ignite read the routes, request and response models, auth and error codes from the code${(a.documented ?? 0) > 0 ? ', plus the API documentation annotations' : ''}${models.length ? ` (${models.length} models)` : ''}.`}</p>
             <p className="muted small">Agents can call this API through the MCP gateway as <code>api-{repo.name}</code> once an owner enables its tools (MCP gateway page).</p>
             {a.enrichment && <p className="muted small">Descriptions added by {a.enrichment.model} for {a.enrichment.applied} endpoints, {ago(a.enrichment.at)}.</p>}
           </div>
           <div className="row wrap">
             <button className="secondary" onClick={download}>Download OpenAPI</button>
             {!DEMO && <button className="secondary" disabled={enriching} onClick={enrich}>{enriching ? 'Describing…' : 'Describe with AI'}</button>}
-            {!saved && <button disabled={!!busy} onClick={() => generate(['api_contract'])}>{busy === 'api_contract' ? 'Saving…' : 'Save contract in Filament'}</button>}
-            {saved && <span className="small in-filament">✓ Contract kept in Filament</span>}
+            {!saved && <button disabled={!!busy} onClick={() => generate(['api_contract'])}>{busy === 'api_contract' ? 'Saving…' : 'Save contract in Ignite'}</button>}
+            {saved && <span className="small in-ignite">✓ Contract kept in Ignite</span>}
           </div>
         </div>
         <ErrorLine error={error} />
@@ -596,7 +596,7 @@ function UiTab({ repo }: { repo: RepoDetail }) {
   const [idx, setIdx] = useState(0)
   const [outline, setOutline] = useState(false)
   if (pages.length === 0) {
-    return <section className="card muted">No screens found. Filament reads React Router, Vue Router, Angular and Next.js routes, and falls back to pages/ and views/ folders.</section>
+    return <section className="card muted">No screens found. Ignite reads React Router, Vue Router, Angular and Next.js routes, and falls back to pages/ and views/ folders.</section>
   }
   const page = pages[Math.min(idx, pages.length - 1)]
   const calls = (repo.analysis.client_calls ?? []).filter(c => page.file && c.file === page.file)
@@ -646,7 +646,7 @@ function ComponentsTab({ repo, impact, onOpen }: { repo: RepoDetail; impact: Imp
                 </li>
               ))}
             </ul>}
-        <p className="muted small">Change something here and these are what to check. Filament flags breaking API changes to them on every rescan.</p>
+        <p className="muted small">Change something here and these are what to check. Ignite flags breaking API changes to them on every rescan.</p>
       </section>
       {unresolved.length > 0 && (
         <section className="card warn">
@@ -662,7 +662,7 @@ function ComponentsTab({ repo, impact, onOpen }: { repo: RepoDetail; impact: Imp
           <Mermaid code={c.mermaid} />
         </section>
         <section className="card">
-          <h3>What it connects to, and why Filament thinks so</h3>
+          <h3>What it connects to, and why Ignite thinks so</h3>
           <table className="deps">
             <thead><tr><th>Component</th><th>Type</th><th>Evidence</th></tr></thead>
             <tbody>
@@ -722,7 +722,7 @@ function HistoryTab({ scans }: { scans: RepoScan[] }) {
             <ChangeList label="Checks fixed" items={ch.checks_fixed} />
             <ChangeList label="Checks regressed" items={ch.checks_regressed} />
             {(refs.refreshed?.length || refs.pending_review?.length) ? (
-              <p className="muted small">References in Filament: {refs.refreshed?.length ? `${refs.refreshed.length} refreshed` : ''}
+              <p className="muted small">References in Ignite: {refs.refreshed?.length ? `${refs.refreshed.length} refreshed` : ''}
                 {refs.pending_review?.length ? `${refs.refreshed?.length ? ', ' : ''}${refs.pending_review.length} approved ones have updates to review` : ''}</p>
             ) : null}
           </section>
@@ -737,7 +737,7 @@ function ChangeList({ label, items }: { label: string; items?: string[] }) {
   return <div className="small"><b>{label}</b> {items.map(i => <code key={i} className="ep-chip">{i}</code>)}</div>
 }
 
-function FilamentTab({ repo }: { repo: RepoDetail }) {
+function IgniteTab({ repo }: { repo: RepoDetail }) {
   const [arts, setArts] = useState<Artifact[]>([])
   const [openId, setOpenId] = useState<string | null>(null)
   const [busy, setBusy] = useState('')
@@ -756,11 +756,11 @@ function FilamentTab({ repo }: { repo: RepoDetail }) {
     } finally { setBusy('') }
   }
   if (entries.length === 0) {
-    return <section className="card muted">Nothing created yet. Use “Create in Filament” on a failing check to draft it here.</section>
+    return <section className="card muted">Nothing created yet. Use “Create in Ignite” on a failing check to draft it here.</section>
   }
   return (
     <>
-      <p className="muted small">References Filament keeps about this repo. They live in Filament's project graph and memory, not in the repo: agents use them now, and each rescan refreshes them from the code. Approved references aren't changed silently; you review the update first.</p>
+      <p className="muted small">References Ignite keeps about this repo. They live in Ignite's project graph and memory, not in the repo: agents use them now, and each rescan refreshes them from the code. Approved references aren't changed silently; you review the update first.</p>
       {arts.map(art => {
         const gen = String(art.data?.generator ?? '')
         const pending = art.data?.pending_update as { content: string; at: string } | undefined

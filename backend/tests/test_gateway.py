@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from filament import mcp_registry as reg
-from filament.config import get_settings
+from igniteai import mcp_registry as reg
+from igniteai.config import get_settings
 from tests.test_config import add_demo_server, register, run, scripted  # noqa: F401
 
 API = '''
@@ -229,7 +229,7 @@ def test_omni_mcp_endpoint(client, ws, gen):
     url = f"/api/workspaces/{ws['id']}/mcp/omni"
     init = client.post(url, json={"jsonrpc": "2.0", "id": 1, "method": "initialize",
                                   "params": {"protocolVersion": "2025-06-18"}}).json()
-    assert init["result"]["serverInfo"]["name"] == "filament-gateway"
+    assert init["result"]["serverInfo"]["name"] == "ignite-gateway"
     assert client.post(url, json={"jsonrpc": "2.0", "method": "notifications/initialized"}).status_code == 202
     listed = client.post(url, json={"jsonrpc": "2.0", "id": 2, "method": "tools/list"}).json()
     names = [t["name"] for t in listed["result"]["tools"]]
@@ -246,7 +246,7 @@ def test_omni_mcp_endpoint(client, ws, gen):
     write = {"server": "api-checkout-api", "tool": "add_item",
              "arguments": {"cart_id": "x", "body": {"sku": "A"}}}
     assert call("invoke_tool", write)["isError"] is True  # default autonomy L1
-    assert call("invoke_tool", write, **{"X-Filament-Autonomy": "L3"})["isError"] is False
+    assert call("invoke_tool", write, **{"X-Ignite-Autonomy": "L3"})["isError"] is False
 
 
 def test_native_server_sync_and_new_tools_need_review(client, project, monkeypatch):
@@ -256,8 +256,8 @@ def test_native_server_sync_and_new_tools_need_review(client, project, monkeypat
     entries = {t["name"]: t for t in client.get(f"/api/mcp/{server['id']}/tools").json()}
     assert entries["add"]["enabled"] and entries["create_ticket"]["write"]  # first sync: owner opted in
     # A tool that later appears on the server waits for review.
-    from filament.db import get_session  # noqa: F401
-    monkeypatch.setattr("filament.mcp_gateway.discover", lambda s: [
+    from igniteai.db import get_session  # noqa: F401
+    monkeypatch.setattr("igniteai.mcp_gateway.discover", lambda s: [
         *s.tools_cache, {"name": "drop_table", "description": "danger", "input_schema": {}}])
     client.post(f"/api/mcp/{server['id']}/sync")
     after = {t["name"]: t for t in client.get(f"/api/mcp/{server['id']}/tools").json()}

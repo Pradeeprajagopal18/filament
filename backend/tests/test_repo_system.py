@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from filament.readiness.scanner import Repo
-from filament.repos import api_extract, diff
+from igniteai.readiness.scanner import Repo
+from igniteai.repos import api_extract, diff
 
 API_V1 = '''
 from typing import Optional
@@ -270,7 +270,7 @@ def test_mock_server_and_enrichment(client, ws, company):
     api = onboard(client, ws, company["api"])
     got = client.get(f"/api/repos/{api['id']}/mock/v1/carts/c_9")
     assert got.status_code == 200 and got.json()["items"][0]["sku"] == "SKU-1001"
-    assert got.headers["X-Filament-Mock"] == "GET /v1/carts/{cart_id}"
+    assert got.headers["X-Ignite-Mock"] == "GET /v1/carts/{cart_id}"
     assert client.get(f"/api/repos/{api['id']}/mock/v1/nope").status_code == 404
 
     enriched = client.post(f"/api/repos/{api['id']}/enrich-api").json()
@@ -313,7 +313,7 @@ def test_flow_agent_without_requirements_points_at_code_diagrams(client, ws, com
 
 
 def test_user_flow_shared_nav_and_action_buttons():
-    from filament.repos.generate import user_flow
+    from igniteai.repos.generate import user_flow
 
     page = lambda path, els: {"path": path, "component": path, "elements": els}  # noqa: E731
     header = {"type": "component", "label": "Header", "children": [

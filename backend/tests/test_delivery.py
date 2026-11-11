@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from filament.delivery import checks, github
+from igniteai.delivery import checks, github
 from tests.test_codegraph import FILES, WEB, pytestmark, write  # noqa: F401  (skip w/o grammars)
 
 GOOD_ISSUE = (
@@ -114,7 +114,7 @@ def test_work_item_through_all_stages(client, setup, gh):
     st = board(client, pid, item["id"])
     task_id = next(a["id"] for a in st["build"]["artifacts"] if a["type"] == "task")
     h = client.get(f"/api/tasks/{task_id}/handoff").json()
-    assert h["branch"].startswith(f"filament/{task_id}-")
+    assert h["branch"].startswith(f"ignite/{task_id}-")
     assert "place_order()" in h["brief"] and "POST /v1/orders" in h["brief"]
     assert "web-storefront" in h["brief"] and "order.placed includes total_cents" in h["brief"]
     assert task_id in h["commands"]["claude_code"]
@@ -200,7 +200,7 @@ def test_work_item_through_all_stages(client, setup, gh):
 
 
 def test_retry_cap_and_escalation(client, setup, gh, monkeypatch):
-    from filament.config import get_settings
+    from igniteai.config import get_settings
 
     monkeypatch.setattr(get_settings(), "delivery_max_retries", 1)
     pid = setup["id"]
@@ -238,7 +238,7 @@ def test_checks_and_guards():
     rates = checks.burn_rates([{"at": now - timedelta(minutes=1), "good": 990, "total": 1000}],
                               99.9, now)
     assert rates["5m"] == 10.0 and checks.slo_status({"1h": 7, "6h": 7})["state"] == "warning"
-    from filament.agents.tools import DELEGABLE
+    from igniteai.agents.tools import DELEGABLE
 
     assert DELEGABLE == {"requirements", "flow"}  # orchestrators cannot skip checkpoints
 
@@ -259,9 +259,9 @@ def test_omni_task_tools(client, setup, gh):
 
     tools = client.post(f"/api/workspaces/{ws_id}/mcp/omni", json={
         "jsonrpc": "2.0", "id": 1, "method": "tools/list"}).json()["result"]["tools"]
-    assert {"filament_get_task", "filament_report_pr"} <= {t["name"] for t in tools}
-    task_id = call("filament_list_tasks", {})["tasks"][0]["task_id"]
-    assert "Acceptance criteria" in call("filament_get_task", {"task_id": task_id})["brief"]
-    assert call("filament_report_pr", {"task_id": task_id, "url": PR_URL})["linked"]
-    assert call("filament_list_tasks", {})["tasks"] == []
+    assert {"ignite_get_task", "ignite_report_pr"} <= {t["name"] for t in tools}
+    task_id = call("ignite_list_tasks", {})["tasks"][0]["task_id"]
+    assert "Acceptance criteria" in call("ignite_get_task", {"task_id": task_id})["brief"]
+    assert call("ignite_report_pr", {"task_id": task_id, "url": PR_URL})["linked"]
+    assert call("ignite_list_tasks", {})["tasks"] == []
     assert board(client, pid, item["id"])["build"]["state"] == "done"

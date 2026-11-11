@@ -1,4 +1,4 @@
-// Code tab: the repo's symbol-level graph (Filament's tree-sitter extractor, no model). Subsystems
+// Code tab: the repo's symbol-level graph (Ignite's tree-sitter extractor, no model). Subsystems
 // you can drill into, explain-by-click, hotspots, design notes and change / PR impact.
 import cytoscape from 'cytoscape'
 import { useEffect, useRef, useState } from 'react'
@@ -151,7 +151,7 @@ export function CodeTab({ repo }: { repo: RepoDetail }) {
       {code.rationale.length > 0 && (
         <section className="card">
           <h3>Design notes in the code</h3>
-          <p className="muted small">NOTE / WHY / DECISION comments. Filament proposes them to project memory so agents see the reasoning, linked to the ADRs they cite.</p>
+          <p className="muted small">NOTE / WHY / DECISION comments. Ignite proposes them to project memory so agents see the reasoning, linked to the ADRs they cite.</p>
           <ul className="plain small">{code.rationale.map(n => (
             <li key={n.id}><span className="badge badge-draft">{n.tag}</span> {n.text} <span className="muted">{n.file}:{n.line}{n.about ? ` · ${n.about}` : ''}</span>
               {n.refs.map(r => <span key={r} className="badge badge-approved">{r}</span>)}</li>
@@ -180,7 +180,7 @@ function ImpactPanel({ repo }: { repo: RepoDetail }) {
   return (
     <section className="card">
       <h3>What would a change affect?</h3>
-      <p className="muted small">Paste changed files, a <code>git diff</code>, or a GitHub pull request URL. Filament follows the code graph to the endpoints touched and the repos that call them.</p>
+      <p className="muted small">Paste changed files, a <code>git diff</code>, or a GitHub pull request URL. Ignite follows the code graph to the endpoints touched and the repos that call them.</p>
       <textarea rows={3} value={input} onChange={e => setInput(e.target.value)} placeholder={hot ? `e.g. ${hot}` : 'e.g. app/events.py'} />
       <div className="row"><button className="secondary" disabled={!input.trim() || busy} onClick={run}>{busy ? 'Tracing…' : 'Trace impact'}</button></div>
       <ErrorLine error={error} />
@@ -201,7 +201,7 @@ function ImpactPanel({ repo }: { repo: RepoDetail }) {
 
 export function DataTab({ repo }: { repo: RepoDetail }) {
   const dm = repo.analysis.data_model
-  if (!dm?.entities.length) return <section className="card muted">No data model found. Filament reads SQL migrations, SQLAlchemy, Django and Prisma models.</section>
+  if (!dm?.entities.length) return <section className="card muted">No data model found. Ignite reads SQL migrations, SQLAlchemy, Django and Prisma models.</section>
   return (
     <>
       <section className="card">

@@ -10,21 +10,22 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from filament import access, auth
-from filament.config import get_settings
-from filament.db import Base, get_session, make_engine
-from filament.main import create_app
-from filament.models import Artifact, Membership, Project, RepoRecord, Team, User, Workspace
-from filament.repos import system as sysmap
+from igniteai import access, auth
+from igniteai.config import get_settings
+from igniteai.db import Base, get_session, make_engine
+from igniteai.main import create_app
+from igniteai.models import Artifact, Membership, Project, RepoRecord, Team, User, Workspace
+from igniteai.repos import system as sysmap
 
 ISSUER = "https://sso.example.com"
 
 
 @pytest.fixture
 def env(monkeypatch):
-    for k, v in {"FILAMENT_AUTH_MODE": "oidc", "FILAMENT_OIDC_ISSUER": ISSUER,
-                 "FILAMENT_OIDC_CLIENT_ID": "filament", "FILAMENT_SESSION_SECRET": "s3cret" * 6,
-                 "FILAMENT_ADMIN_EMAILS": '["boss@acme.com"]'}.items():
+    for k, v in {"IGNITE_AUTH_MODE": "login",
+                 "IGNITE_AUTH_METHODS": '["local","ldap","oidc"]', "IGNITE_OIDC_ISSUER": ISSUER,
+                 "IGNITE_OIDC_CLIENT_ID": "ignite", "IGNITE_SESSION_SECRET": "s3cret" * 6,
+                 "IGNITE_ADMIN_EMAILS": '["boss@acme.com"]'}.items():
         monkeypatch.setenv(k, v)
     get_settings.cache_clear()
     access._gh_cache.clear()
@@ -99,10 +100,11 @@ def world(env):
 def test_sign_in_required(env):
     c, _ = env
     assert c.get("/api/health").status_code == 200
-    assert c.get("/api/auth/config").json()["mode"] == "oidc"
+    conf = c.get("/api/auth/config").json()
+    assert conf["mode"] == "login" and conf["password"] and conf["sso_url"]
     r = c.get("/api/workspaces")
     assert r.status_code == 401
-    assert c.get("/api/workspaces", headers={"Authorization": "Bearer fil_nope"}).status_code \
+    assert c.get("/api/workspaces", headers={"Authorization": "Bearer ign_nope"}).status_code \
         == 401
 
 
@@ -255,7 +257,7 @@ def test_tokens_revoke(world):
     h = {"Authorization": f"Bearer {made['token']}"}
     assert c.get("/api/auth/me", headers=h).json()["email"] == "bob@acme.com"
     listed = c.get("/api/auth/tokens", headers=H["bob"]).json()
-    assert "token" not in listed[0] and listed[0]["prefix"].startswith("fil_")
+    assert "token" not in listed[0] and listed[0]["prefix"].startswith("ign_")
     c.delete(f"/api/auth/tokens/{made['id']}", headers=H["bob"])
     assert c.get("/api/auth/me", headers=h).status_code == 401
 
@@ -289,17 +291,17 @@ def test_oidc_login_flow(world, monkeypatch):
         s.get(Team, ids["team"]).sso_group = "eng-payments"
         s.commit()
 
-    r = c.get("/api/auth/login?next=/projects", follow_redirects=False)
+    r = c.get("/api/auth/oidc/login?next=/projects", follow_redirects=False)
     assert r.status_code == 302
     q = parse_qs(urlparse(r.headers["location"]).query)
-    assert q["code_challenge_method"] == ["S256"] and q["client_id"] == ["filament"]
+    assert q["code_challenge_method"] == ["S256"] and q["client_id"] == ["ignite"]
     state, nonce = q["state"][0], q["nonce"][0]
 
     def fake_post(url, data, **_):
         assert url == conf["token_endpoint"] and data["code"] == "abc"
         assert data["code_verifier"]  # PKCE
         now = int(time.time())
-        tok = jwt.encode({"iss": ISSUER, "aud": "filament", "sub": "okta|dana", "iat": now,
+        tok = jwt.encode({"iss": ISSUER, "aud": "ignite", "sub": "okta|dana", "iat": now,
                           "exp": now + 300, "nonce": nonce, "email": "dana@acme.com",
                           "name": "Dana", "groups": ["eng-payments"]}, key, algorithm="RS256")
 
@@ -322,7 +324,7 @@ def test_oidc_login_flow(world, monkeypatch):
     assert "Payments core" in names
     # A tampered state is refused.
     c.cookies.clear()
-    r = c.get("/api/auth/login", follow_redirects=False)
+    r = c.get("/api/auth/oidc/login", follow_redirects=False)
     r = c.get("/api/auth/callback?code=abc&state=forged", follow_redirects=False)
     assert "login_error" in r.headers["location"]
 
@@ -332,10 +334,10 @@ def test_bad_id_token_rejected():
     other = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     get_settings.cache_clear()
     import os
-    os.environ["FILAMENT_OIDC_CLIENT_ID"] = "filament"
+    os.environ["IGNITE_OIDC_CLIENT_ID"] = "ignite"
     try:
         now = int(time.time())
-        claims = {"iss": ISSUER, "aud": "filament", "sub": "x", "iat": now, "exp": now + 60,
+        claims = {"iss": ISSUER, "aud": "ignite", "sub": "x", "iat": now, "exp": now + 60,
                   "nonce": "n"}
         good = jwt.encode(claims, key, algorithm="RS256")
         conf = {"issuer": ISSUER}
@@ -347,7 +349,7 @@ def test_bad_id_token_rejected():
             with pytest.raises(auth.AuthError):
                 auth.verify_id_token(tok, nonce, conf, key=key.public_key())
     finally:
-        os.environ.pop("FILAMENT_OIDC_CLIENT_ID")
+        os.environ.pop("IGNITE_OIDC_CLIENT_ID")
         get_settings.cache_clear()
 
 
@@ -357,3 +359,135 @@ def test_local_mode_is_unrestricted(client):
     p = client.post(f"/api/workspaces/{ws['id']}/projects",
                     json={"name": "Mine", "restricted": True}).json()
     assert client.get(f"/api/projects/{p['id']}").status_code == 200
+
+
+# -- local accounts ---------------------------------------------------------------------------
+def test_first_admin_must_change_password(env):
+    c, Session = env
+    assert c.post("/api/auth/login", json={"username": "admin", "password": "nope"}
+                  ).status_code == 401
+    r = c.post("/api/auth/login", json={"username": "admin", "password": "admin"})
+    assert r.status_code == 200 and r.json()["must_change_password"] is True
+    me = c.get("/api/auth/me").json()
+    assert me["username"] == "admin" and me["must_change_password"] and me["is_admin"]
+    # Nothing else until the password is changed.
+    r = c.get("/api/workspaces")
+    assert r.status_code == 403 and r.json()["detail"] == "password_change_required"
+    assert c.post("/api/auth/password", json={"current": "admin", "new": "short"}
+                  ).status_code == 422
+    assert c.post("/api/auth/password", json={"current": "admin", "new": "administrator"}
+                  ).status_code == 422
+    assert c.post("/api/auth/password", json={"current": "wrong", "new": "a-much-better-one"}
+                  ).status_code == 403
+    old = dict(c.cookies)
+    assert c.post("/api/auth/password", json={"current": "admin", "new": "a-much-better-one"}
+                  ).status_code == 200
+    assert c.get("/api/workspaces").status_code == 200
+    # admin / admin no longer works, and the bootstrap doesn't recreate it.
+    c.cookies.clear()
+    assert c.post("/api/auth/login", json={"username": "admin", "password": "admin"}
+                  ).status_code == 401
+    with Session() as s:
+        assert len(s.query(User).filter(User.username == "admin").all()) == 1
+    # Sessions from before the change are over (on every device).
+    c.cookies.update(old)
+    assert c.get("/api/auth/me").status_code == 401
+
+
+def test_lockout_after_repeated_failures(env):
+    c, _ = env
+    for _ in range(5):
+        c.post("/api/auth/login", json={"username": "admin", "password": "guess"})
+    r = c.post("/api/auth/login", json={"username": "admin", "password": "admin"})
+    assert r.status_code == 401 and "locked" in r.json()["detail"]
+    # Unknown names are throttled too, with the same message as a wrong password at first.
+    first = c.post("/api/auth/login", json={"username": "ghost", "password": "x"})
+    assert first.json()["detail"] == "Wrong username or password"
+
+
+def test_admin_creates_local_account_and_resets_password(world):
+    c, Session, ids, H, U = world
+    r = c.post(f"/api/workspaces/{ids['ws']}/people", headers=H["boss"],
+               json={"local_username": "contractor1", "name": "Contractor"}).json()
+    temp = r["temporary_password"]
+    assert r["auth_source"] == "local" and r["must_change_password"]
+    assert c.post(f"/api/workspaces/{ids['ws']}/people", headers=H["boss"],
+                  json={"local_username": "contractor1"}).status_code == 409
+    c.cookies.clear()
+    assert c.post("/api/auth/login", json={"username": "contractor1", "password": temp}
+                  ).json()["must_change_password"]
+    c.post("/api/auth/password", json={"current": temp, "new": "contractor-pass-123"})
+    assert c.get(f"/api/workspaces/{ids['ws']}/projects").status_code == 200
+    reset = c.post(f"/api/workspaces/{ids['ws']}/people/{r['id']}/reset-password",
+                   headers=H["boss"]).json()["temporary_password"]
+    c.cookies.clear()
+    assert c.post("/api/auth/login", json={"username": "contractor1",
+                                           "password": "contractor-pass-123"}).status_code == 401
+    assert c.post("/api/auth/login", json={"username": "contractor1", "password": reset}
+                  ).status_code == 200
+    # Only admins reset passwords.
+    assert c.post(f"/api/workspaces/{ids['ws']}/people/{r['id']}/reset-password",
+                  headers=H["alice"]).status_code == 403
+
+
+def test_password_hashing():
+    h = auth.hash_password("correct horse")
+    assert h.startswith("scrypt$") and "correct" not in h
+    assert auth.check_password("correct horse", h)
+    assert not auth.check_password("Correct horse", h)
+    assert not auth.check_password("x", None) and not auth.check_password("x", "md5$abc")
+
+
+# -- LDAP -------------------------------------------------------------------------------------
+@pytest.fixture
+def directory(monkeypatch):
+    import ldap3
+
+    server = ldap3.Server("mock_ldap")
+    seed = ldap3.Connection(server, client_strategy=ldap3.MOCK_SYNC)
+    seed.strategy.add_entry("cn=svc,ou=apps,dc=acme,dc=com", {"userPassword": "svc-pass"})
+    seed.strategy.add_entry("uid=erin,ou=people,dc=acme,dc=com", {
+        "uid": "erin", "userPassword": "erin-ldap-pass", "mail": "Erin@acme.com",
+        "displayName": "Erin Diaz", "objectClass": "person",
+        "memberOf": ["cn=eng-payments,ou=groups,dc=acme,dc=com"]})
+    seed.strategy.add_entry("uid=evil*,ou=people,dc=acme,dc=com", {"uid": "evil*",
+                                                                   "userPassword": "x"})
+
+    def connect(_server, user, password):
+        conn = ldap3.Connection(server, user=user, password=password,
+                                client_strategy=ldap3.MOCK_SYNC)
+        conn.strategy.connection.server.dit = seed.strategy.connection.server.dit
+        return conn if conn.bind() else None
+
+    monkeypatch.setattr(auth, "_ldap_connect", connect)
+    monkeypatch.setattr(auth, "_ldap_server", lambda: server)
+    for k, v in {"IGNITE_LDAP_URL": "ldaps://ldap.acme.com", "IGNITE_LDAP_BASE_DN":
+                 "ou=people,dc=acme,dc=com", "IGNITE_LDAP_BIND_DN": "cn=svc,ou=apps,dc=acme,dc=com",
+                 "IGNITE_LDAP_BIND_PASSWORD": "svc-pass",
+                 "IGNITE_LDAP_USER_FILTER": "(uid={username})"}.items():
+        monkeypatch.setenv(k, v)
+    get_settings.cache_clear()
+
+
+def test_ldap_sign_in_and_groups(world, directory):
+    c, Session, ids, H, _ = world
+    with Session() as s:
+        s.get(Team, ids["team"]).sso_group = "eng-payments"  # a group by its CN
+        s.commit()
+    c.cookies.clear()
+    assert c.post("/api/auth/login", json={"username": "erin", "password": "wrong"}
+                  ).status_code == 401
+    assert c.post("/api/auth/login", json={"username": "erin", "password": ""}
+                  ).status_code == 401  # never an anonymous bind
+    r = c.post("/api/auth/login", json={"username": "erin", "password": "erin-ldap-pass"})
+    assert r.status_code == 200 and not r.json()["must_change_password"]
+    me = c.get("/api/auth/me").json()
+    assert me["email"] == "erin@acme.com" and me["auth_source"] == "ldap"
+    names = {p["name"] for p in c.get(f"/api/workspaces/{ids['ws']}/projects").json()}
+    assert "Payments core" in names  # via her directory group
+    # Directory passwords aren't changed in Ignite.
+    assert c.post("/api/auth/password", json={"current": "erin-ldap-pass", "new": "x" * 20}
+                  ).status_code == 400
+    # Filter injection: a '*' in the name is escaped, so it can't match other entries.
+    c.cookies.clear()
+    assert c.post("/api/auth/login", json={"username": "*", "password": "x"}).status_code == 401

@@ -1,23 +1,24 @@
 import os
 
-os.environ["FILAMENT_DATABASE_URL"] = "sqlite://"  # in-memory per test session
+os.environ["IGNITE_DATABASE_URL"] = "sqlite://"  # in-memory per test session
 os.environ.pop("ANTHROPIC_API_KEY", None)  # tests always run offline
-os.environ["FILAMENT_REPO_SCHEDULER_ENABLED"] = "false"  # tests trigger scans explicitly
-os.environ.setdefault("FILAMENT_DATA_DIR", __import__("tempfile").mkdtemp(prefix="filament-test-"))
+os.environ["IGNITE_AUTH_MODE"] = "none"  # most tests run as the local admin; test_access signs in
+os.environ["IGNITE_REPO_SCHEDULER_ENABLED"] = "false"  # tests trigger scans explicitly
+os.environ.setdefault("IGNITE_DATA_DIR", __import__("tempfile").mkdtemp(prefix="ignite-test-"))
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy.orm import sessionmaker  # noqa: E402
 from sqlalchemy.pool import StaticPool  # noqa: E402
 
-from filament.db import Base, get_session, make_engine  # noqa: E402
-from filament.main import create_app  # noqa: E402
+from igniteai.db import Base, get_session, make_engine  # noqa: E402
+from igniteai.main import create_app  # noqa: E402
 
 
 @pytest.fixture
 def client():
     engine = make_engine("sqlite://", poolclass=StaticPool)
-    from filament import models  # noqa: F401
+    from igniteai import models  # noqa: F401
 
     Base.metadata.create_all(engine)
     TestSession = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)

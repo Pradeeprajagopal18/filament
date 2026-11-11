@@ -3,7 +3,7 @@ generators and where they serve the spec; live specs from a running service."""
 
 import json
 
-from filament.repos.analyze import analyze_path
+from igniteai.repos.analyze import analyze_path
 from tests.test_repos import write
 
 

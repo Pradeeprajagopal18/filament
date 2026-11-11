@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Filament",
+    "title": "Ignite",
     "description": "Agentic software delivery platform with shared team memory.",
     "version": "0.1.0"
   },

@@ -4,7 +4,7 @@
   --ink: #1d1d1b;
   --muted: #6b6b66;
   --line: #e4e3df;
-  --accent: #c47f17;      /* filament amber */
+  --accent: #c47f17;      /* ignite amber */
   --accent-soft: #fbf1df;
   --good: #2f7d4f;
   --bad: #b3412e;
@@ -162,7 +162,7 @@ textarea.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; fon
 .kind-infrastructure { background: #fff1e0; color: #a35a00; }
 .kind-config { background: #fdf6d8; color: #806400; }
 .kind-library { background: #e8f6f8; color: #1d6d7a; }
-.in-filament { color: #1d7a4a; font-weight: 600; }
+.in-ignite { color: #1d7a4a; font-weight: 600; }
 .tabs { display: flex; gap: 4px; overflow-x: auto; border-bottom: 1px solid #e3e6ea; margin: 12px 0; -webkit-overflow-scrolling: touch; }
 .tabs button { background: none; color: #555; border: none; border-bottom: 2px solid transparent; border-radius: 0; padding: 8px 12px; white-space: nowrap; font-weight: 600; }
 .tabs button.active { color: #111; border-bottom-color: #f0b429; }
@@ -382,3 +382,14 @@ ul.audit li.denied b { color: var(--bad); }
 code.token { display: block; word-break: break-all; padding: 8px; background: #fff; border: 1px solid var(--line); border-radius: 6px; }
 .badge.lock { margin-left: 8px; vertical-align: middle; font-size: 11px; }
 .locked { color: var(--muted); border-bottom: 1px dashed var(--muted); cursor: help; }
+.stack { display: flex; flex-direction: column; gap: 10px; }
+.stack label, .signin label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; }
+.signin input { width: 100%; box-sizing: border-box; }
+.signin h2 { margin: 0; font-size: 18px; }
+.or { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+.or::before, .or::after { content: ''; flex: 1; border-top: 1px solid var(--line); }
+a.button.secondary-link { background: transparent; color: var(--ink, #1f1d1a); border: 1px solid var(--line); }
+td.actions { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.card .row:not(.nowrap) { flex-wrap: wrap; }
+.card .row:not(.nowrap) > input, .card .row:not(.nowrap) > select { flex: 1 1 150px; min-width: 0; }
+.signin label { text-align: left; align-items: stretch; }

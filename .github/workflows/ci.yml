@@ -38,10 +38,10 @@ jobs:
       - run: npm run build
 
   readiness:
-    # Filament checks its own agent readiness on every change.
+    # Ignite checks its own agent readiness on every change.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
       - run: cd backend && uv venv .venv && uv pip install -e .
-      - run: backend/.venv/bin/fil ready scan .
+      - run: backend/.venv/bin/ign ready scan .

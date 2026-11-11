@@ -200,7 +200,7 @@ function BuildExtras({ stage, act, busy }: { stage: StageState; act: Act; busy: 
         <code className="cmd">{h.commands[h.target ?? 'claude_code']}</code>
         <div className="row">
           <button className="secondary" onClick={() => navigator.clipboard?.writeText(h.prompt).then(() => setCopied(true))}>{copied ? 'Copied' : 'Copy prompt'}</button>
-          <span className="muted small">Or connect the coding agent to Filament's MCP endpoint: it reads the task with <code>filament_get_task</code>.</span>
+          <span className="muted small">Or connect the coding agent to Ignite's MCP endpoint: it reads the task with <code>ignite_get_task</code>.</span>
         </div>
       </>}
       {!hasPr && <div className="row">

@@ -21,11 +21,11 @@ lint:
 API_PORT ?= 8000
 
 dev-api:
-	cd backend && .venv/bin/uvicorn filament.main:app --reload --host 127.0.0.1 --port $(API_PORT)
+	cd backend && .venv/bin/uvicorn igniteai.main:app --reload --host 127.0.0.1 --port $(API_PORT)
 
 dev-web: check-node
 	cd frontend && API_PORT=$(API_PORT) npm run dev
 
 openapi:
-	cd backend && .venv/bin/python -c "import json; from filament.main import app; \
+	cd backend && .venv/bin/python -c "import json; from igniteai.main import app; \
 	print(json.dumps(app.openapi(), indent=2))" > ../docs/openapi.json
