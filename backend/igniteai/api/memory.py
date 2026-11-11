@@ -120,6 +120,23 @@ def ask(ws_id: str, body: s.AskIn, project_id: str | None = None,
     """Answer from memory and the graph with citations; unanswered questions feed gap detection."""
     get_or_404(session, Workspace, ws_id)
     hits = _search(session, ws_id, project_id, body.question)
+    sources: dict[str, dict] = {}
+    from igniteai import features
+    from igniteai.knowledge import service as ks
+
+    p = access.current()
+    if features.allowed(session, p, ws_id, "knowledge"):
+        found = ks.search(session, ws_id, body.question, p=p, limit=5)
+        ks.record_hits(session, found)
+        for k in found:
+            ref = f"knowledge:{k['id']}"
+            sources[ref] = {"title": k["title"], "heading": k["heading"], "url": k["url"],
+                            "source": k["source"]}
+            hits.append((k["score"], ref, k["heading"] or k["title"], k["text"]))
+    for _, ref, title, _ in hits:
+        sources.setdefault(ref, {"title": title[:200], "heading": "", "url": None,
+                                 "source": "Shared memory" if ref.startswith("memory:")
+                                 else "Project graph"})
     answered = bool(hits)
     session.add(Signal(workspace_id=ws_id, project_id=project_id,
                        kind="question" if answered else "no_answer",
@@ -136,16 +153,32 @@ def ask(ws_id: str, body: s.AskIn, project_id: str | None = None,
         '{"answer": str, "citations": [str]}',
         f"## Context\n{context}\n\n## Question\n{body.question}",
         offline_response=lambda: json.dumps({
-            "answer": "Most relevant: " + "; ".join(t for _, _, t, _ in hits[:3]),
-            "citations": [ref for _, ref, _, _ in hits[:3]],
+            "answer": "No AI model is connected (offline mode), so here is what Ignite found "
+                      "rather than a written answer:\n\n" + "\n\n".join(
+                          f"[{ref}] {title}: {_excerpt(text, body.question)}"
+                          for _, ref, title, text in sorted(hits, key=lambda h: -h[0])[:3]),
+            "citations": [ref for _, ref, _, _ in sorted(hits, key=lambda h: -h[0])[:3]],
         }),
     )
     try:
         parsed = json.loads(result.text[result.text.find("{"): result.text.rfind("}") + 1])
-        return {"answer": parsed.get("answer", ""), "citations": parsed.get("citations", []),
-                "answered": True}
+        cites = parsed.get("citations", [])
+        return {"answer": parsed.get("answer", ""), "citations": cites, "answered": True,
+                "sources": {c: sources[c] for c in cites if c in sources}}
     except (json.JSONDecodeError, ValueError):
-        return {"answer": result.text, "citations": [r for _, r, _, _ in hits], "answered": True}
+        return {"answer": result.text, "citations": [r for _, r, _, _ in hits], "answered": True,
+                "sources": sources}
+
+
+def _excerpt(text: str, question: str, size: int = 400) -> str:
+    """The part of a text that best matches the question (for offline answers)."""
+    q = keywords(question) - STOPWORDS
+    sentences = [s.strip() for s in text.replace("\n", " ").split(". ") if s.strip()]
+    if not sentences:
+        return ""
+    best = max(range(len(sentences)), key=lambda i: len(q & keywords(sentences[i])))
+    out = ". ".join(sentences[best:best + 3])
+    return out[:size] + ("…" if len(out) > size else "")
 
 
 @router.get("/workspaces/{ws_id}/gaps", response_model=list[s.GapOut])

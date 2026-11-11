@@ -59,7 +59,8 @@ def execute_run(session: Session, project: Project, run: Run, commit: bool = Tru
         # The goal plus any idea text the requester gave: both say what context is relevant.
         query = " ".join(filter(None, [run.goal, str((run.input or {}).get("idea") or "")[:2000]]))
         pack = build_context_pack(session, project, query, agent.target_artifact_ids(),
-                                  budget=(run.config or {}).get("context_budget"))
+                                  budget=(run.config or {}).get("context_budget"),
+                                  agent=run.agent)
         run.context_pack = pack
         if not pack["items"]:
             # No prior context at all is worth knowing about: feed gap detection.

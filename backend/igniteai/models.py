@@ -524,3 +524,88 @@ class FeatureAccess(Base):
     updated_by: Mapped[str] = mapped_column(String(255), default="")
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now,
                                                  onupdate=now)
+
+
+# -- knowledge (RAG) ------------------------------------------------------------------------------
+class KnowledgeSource(Base):
+    """A place knowledge comes from (a Confluence space, a docs site, uploaded files, the docs in
+    onboarded repos), set up by an admin. Its passages feed Ask and the agents."""
+
+    __tablename__ = "knowledge_sources"
+
+    id: Mapped[str] = mapped_column(String(12), primary_key=True, default=new_id)
+    workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    kind: Mapped[str] = mapped_column(String(20))  # confluence | web | upload | repo
+    # Connection settings; secrets only as ${env:NAME} references.
+    config: Mapped[dict] = mapped_column(JSON, default=dict)
+    # Who may read it: "everyone" in the workspace, or "some" (teams, groups, people). A project
+    # source is also limited to people who can see that project.
+    audience: Mapped[str] = mapped_column(String(10), default="everyone")
+    teams: Mapped[list] = mapped_column(JSON, default=list)
+    groups: Mapped[list] = mapped_column(JSON, default=list)
+    users: Mapped[list] = mapped_column(JSON, default=list)
+    project_id: Mapped[str | None] = mapped_column(ForeignKey("projects.id"), nullable=True)
+    agents: Mapped[list] = mapped_column(JSON, default=list)  # empty: every agent may use it
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    sync_hours: Mapped[int] = mapped_column(Integer, default=24)  # 0: only when asked
+    status: Mapped[str] = mapped_column(String(10), default="new")  # new|syncing|ok|error
+    last_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    next_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_report: Mapped[dict] = mapped_column(JSON, default=dict)
+    doc_count: Mapped[int] = mapped_column(Integer, default=0)
+    chunk_count: Mapped[int] = mapped_column(Integer, default=0)
+    hits: Mapped[int] = mapped_column(Integer, default=0)  # passages used in answers
+    created_by: Mapped[str] = mapped_column(String(255), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class KnowledgeDoc(Base):
+    __tablename__ = "knowledge_docs"
+    __table_args__ = (UniqueConstraint("source_id", "external_id"),)
+
+    id: Mapped[str] = mapped_column(String(12), primary_key=True, default=new_id)
+    source_id: Mapped[str] = mapped_column(ForeignKey("knowledge_sources.id"), index=True)
+    external_id: Mapped[str] = mapped_column(String(500))
+    title: Mapped[str] = mapped_column(String(500), default="")
+    url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    version: Mapped[str] = mapped_column(String(100), default="")
+    meta: Mapped[dict] = mapped_column(JSON, default=dict)  # e.g. {"repo_id": ...}
+    chunk_count: Mapped[int] = mapped_column(Integer, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now,
+                                                 onupdate=now)
+
+
+class KnowledgeChunk(Base):
+    __tablename__ = "knowledge_chunks"
+
+    id: Mapped[str] = mapped_column(String(12), primary_key=True, default=new_id)
+    workspace_id: Mapped[str] = mapped_column(String(12), index=True)
+    source_id: Mapped[str] = mapped_column(ForeignKey("knowledge_sources.id"), index=True)
+    doc_id: Mapped[str] = mapped_column(ForeignKey("knowledge_docs.id"), index=True)
+    ord: Mapped[int] = mapped_column(Integer, default=0)
+    heading: Mapped[str] = mapped_column(String(500), default="")
+    text: Mapped[str] = mapped_column(Text)
+    terms: Mapped[dict] = mapped_column(JSON, default=dict)  # term -> count, for keyword search
+    length: Mapped[int] = mapped_column(Integer, default=0)
+    embedding: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    model: Mapped[str | None] = mapped_column(String(120), nullable=True)
+
+
+class KnowledgeIndex(Base):
+    """How a workspace turns passages into vectors. Everything runs on your own servers: an
+    embedding model inside Ignite ("local") or a model server you run ("endpoint": Ollama, TEI,
+    vLLM...). "none" keeps keyword search only."""
+
+    __tablename__ = "knowledge_index"
+
+    workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id"), primary_key=True)
+    provider: Mapped[str] = mapped_column(String(20), default="none")  # none | local | endpoint
+    model: Mapped[str] = mapped_column(String(200), default="BAAI/bge-small-en-v1.5")
+    model_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    endpoint_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    api_key_ref: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    updated_by: Mapped[str] = mapped_column(String(255), default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now,
+                                                 onupdate=now)

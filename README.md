@@ -51,6 +51,7 @@ work in the same place, and every agent output is linked, cited and reviewable.
 | Review Agent | First-pass PR scorecard: secrets, endpoints other repos call, hotspots, missing tests, migrations, debug output, size. Posts on the PR only at autonomy L3+ |
 | Release Agent | Rollout behind a flag in steps sized to risk, with rollback criteria tied to SLOs and the teams to tell. Production releases always need a release manager |
 | SRE Agent | Watches SLO burn rates; on a breach during a rollout it rolls back, opens an incident for on-call and files a follow-up issue that goes back to triage |
+| Knowledge (RAG) | Admins connect Confluence (Cloud or Data Center), internal docs sites, uploaded files (PDF, Word, Markdown, HTML) and docs in onboarded repos. Ignite splits them into passages by heading, keeps them in sync (only changed pages are re-read) and searches them by keyword and, with a model on your own servers, by meaning. Ask, the agents and the Omni MCP endpoint use them with links back to the source; people only see passages from sources they may read |
 | Access control | Sign-in with local accounts (admin / admin to start, changed at first sign-in), LDAP / Active Directory or the company SSO (OIDC), in any mix. Open and restricted projects with viewer/contributor/maintainer/owner roles, teams synced from SSO groups, private repos that mirror GitHub permissions, a system map that shows every repo but hides details of the ones you can't open, checkpoint roles for sign-offs, personal tokens for the CLI and MCP, and an audit log |
 | `ign` CLI | Every capability from the terminal |
 
@@ -173,6 +174,39 @@ With all three on (`IGNITE_AUTH_METHODS='["local","ldap","oidc"]'`) the sign-in 
 `IGNITE_ADMIN_EMAILS` become admins when they first sign in through LDAP or SSO. Session
 cookies are signed with `IGNITE_SESSION_SECRET` (or a key Ignite generates and keeps in its
 data directory). For a laptop with no sign-in at all, set `IGNITE_AUTH_MODE=none`.
+
+### Knowledge (RAG)
+
+Admins open **Knowledge** to connect where the team's knowledge lives:
+
+- **Confluence**: the site address, space keys (optionally narrowed with CQL) and a token as
+  `${env:CONFLUENCE_TOKEN}`: an API token plus its account email for Cloud, a personal access
+  token for Data Center.
+- **Docs site or wiki**: start pages (followed within the same site and path) or a sitemap.
+- **Upload files**: PDF, Word, Markdown, HTML or text.
+- **Docs in repos**: READMEs, `docs/`, `adr/` and runbooks from onboarded repos.
+
+Each source has a sync schedule, who can find it (everyone, or chosen teams and groups), which
+agents may use it, a **Test connection** button, a document list, and **Try a question** to see
+exactly which passages come back. Ask cites passages with links, agents get the best few in
+their context plus a `search_knowledge` tool, and MCP clients get `ignite_search_knowledge`.
+
+Everything stays on your servers: passages live in Ignite's database. Keyword search always
+works; for search by meaning pick, under **Search by meaning**, a model inside Ignite
+(`pip install "igniteai[knowledge]"`, downloaded once or read from a folder you copy to the
+server) or an embedding server you run (Ollama, text-embeddings-inference, vLLM).
+
+```bash
+ign knowledge add-confluence "Eng wiki" --base-url https://acme.atlassian.net --space ENG \
+    --email bot@acme.com --token-ref '${env:CONFLUENCE_TOKEN}'
+ign knowledge sync <id>
+ign knowledge upload runbooks/*.pdf
+ign knowledge embeddings endpoint --url http://ollama.internal:11434/v1 --model nomic-embed-text
+ign knowledge search "how do we roll back a release"
+```
+
+Without `ANTHROPIC_API_KEY` (offline mode) Ask shows the passages it found instead of writing
+an answer.
 
 ### Who can use which features
 

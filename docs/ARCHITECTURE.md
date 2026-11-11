@@ -56,6 +56,16 @@ flowchart TB
 
 ## Access control
 
+Knowledge (RAG) is `igniteai/knowledge/`: `text.py` (HTML incl. Confluence storage format,
+Markdown, PDF, Word → sections by heading → passages with overlap, keyword terms),
+`connectors.py` (Confluence Cloud/Data Center, websites, repo docs; list then read only what
+changed), `embed.py` (a local fastembed model or a self-hosted OpenAI-style embeddings server),
+and `service.py` (sync with add/update/remove, BM25 + cosine search merged by reciprocal rank,
+filtered by `can_read`: source audience, project, repo visibility and per-agent allow-lists).
+Passages and vectors are rows in the main database; search keeps a per-workspace index in
+memory, invalidated by syncs. `api/knowledge.py` serves it; the scheduler loop syncs due
+sources.
+
 Sign-in settings come from `igniteai/authconfig.py`: `IGNITE_*` defaults with whatever an admin
 saved in the web app on top (refreshed on every request, secrets as `${env:NAME}` references,
 with checks that keep at least one admin able to sign in). Feature access is

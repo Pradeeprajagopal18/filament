@@ -25,6 +25,17 @@ ADMIN = {
     ("POST", "/api/workspaces"),
     ("GET", "/api/auth/settings"),
     ("GET", "/api/workspaces/{ws_id}/features"),
+    ("GET", "/api/workspaces/{ws_id}/knowledge"),
+    ("POST", "/api/workspaces/{ws_id}/knowledge/sources"),
+    ("GET", "/api/knowledge/{source_id}"),
+    ("PATCH", "/api/knowledge/{source_id}"),
+    ("DELETE", "/api/knowledge/{source_id}"),
+    ("POST", "/api/knowledge/{source_id}/sync"),
+    ("POST", "/api/knowledge/{source_id}/test"),
+    ("POST", "/api/knowledge/{source_id}/files"),
+    ("DELETE", "/api/knowledge/{source_id}/docs/{doc_id}"),
+    ("PUT", "/api/workspaces/{ws_id}/knowledge/index"),
+    ("POST", "/api/workspaces/{ws_id}/knowledge/index/test"),
     ("PUT", "/api/workspaces/{ws_id}/features/{feature}"),
     ("PUT", "/api/auth/settings"),
     ("POST", "/api/auth/settings/test-ldap"),
@@ -76,6 +87,7 @@ MEMBER_WRITES = {
     ("POST", "/api/workspaces/{ws_id}/ask"),
     ("POST", "/api/workspaces/{ws_id}/mcp/invoke"),
     ("POST", "/api/workspaces/{ws_id}/mcp/omni"),
+    ("POST", "/api/workspaces/{ws_id}/knowledge/search"),
 }
 
 # Signed in is enough (the handler filters what comes back).

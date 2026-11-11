@@ -1275,3 +1275,100 @@ def access_feature(feature: str = typer.Argument(None),
         who = f["mode"] if f["mode"] != "some" else \
             ", ".join(f["teams"] + f["groups"] + f["users"]) or "nobody"
         console.print(f"{f['key']:<12} {f['name']:<20} {who}  [dim]({f['people']} people)[/dim]")
+
+
+# -- knowledge ------------------------------------------------------------------------------------
+knowledge_app = typer.Typer(help="Knowledge sources for Ask and the agents (RAG)",
+                            no_args_is_help=True)
+app.add_typer(knowledge_app, name="knowledge")
+
+
+@knowledge_app.command("list")
+def knowledge_list(ws: str = typer.Option(None, "--ws")):
+    out = _call("GET", f"/workspaces/{_ws(ws)}/knowledge")
+    for s in out["sources"]:
+        console.print(f"{s['id']}  {s['name']:<28} {s['kind']:<11} {s['status']:<8} "
+                      f"{s['doc_count']} docs, {s['chunk_count']} passages, used {s['hits']}x"
+                      + (f"  [red]{s['last_error']}[/red]" if s["last_error"] else ""))
+    i = out["index"]
+    console.print(f"[dim]Embeddings: {i['provider']} {i.get('model') or ''}[/dim]")
+
+
+@knowledge_app.command("add-confluence")
+def knowledge_add_confluence(name: str, base_url: str = typer.Option(...),
+                             space: list[str] = typer.Option(..., help="Space key (repeatable)"),
+                             token_ref: str = typer.Option(..., help="${env:NAME}"),
+                             email: str = typer.Option(None, help="Cloud only"),
+                             cql: str = typer.Option(None), sync_hours: int = 24,
+                             ws: str = typer.Option(None, "--ws")):
+    s = _call("POST", f"/workspaces/{_ws(ws)}/knowledge/sources", json={
+        "name": name, "kind": "confluence", "sync_hours": sync_hours,
+        "config": {"base_url": base_url, "spaces": space, "token_ref": token_ref,
+                   "email": email, "cql": cql}})
+    console.print(f"Added {s['id']}. Run `ign knowledge sync {s['id']}`.")
+
+
+@knowledge_app.command("add-web")
+def knowledge_add_web(name: str, url: list[str] = typer.Option(None, help="Start page"),
+                      sitemap: str = typer.Option(None), max_pages: int = 200,
+                      sync_hours: int = 24, ws: str = typer.Option(None, "--ws")):
+    s = _call("POST", f"/workspaces/{_ws(ws)}/knowledge/sources", json={
+        "name": name, "kind": "web", "sync_hours": sync_hours,
+        "config": {"urls": url or [], "sitemap": sitemap, "max_pages": max_pages}})
+    console.print(f"Added {s['id']}.")
+
+
+@knowledge_app.command("add-repos")
+def knowledge_add_repos(name: str, repo: list[str] = typer.Option(..., help="Repo id"),
+                        ws: str = typer.Option(None, "--ws")):
+    s = _call("POST", f"/workspaces/{_ws(ws)}/knowledge/sources", json={
+        "name": name, "kind": "repo", "config": {"repo_ids": repo}})
+    console.print(f"Added {s['id']}.")
+
+
+@knowledge_app.command("upload")
+def knowledge_upload(files: list[Path], source: str = typer.Option(None, help="Source id; "
+                                                                    "omit to create one"),
+                     name: str = "Uploaded files", ws: str = typer.Option(None, "--ws")):
+    if not source:
+        source = _call("POST", f"/workspaces/{_ws(ws)}/knowledge/sources",
+                       json={"name": name, "kind": "upload"})["id"]
+    payload = [("files", (f.name, f.read_bytes())) for f in files]
+    r = httpx.post(f"{API}/knowledge/{source}/files", files=payload, headers=_h(), timeout=600)
+    if r.status_code >= 400:
+        console.print(f"[red]{r.status_code}: {r.text}[/red]")
+        raise typer.Exit(1)
+    for x in r.json()["results"]:
+        console.print(f"{x['file']}: " + (f"[red]{x['error']}[/red]" if x.get("error")
+                                         else f"{x['passages']} passages"))
+
+
+@knowledge_app.command("sync")
+def knowledge_sync(source: str, full: bool = typer.Option(False, help="Re-read everything")):
+    r = _call("POST", f"/knowledge/{source}/sync", params={"wait": True, "full": full})
+    rep = r["report"]
+    console.print(f"{rep['added']} added, {rep['updated']} updated, {rep['unchanged']} "
+                  f"unchanged, {rep['removed']} removed, {len(rep['failed'])} failed")
+    for f in rep["failed"][:10]:
+        console.print(f"  [red]{f['title']}: {f['error']}[/red]")
+
+
+@knowledge_app.command("search")
+def knowledge_search(query: str, limit: int = 5, ws: str = typer.Option(None, "--ws")):
+    for r in _call("POST", f"/workspaces/{_ws(ws)}/knowledge/search",
+                   json={"query": query, "limit": limit})["results"]:
+        console.print(f"[bold]{r['heading'] or r['title']}[/bold] [dim]{r['source']} · "
+                      f"{r['match']} · {r['url'] or ''}[/dim]")
+        console.print(r["text"][:400] + "\n")
+
+
+@knowledge_app.command("embeddings")
+def knowledge_embeddings(provider: str = typer.Argument(..., help="none | local | endpoint"),
+                         model: str = None, model_path: str = None, url: str = None,
+                         key_ref: str = None, ws: str = typer.Option(None, "--ws")):
+    """Search by meaning with a model on your own servers (re-indexes existing passages)."""
+    out = _call("PUT", f"/workspaces/{_ws(ws)}/knowledge/index", json={
+        "provider": provider, "model": model, "model_path": model_path, "endpoint_url": url,
+        "api_key_ref": key_ref})
+    console.print(f"Embeddings: {out['provider']} {out['model']}"
+                  + (" (re-indexing in the background)" if out.get("reembedding") else ""))

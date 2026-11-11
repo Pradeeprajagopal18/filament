@@ -26,7 +26,9 @@ Guidance for AI coding agents (and humans) working in this repo.
 - `backend/scripts/demo_repos.py` — regenerates `frontend/src/demo-repos.json` for the preview after analyzer changes
 - `backend/scripts/demo_delivery.py` — regenerates `frontend/src/demo-delivery.json` (the delivery scenario the preview replays) after delivery changes
 - `backend/igniteai/auth.py` (OIDC sign-in, sessions, personal tokens), `access.py` (roles, repo visibility, list filters, checkpoint sign-off, audit), `api/guard.py` (the rule every route goes through), `api/access.py` (auth and People & access endpoints)
-- `frontend/src/` — `api.ts` client, `pages.tsx` views, `App.tsx` shell, `access.tsx` (sign-in, People & access, project access, tokens)
+- `backend/igniteai/knowledge/` — knowledge (RAG): `text.py` (documents → passages), `connectors.py` (Confluence, websites, repo docs), `embed.py` (local or self-hosted embeddings), `service.py` (sync, hybrid search, access); API in `api/knowledge.py`
+- `backend/igniteai/authconfig.py` (sign-in settings saved from the web app), `features.py` (per-feature access)
+- `frontend/src/` — `api.ts` client, `pages.tsx` views, `App.tsx` shell, `access.tsx` (sign-in, People & access, project access, tokens), `knowledge.tsx` (Knowledge admin page)
 
 ## Conventions
 - Call the Anthropic Messages API directly through `llm.complete`; no agent frameworks.
@@ -50,4 +52,5 @@ Guidance for AI coding agents (and humans) working in this repo.
 
 ## Do not touch
 - Do not commit `.env`, databases (`*.db`) or API keys.
+- Knowledge stays on the user's servers: never add a hosted embedding provider as a default.
 - Do not bypass approval gates or mark agent-written memory as confirmed in code.

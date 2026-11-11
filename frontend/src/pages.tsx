@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ProjectAccessTab } from './access'
-import { api, type Artifact, type Gap, type Me, type Memory, type Project, type Run, type UsageRow } from './api'
+import { api, type Artifact, type AskResult, type Gap, type Me, type Memory, type Project, type Run, type UsageRow } from './api'
 import { Badge, Content, ErrorLine, Tokens } from './components'
 import { DeliveryTab } from './delivery'
 
@@ -287,28 +287,39 @@ export function MemoryPage({ ws }: { ws: string }) {
 }
 
 // -- Ask Ignite ----------------------------------------------------------------------
-export function AskPage({ ws }: { ws: string }) {
+export function AskPage({ ws, offline }: { ws: string; offline?: boolean }) {
   const [q, setQ] = useState('')
-  const [history, setHistory] = useState<{ q: string; a: string; c: string[]; ok: boolean }[]>([])
+  const [busy, setBusy] = useState(false)
+  const [history, setHistory] = useState<{ q: string; r: AskResult }[]>([])
   async function ask() {
-    const r = await api.ask(ws, q)
-    setHistory(h => [{ q, a: r.answer, c: r.citations, ok: r.answered }, ...h])
-    setQ('')
+    setBusy(true)
+    try { const r = await api.ask(ws, q); setHistory(h => [{ q, r }, ...h]); setQ('') } finally { setBusy(false) }
   }
   return (
     <div className="page">
       <h1>Ask Ignite</h1>
-      <p className="muted">Answers come from shared memory and the project graph, with sources. Questions nobody can answer become gaps.</p>
+      <p className="muted">Answers come from shared memory, the project graph and the knowledge sources your admins connected, with sources. Questions nobody can answer become gaps.</p>
+      {offline && <p className="notice small">No AI model is connected, so Ask shows the passages it found instead of writing an answer. Set <code>ANTHROPIC_API_KEY</code> (or <code>ANTHROPIC_BASE_URL</code> for your company's gateway) on the server and restart it.</p>}
       <section className="card row">
-        <input value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => e.key === 'Enter' && q.trim() && ask()}
-          placeholder="e.g. Do checkout payments use idempotency keys?" />
-        <button disabled={!q.trim()} onClick={ask}>Ask</button>
+        <input value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => e.key === 'Enter' && q.trim() && !busy && ask()}
+          placeholder="e.g. How do we roll back a release?" />
+        <button disabled={!q.trim() || busy} onClick={ask}>{busy ? 'Thinking…' : 'Ask'}</button>
       </section>
-      {history.map((h, i) => (
+      {history.map(({ q: question, r }, i) => (
         <section key={i} className="card">
-          <p><strong>{h.q}</strong></p>
-          <p className={h.ok ? '' : 'muted'}>{h.a}</p>
-          {h.c.length > 0 && <p className="muted small">Sources: {h.c.join(', ')}</p>}
+          <p><strong>{question}</strong></p>
+          <p className={`answer ${r.answered ? '' : 'muted'}`}>{r.answer}</p>
+          {r.citations.length > 0 && (
+            <div className="small sources">
+              <span className="muted">Sources</span>
+              <ul className="plain">
+                {r.citations.map(c => {
+                  const k = r.sources?.[c]
+                  return <li key={c}>{k ? <>{k.url ? <a href={k.url} target="_blank" rel="noreferrer">{k.heading || k.title}</a> : (k.heading || k.title)} <span className="muted">· {k.source}</span></> : <code>{c}</code>}</li>
+                })}
+              </ul>
+            </div>
+          )}
         </section>
       ))}
     </div>

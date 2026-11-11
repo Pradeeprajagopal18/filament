@@ -28,7 +28,7 @@ LINK_KINDS = ["implements", "derives_from", "visualizes", "depends_on", "verifie
 EDITABLE = {"draft", "in_review"}
 
 
-CITATION = re.compile(r"\b(artifact|memory|run):([0-9a-f]{12})\b")
+CITATION = re.compile(r"\b(artifact|memory|run|knowledge):([0-9a-f]{12})\b")
 
 
 def check_grounding(agent: Agent, text: str, sources: list[str] | None) -> list[str]:
@@ -99,6 +99,19 @@ def search_memory(agent: Agent, inp: dict) -> dict:
     entries = relevant_memory(agent.session, agent.project, inp.get("query", ""), limit=15)
     return {"results": [{"id": m.id, "scope": m.scope, "kind": m.kind, "status": m.status,
                          "content": m.content} for m in entries]}
+
+
+def search_knowledge(agent: Agent, inp: dict) -> dict:
+    from igniteai.knowledge import service as ks
+
+    found = ks.search(agent.session, agent.project.workspace_id, inp.get("query", ""),
+                      agent=agent.name, limit=min(int(inp.get("limit") or 5), 10))
+    ks.record_hits(agent.session, found)
+    return {"results": [{"id": k["id"], "source": k["source"], "title": k["title"],
+                         "heading": k["heading"], "url": k["url"], "text": k["text"][:1500]}
+                        for k in found],
+            "note": "Cite passages as knowledge:<id>." if found else
+                    "Nothing in the knowledge sources matches."}
 
 
 def _repos(agent: Agent):
@@ -310,6 +323,11 @@ TOOLS: dict[str, Tool] = {t.name: t for t in [*_code_tools(),
          _obj({"id": {"type": "string"}}, ["id"]), read_artifact),
     Tool("search_memory", "Search shared memory: org/team/project standards, decisions, facts.",
          _obj({"query": {"type": "string"}}, ["query"]), search_memory),
+    Tool("search_knowledge", "Search the team's documentation that admins connected "
+         "(Confluence, wikis, docs sites, runbooks, uploaded files, repo docs). Use it for "
+         "standards, how-tos, past decisions and domain knowledge; cite knowledge:<id>.",
+         _obj({"query": {"type": "string"}, "limit": {"type": "integer"}}, ["query"]),
+         search_knowledge),
     Tool("search_repos", "Find onboarded code repos (APIs, frontends, infrastructure, config) "
          "by name, endpoint path, screen or dependency.",
          _obj({"query": {"type": "string"}}), search_repos),
@@ -349,7 +367,8 @@ TOOLS: dict[str, Tool] = {t.name: t for t in [*_code_tools(),
               ["agent", "goal"]), delegate),
 ]}
 
-READ_TOOLS = ["search_graph", "read_artifact", "search_memory", "search_repos", "get_repo",
+READ_TOOLS = ["search_graph", "read_artifact", "search_memory", "search_knowledge",
+              "search_repos", "get_repo",
               "code_query", "code_explain", "code_path", "code_impact"]
 SPECIALIST_TOOLS = READ_TOOLS + ["create_artifact", "update_artifact", "link_artifacts",
                                  "propose_memory", "ask_human", "finish"]

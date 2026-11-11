@@ -351,6 +351,15 @@ async def scheduler_loop() -> None:
             if m:
                 log.info("re-synced %d MCP servers", m)
 
+            def knowledge() -> int:
+                from igniteai.knowledge.service import sync_due as ksync
+
+                with SessionLocal() as s:
+                    return ksync(s)
+            k = await asyncio.to_thread(knowledge)
+            if k:
+                log.info("synced %d knowledge sources", k)
+
             def slos() -> int:
                 from igniteai.delivery.service import check_all
 

@@ -201,6 +201,22 @@ export interface AuthField { value: unknown; source: 'saved' | 'environment'; se
 export interface AuthSettings { fields: Record<string, AuthField>; redirect_uri: string; updated_by: string | null; updated_at: string | null; ldap_available: boolean }
 export interface TestResult { ok: boolean; message: string }
 export interface FeatureRow { key: string; name: string; description: string; mode: 'everyone' | 'some' | 'off'; teams: string[]; groups: string[]; users: string[]; people: number; updated_by: string | null }
+export interface AskResult { answer: string; citations: string[]; answered: boolean; sources?: Record<string, { title: string; heading: string; url: string | null; source: string }> }
+export type SourceKind = 'confluence' | 'web' | 'upload' | 'repo'
+export interface SourceInput {
+  name: string; kind: SourceKind; config: Record<string, unknown>; audience: 'everyone' | 'some'; teams: string[]; groups: string[]
+  users: string[]; project_id: string | null; agents: string[]; sync_hours: number; enabled: boolean
+}
+export interface KnowledgeSource extends SourceInput {
+  id: string; status: 'new' | 'syncing' | 'ok' | 'error'; last_sync_at: string | null; next_sync_at: string | null; last_error: string | null
+  last_report: { added?: number; updated?: number; unchanged?: number; removed?: number; failed?: { title: string; error: string }[]; passages?: number }
+  doc_count: number; chunk_count: number; hits: number; created_by: string
+}
+export interface KnowledgeDoc { id: string; title: string; url: string | null; passages: number; updated_at: string }
+export interface Passage { id: string; source: string; source_id: string; title: string; heading: string; url: string | null; text: string; score: number; match: string }
+export interface KnowledgeIndexInput { provider: 'none' | 'local' | 'endpoint'; model?: string; model_path?: string | null; endpoint_url?: string | null; api_key_ref?: string | null }
+export interface KnowledgeIndexOut extends KnowledgeIndexInput { fastembed: boolean; updated_by?: string; reembedding?: boolean }
+export interface KnowledgeOverview { sources: KnowledgeSource[]; index: KnowledgeIndexOut }
 export interface CheckpointRoleRow { id: string; user_id: string; email: string; role: string; project_id: string | null }
 export interface ApiTokenRow { id: string; name: string; prefix: string; created_at: string; expires_at: string | null; last_used_at: string | null }
 export interface AuditRow { at: string; actor: string; action: string; resource: string; detail: Record<string, unknown> }
@@ -320,7 +336,25 @@ const httpApi = {
     call<Memory>('POST', `/workspaces/${ws}/memory`, { scope, kind, content }),
   memoryAction: (id: string, action: 'confirm' | 'retire') => call<Memory>('POST', `/memory/${id}/${action}`),
   ask: (ws: string, question: string) =>
-    call<{ answer: string; citations: string[]; answered: boolean }>('POST', `/workspaces/${ws}/ask`, { question, asker: 'web' }),
+    call<AskResult>('POST', `/workspaces/${ws}/ask`, { question, asker: 'web' }),
+  knowledge: (ws: string) => call<KnowledgeOverview>('GET', `/workspaces/${ws}/knowledge`),
+  addSource: (ws: string, body: SourceInput) => call<KnowledgeSource>('POST', `/workspaces/${ws}/knowledge/sources`, body),
+  source: (id: string) => call<KnowledgeSource & { docs: KnowledgeDoc[] }>('GET', `/knowledge/${id}`),
+  updateSource: (id: string, body: Partial<SourceInput>) => call<KnowledgeSource>('PATCH', `/knowledge/${id}`, body),
+  deleteSource: (id: string) => call<void>('DELETE', `/knowledge/${id}`),
+  syncSource: (id: string, full = false) => call<{ status: string }>('POST', `/knowledge/${id}/sync?full=${full}`),
+  testSource: (id: string) => call<{ ok: boolean; message: string; sample: { title: string; url: string | null }[] }>('POST', `/knowledge/${id}/test`),
+  uploadFiles: async (id: string, files: File[]) => {
+    const form = new FormData()
+    for (const f of files) form.append('files', f)
+    const res = await fetch(`/api/knowledge/${id}/files`, { method: 'POST', body: form, credentials: 'same-origin' })
+    if (!res.ok) throw new Error(`${res.status}: ${(await res.json().catch(() => ({}))).detail ?? res.statusText}`)
+    return res.json() as Promise<{ results: { file: string; title?: string; passages?: number; error?: string }[]; source: KnowledgeSource }>
+  },
+  deleteDoc: (source: string, doc: string) => call<void>('DELETE', `/knowledge/${source}/docs/${doc}`),
+  searchKnowledge: (ws: string, query: string, source_ids?: string[]) => call<{ results: Passage[] }>('POST', `/workspaces/${ws}/knowledge/search`, { query, limit: 8, source_ids }),
+  setKnowledgeIndex: (ws: string, body: KnowledgeIndexInput) => call<KnowledgeIndexOut>('PUT', `/workspaces/${ws}/knowledge/index`, body),
+  testKnowledgeIndex: (ws: string, body: KnowledgeIndexInput) => call<TestResult>('POST', `/workspaces/${ws}/knowledge/index/test`, body),
   usage: (ws: string, by: string) => call<UsageRow[]>('GET', `/workspaces/${ws}/usage?by=${by}`),
   gaps: (ws: string) => call<Gap[]>('GET', `/workspaces/${ws}/gaps`),
   scan: (repo: string) => call<Readiness>('POST', '/readiness/scan', { repo }),

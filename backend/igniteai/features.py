@@ -46,6 +46,9 @@ CATALOG: dict[str, tuple[str, str, list[tuple[str, str]]]] = {
         ("*", "/api/workspaces/{ws_id}/ask"), ("*", "/api/workspaces/{ws_id}/gaps")]),
     "memory": ("Team memory", "Read, add, confirm and retire shared memory", [
         ("*", "/api/workspaces/{ws_id}/memory"), ("*", "/api/memory/{entry_id}/{action}")]),
+    "knowledge": ("Knowledge search", "Search the knowledge sources admins connected "
+                  "(Confluence, docs sites, files, repo docs), also used by Ask and agents", [
+        ("*", "/api/workspaces/{ws_id}/knowledge/search")]),
     "mcp_tools": ("MCP tools", "Browse and call gateway tools, and the Omni MCP endpoint", [
         ("*", "/api/workspaces/{ws_id}/mcp/registry"),
         ("*", "/api/workspaces/{ws_id}/mcp/discover"),

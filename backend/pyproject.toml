@@ -27,7 +27,9 @@ postgres = ["psycopg[binary]>=3.2"]
 code = ["tree-sitter>=0.25,<0.26", "tree-sitter-python>=0.23", "tree-sitter-javascript>=0.23",
         "tree-sitter-typescript>=0.23", "tree-sitter-java>=0.23", "tree-sitter-go>=0.23",
         "networkx>=3.3"]
-dev = ["pytest>=8.2", "ruff>=0.5", "igniteai[code]"]
+# Knowledge (RAG): a local embedding model and PDF reading. Everything runs on your servers.
+knowledge = ["fastembed>=0.4", "pypdf>=4.0"]
+dev = ["pytest>=8.2", "ruff>=0.5", "igniteai[code]", "pypdf>=4.0"]
 
 [project.scripts]
 ign = "igniteai.cli:app"

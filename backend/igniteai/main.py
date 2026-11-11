@@ -6,7 +6,18 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from igniteai import __version__
-from igniteai.api import access, code, config, delivery, gateway, graph, memory, repos, runs
+from igniteai.api import (
+    access,
+    code,
+    config,
+    delivery,
+    gateway,
+    graph,
+    knowledge,
+    memory,
+    repos,
+    runs,
+)
 from igniteai.api.guard import guard
 from igniteai.config import get_settings
 from igniteai.db import init_db
@@ -49,7 +60,8 @@ def create_app() -> FastAPI:
     app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins,
                        allow_methods=["*"], allow_headers=["*"], allow_credentials=True)
     for router in (graph.router, memory.router, runs.router, config.router, repos.router,
-                   gateway.router, code.router, delivery.router, access.router):
+                   gateway.router, code.router, delivery.router, access.router,
+                   knowledge.router):
         # Every route goes through the access guard (see api/guard.py).
         app.include_router(router, prefix="/api", dependencies=[Depends(guard)])
 

@@ -414,3 +414,21 @@ ul.features .row > .grow { min-width: 0; }
 ul.features .row > button { flex: none; }
 .feature-edit label.setting { font-size: 12px; }
 label.opt { text-align: left; font-size: 14px; }
+/* -- knowledge -------------------------------------------------------------------------------- */
+.kind-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+button.kind { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; background: #fff; color: var(--ink); border: 1px solid var(--line); padding: 12px; border-radius: 8px; font-weight: 400; }
+button.kind.active { border-color: var(--accent, #e2a03f); box-shadow: 0 0 0 2px rgba(226,160,63,.25); }
+.source-form { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+.source-form > button { align-self: flex-start; }
+ul.sources-list li { padding: 10px 0; border-bottom: 1px solid var(--line); }
+ul.sources-list li:last-child { border-bottom: 0; }
+.source-name { font-weight: 600; font-size: 15px; margin-right: 8px; }
+.badge.status-ok { background: #e6f4ea; color: #2e7d32; } .badge.status-error { background: #fdecea; color: #c62828; }
+.badge.status-syncing { background: #fff4e0; color: #9a6400; } .badge.status-new { background: #eef1f5; color: #56657a; }
+.passage { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 8px; }
+.passage p { margin: 4px 0 0; white-space: pre-wrap; }
+p.answer { white-space: pre-wrap; }
+.sources ul { margin: 4px 0 0; }
+.notice { background: #fff8e6; border: 1px solid #f0d9a8; border-radius: 8px; padding: 10px 12px; }
+button.link.danger { color: var(--bad, #c62828); }
+ul.docs li { padding: 6px 0; border-bottom: 1px solid var(--line); }

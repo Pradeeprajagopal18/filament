@@ -101,9 +101,20 @@ def relevant_repos(session: Session, project: Project, query: str, limit: int = 
     return items
 
 
+def relevant_knowledge(session: Session, project: Project, query: str,
+                       agent: str | None = None, limit: int = 3) -> list[dict]:
+    """The best few passages from connected knowledge sources (the requester's access)."""
+    from igniteai.knowledge import service as ks
+
+    try:
+        return ks.search(session, project.workspace_id, query[:2000], agent=agent, limit=limit)
+    except Exception:  # noqa: BLE001 - knowledge must never break a run
+        return []
+
+
 def build_context_pack(
     session: Session, project: Project, goal: str, artifact_ids: list[str] | None = None,
-    budget: int | None = None,
+    budget: int | None = None, agent: str | None = None,
 ) -> dict:
     budget = budget or get_settings().context_budget_tokens
     artifact_ids = artifact_ids or []
@@ -135,6 +146,9 @@ def build_context_pack(
     for m in relevant_memory(session, project, query):
         add({"kind": "memory", "id": m.id, "type": m.kind, "title": f"{m.scope} {m.kind}",
              "text": m.content + (" (proposed)" if m.status == "proposed" else "")})
+    for k in relevant_knowledge(session, project, query, agent):
+        add({"kind": "knowledge", "id": k["id"], "type": k["source"],
+             "title": k["heading"] or k["title"], "text": k["text"][:1500]})
 
     return {"items": items, "approx_tokens": used, "budget": budget}
 

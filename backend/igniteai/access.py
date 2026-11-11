@@ -285,6 +285,13 @@ def resolve(session: Session, params: dict) -> Target:
         if srv is None:
             raise _nf("McpTool", tid)
         t.workspace_id = srv.workspace_id
+    if ks_id := params.get("source_id"):
+        from igniteai.models import KnowledgeSource
+
+        src = session.get(KnowledgeSource, ks_id)
+        if src is None:
+            raise _nf("Knowledge source", ks_id)
+        t.workspace_id = src.workspace_id
     if rn := params.get("runner_id"):
         runner = session.get(Runner, rn)
         if runner is None:

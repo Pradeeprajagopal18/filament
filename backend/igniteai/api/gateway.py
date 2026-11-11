@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from igniteai import __version__
+from igniteai import __version__, access
 from igniteai import mcp_registry as reg
 from igniteai import schemas as s
 from igniteai.api.graph import get_or_404
@@ -207,7 +207,11 @@ def _omni_tools() -> list[dict]:
     from igniteai.repos.code_tools import SPECS
 
     return OMNI_TOOLS + [{"name": s["name"], "description": s["description"],
-                          "inputSchema": s["input_schema"]} for s in [*SPECS, *TASK_SPECS]]
+                          "inputSchema": s["input_schema"]} for s in [*SPECS, *TASK_SPECS]] + [
+        {"name": "ignite_search_knowledge", "description": "Search the team's connected "
+         "documentation (Confluence, wikis, runbooks, files, repo docs). Returns passages with "
+         "links.", "inputSchema": {"type": "object", "properties": {
+             "query": {"type": "string"}, "limit": {"type": "integer"}}, "required": ["query"]}}]
 
 
 def _rpc(id_, result=None, error=None):
@@ -290,6 +294,16 @@ def _omni_call(session: Session, ws_id: str, name: str | None, args: dict, auton
         from igniteai.delivery import omni as delivery_omni
         from igniteai.repos import code_tools
 
+        if name == "ignite_search_knowledge":
+            from igniteai import features
+            from igniteai.knowledge import service as ks
+
+            if not features.allowed(session, access.current(), ws_id, "knowledge"):
+                raise reg.GatewayError("Knowledge search isn't turned on for you")
+            found = ks.search(session, ws_id, str(args.get("query", "")),
+                              limit=min(int(args.get("limit") or 5), 10))
+            return ok({"results": [{k: r[k] for k in ("id", "source", "title", "heading",
+                                                       "url", "text")} for r in found]})
         if name in delivery_omni.NAMES:
             try:
                 return ok(delivery_omni.run(session, ws_id, name, args))

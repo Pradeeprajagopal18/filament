@@ -577,10 +577,10 @@ def test_reset_auth_from_the_server(world, monkeypatch):
 # -- features --------------------------------------------------------------------------------
 def test_feature_catalog_matches_routes():
     from igniteai import features
-    from igniteai.api import code, config, delivery, gateway, memory, repos, runs
+    from igniteai.api import code, config, delivery, gateway, knowledge, memory, repos, runs
 
-    paths = {"/api" + r.path for m in (memory, runs, repos, gateway, code, delivery, config)
-             for r in m.router.routes}
+    mods = (memory, runs, repos, gateway, code, delivery, config, knowledge)
+    paths = {"/api" + r.path for m in mods for r in m.router.routes}
     for key, (_, _, routes) in features.CATALOG.items():
         for _, path in routes:
             assert path in paths, (key, path)

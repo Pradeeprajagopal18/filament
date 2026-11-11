@@ -205,6 +205,8 @@ class AskOut(BaseModel):
     answer: str
     citations: list[str]
     answered: bool
+    # Knowledge passages cited: ref -> {title, heading, url, source}
+    sources: dict[str, dict] = {}
 
 
 class UsageRow(BaseModel):

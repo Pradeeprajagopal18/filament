@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AdminPage, ChangePassword, SignIn, TokensPage } from './access'
+import { KnowledgePage } from './knowledge'
 import { api, DEMO, MUST_CHANGE, SIGNED_OUT, type Health, type Me, type Project, type Workspace } from './api'
 import { DEMO_PEOPLE, demoViewAs } from './demo'
 import { GatewayPage } from './gateway'
@@ -7,10 +8,10 @@ import { LaunchpadPage } from './launchpad'
 import { AskPage, GapsPage, MemoryPage, ProjectPage, UsagePage } from './pages'
 import { ConnectorsPage, RunnersPage } from './settings'
 
-type View = { kind: 'project'; project: Project } | { kind: 'memory' | 'ask' | 'usage' | 'launchpad' | 'gaps' | 'connectors' | 'gateway' | 'runners' | 'people' | 'tokens' }
+type View = { kind: 'project'; project: Project } | { kind: 'memory' | 'ask' | 'usage' | 'launchpad' | 'gaps' | 'connectors' | 'gateway' | 'runners' | 'people' | 'tokens' | 'knowledge' }
 
 // Pages only workspace admins can use (the API enforces this too).
-const ADMIN_ONLY = new Set<View['kind']>(['usage', 'connectors', 'gateway', 'runners', 'people'])
+const ADMIN_ONLY = new Set<View['kind']>(['usage', 'connectors', 'gateway', 'runners', 'people', 'knowledge'])
 
 const NAV: { kind: Exclude<View['kind'], 'project'>; label: string }[] = [
   { kind: 'ask', label: 'Ask Ignite' },
@@ -21,6 +22,7 @@ const NAV: { kind: Exclude<View['kind'], 'project'>; label: string }[] = [
   { kind: 'connectors', label: 'Connectors (MCP)' },
   { kind: 'gateway', label: 'MCP gateway' },
   { kind: 'runners', label: 'Runners and agents' },
+  { kind: 'knowledge', label: 'Knowledge' },
   { kind: 'people', label: 'People & access' },
   { kind: 'tokens', label: 'My tokens' },
 ]
@@ -41,12 +43,15 @@ export default function App() {
 
   const loadAll = useCallback(() => {
     api.health().then(setHealth).catch(() => setError('Cannot reach the Ignite API. Start it with `make dev-api`.'))
-    api.me().then(m => { setMe(m); setSignedOut(false); setAsUser(u => m.id ?? u) }).catch(e => { if (String(e).includes('401')) setSignedOut(true) })
+    const loadMe = () => api.me().then(m => { setMe(m); setSignedOut(false); setAsUser(u => m.id ?? u) })
+      .catch(e => { if (String(e).includes('401')) setSignedOut(true) })
+    // Workspaces first: on a new install the first one is created here, and your role in it
+    // (which decides whether the admin pages show) is only known after that.
     api.workspaces().then(async list => {
       if (list.length === 0) list = [await api.createWorkspace('My workspace')]
       setWorkspaces(list)
       setWs(cur => (list.some(w => w.id === cur) ? cur : list[0].id))
-    }).catch(() => {})
+    }).catch(() => {}).finally(loadMe)
   }, [])
   useEffect(() => { loadAll() }, [loadAll])
   useEffect(() => {
@@ -56,7 +61,7 @@ export default function App() {
     window.addEventListener(MUST_CHANGE, change)
     return () => { window.removeEventListener(SIGNED_OUT, out); window.removeEventListener(MUST_CHANGE, change) }
   }, [])
-  const isAdmin = !me || me.mode === 'none' || !!me.workspaces.find(w => w.id === ws && w.role === 'admin')
+  const isAdmin = !me || me.mode === 'none' || me.is_admin || !!me.workspaces.find(w => w.id === ws && w.role === 'admin')
   // Features an admin turned off for this person (the API enforces it; this keeps the menu honest).
   const feats = me?.workspaces.find(w => w.id === ws)?.features
   const has = (f: string) => !feats || isAdmin || feats.includes(f)
@@ -137,7 +142,7 @@ export default function App() {
         {error && <p className="error">{error}</p>}
         {ws && view.kind === 'project' && <ProjectPage key={view.project.id + asUser} project={view.project} ws={ws} me={me} can={has} />}
         {ws && view.kind === 'memory' && <MemoryPage ws={ws} />}
-        {ws && view.kind === 'ask' && <AskPage ws={ws} />}
+        {ws && view.kind === 'ask' && <AskPage ws={ws} offline={health?.offline} />}
         {ws && view.kind === 'usage' && <UsagePage ws={ws} />}
         {ws && view.kind === 'gaps' && <GapsPage ws={ws} />}
         {ws && view.kind === 'launchpad' && <LaunchpadPage key={asUser} ws={ws} can={has} />}
@@ -146,6 +151,7 @@ export default function App() {
         {ws && view.kind === 'runners' && <RunnersPage ws={ws} />}
         {ws && view.kind === 'people' && <AdminPage key={asUser} ws={ws} projects={projects} me={me} />}
         {view.kind === 'tokens' && <TokensPage key={asUser} />}
+        {ws && view.kind === 'knowledge' && <KnowledgePage key={asUser} ws={ws} />}
       </main>
     </div>
   )

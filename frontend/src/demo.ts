@@ -5,7 +5,8 @@ import type {
   ChangeImpact, CodeExplain, CodeGraphView, CodeLookup, CodePath, CodeSym, Endpoint, GatewayCall, GatewayServer, GatewayTool, Impact, JsonSchema, RepoAnalysis, RepoDetail, RepoScan, Runner, ScanChanges, SystemMap, TraceEvent, UsageRow, Workspace,
   AdvanceBody, DeliveryBoard, Handoff, ReleaseOut, WorkItem,
   MapDirection, MapFocus,
-  ApiTokenRow, AuditRow, AuthConfig, AuthSettings, FeatureRow, TestResult, CheckpointRoleRow, Me, Person, ProjectAccess, Team,
+  ApiTokenRow, AuditRow, AuthConfig, AuthSettings, FeatureRow, TestResult,
+  KnowledgeDoc, KnowledgeIndexInput, KnowledgeSource, Passage, SourceInput, CheckpointRoleRow, Me, Person, ProjectAccess, Team,
 } from './api'
 import demoRepos from './demo-repos.json'
 import demoDelivery from './demo-delivery.json'
@@ -498,6 +499,7 @@ const FEATURES: [string, string, string][] = [
   ['api_docs', 'API docs and mocks', 'API contracts and the mock server'], ['code_intel', 'Code graph', 'Explain, path, query, change impact, data model'],
   ['delivery', 'Delivery pipeline', 'Work items, hand-offs, PRs, releases, SLOs, incidents'], ['agents', 'Run agents', 'Start agent runs (everyone can still read their results)'],
   ['ask', 'Ask', 'Questions answered from the project graph and memory; knowledge gaps'], ['memory', 'Team memory', 'Read, add, confirm and retire shared memory'],
+  ['knowledge', 'Knowledge search', 'Search the knowledge sources admins connected (Confluence, docs sites, files, repo docs), also used by Ask and agents'],
   ['mcp_tools', 'MCP tools', 'Browse and call gateway tools, and the Omni MCP endpoint'],
 ]
 const featurePolicy: Record<string, { mode: 'everyone' | 'some' | 'off'; teams: string[]; groups: string[]; users: string[] }> = {
@@ -510,6 +512,54 @@ function featureOk(x: DemoPerson, key: string) {
   if (x.is_admin || !f || f.mode === 'everyone') return true
   if (f.mode === 'off') return false
   return f.users.includes(x.id) || x.teams.some(m => f.teams.includes(m.team_id)) || x.groups.some(g => f.groups.map(y => y.toLowerCase()).includes(g.toLowerCase()))
+}
+
+// -- knowledge: two sample sources with real-looking pages -----------------------------------------
+type DemoDoc = KnowledgeDoc & { source_id: string; passages_: { heading: string; text: string }[] }
+const kSources: KnowledgeSource[] = []
+const kDocs: DemoDoc[] = []
+let kIndex: KnowledgeIndexInput = { provider: 'none', model: 'BAAI/bge-small-en-v1.5' }
+function kSource(name: string, kind: KnowledgeSource['kind'], config: Record<string, unknown>, extra: Partial<KnowledgeSource> = {}): KnowledgeSource {
+  const s: KnowledgeSource = { id: id(), name, kind, config, audience: 'everyone', teams: [], groups: [], users: [], project_id: null, agents: [], sync_hours: kind === 'upload' ? 0 : 24, enabled: true, status: 'ok', last_sync_at: new Date(Date.now() - 2 * 3600_000).toISOString(), next_sync_at: new Date(Date.now() + 22 * 3600_000).toISOString(), last_error: null, last_report: {}, doc_count: 0, chunk_count: 0, hits: 0, created_by: 'priya@acme.com', ...extra }
+  kSources.push(s); return s
+}
+function kDoc(s: KnowledgeSource, title: string, url: string | null, passages: [string, string][]) {
+  kDocs.push({ id: id(), source_id: s.id, title, url, passages: passages.length, updated_at: now(), passages_: passages.map(([heading, text]) => ({ heading: `${title} > ${heading}`, text })) })
+  s.doc_count = kDocs.filter(d => d.source_id === s.id).length
+  s.chunk_count = kDocs.filter(d => d.source_id === s.id).reduce((n, d) => n + d.passages, 0)
+}
+{
+  const wiki = kSource('Engineering wiki', 'confluence', { base_url: 'https://acme.atlassian.net', spaces: ['ENG', 'OPS'], email: 'ignite-bot@acme.com', token_ref: '${env:CONFLUENCE_TOKEN}' }, { hits: 14, last_report: { added: 0, updated: 2, unchanged: 46, removed: 1, failed: [] } })
+  const base = 'https://acme.atlassian.net/wiki/spaces'
+  kDoc(wiki, 'Release process', `${base}/ENG/pages/101`, [
+    ['Approvals', 'Every production release needs a release manager sign-off in Ignite. Payments changes also need a tech lead review of the rollout plan.'],
+    ['Canary', 'Releases go out behind a feature flag: 5% for 30 minutes, then 25%, then everyone. The SRE agent watches the error budget at each step.'],
+    ['Rollback', 'To roll back, flip the flag off first; if that is not enough, run `deploy rollback --to previous`. Rollbacks need no approval; tell #payments-oncall.'],
+  ])
+  kDoc(wiki, 'API standards', `${base}/ENG/pages/134`, [
+    ['Idempotency', 'Every POST that moves money must accept an Idempotency-Key header and return the original response for repeats within 24 hours.'],
+    ['Errors', 'Errors use RFC 7807 problem+json with a stable `type` URI. Never return stack traces.'],
+  ])
+  kDoc(wiki, 'On-call handbook', `${base}/OPS/pages/220`, [
+    ['Paging', 'Page through PagerDuty policy payments-primary. Acknowledge within 5 minutes; escalate to the secondary after 15.'],
+    ['Database failover', 'Promote the replica with `pgctl promote checkout-db`, then rotate the DSN secret in Vault and restart checkout-api.'],
+  ])
+  const files = kSource('Runbooks (uploaded)', 'upload', {}, { hits: 3 })
+  kDoc(files, 'Kafka consumer lag runbook', null, [
+    ['Symptoms', 'Order events arrive late and the checkout status page shows pending orders for more than 2 minutes.'],
+    ['Fix', 'Scale the order-events consumer group to 6 replicas and check the dead-letter topic orders.dlq for poison messages.'],
+  ])
+}
+const STOPW = new Set('a an and are as at be by do does for from has have how i in is it of on or that the this to was we what when where which who why will with need needs our you your can'.split(' '))
+const kTerms = (s: string) => s.toLowerCase().match(/[a-z0-9][a-z0-9-]*/g)?.filter(w => w.length > 1 && !STOPW.has(w)).map(w => (w.length > 4 && w.endsWith('s') && !w.endsWith('ss') ? w.slice(0, -1) : w)) ?? []
+function kSearch(question: string, sourceIds?: string[]): Passage[] {
+  const all = kDocs.flatMap(d => d.passages_.map((p, i) => ({ d, p, i, terms: kTerms(p.heading + ' ' + p.text) })))
+  const df = (w: string) => all.filter(x => x.terms.includes(w)).length
+  const q = [...new Set(kTerms(question))]
+  return all.filter(x => !sourceIds || sourceIds.includes(x.d.source_id))
+    .map(x => ({ ...x, s: q.reduce((sum, w) => sum + (x.terms.includes(w) ? Math.log(1 + all.length / df(w)) : 0), 0) }))
+    .filter(x => x.s > 0).sort((a, b) => b.s - a.s).slice(0, 6)
+    .map(({ d, p, i, s }) => ({ id: `${d.id.slice(0, 10)}${String(i).padStart(2, '0')}`, source: kSources.find(k => k.id === d.source_id)!.name, source_id: d.source_id, title: d.title, heading: p.heading, url: d.url, text: p.text, score: Math.round(s * 100) / 100, match: 'keyword' }))
 }
 
 function needAdmin() {
@@ -1047,17 +1097,65 @@ export const demoApi = {
     e.status = action === 'confirm' ? 'confirmed' : 'retired'
     return clone(e)
   },
+  knowledge: async () => { needAdmin(); return clone({ sources: kSources, index: { ...kIndex, fastembed: true } }) },
+  addSource: async (_ws: string, body: SourceInput) => {
+    needAdmin()
+    if (body.kind === 'confluence' && !/^\$\{env:/.test(String(body.config.token_ref ?? ''))) throw new Error("422: Don't paste the token itself: set it on the server and enter a reference such as ${env:CONFLUENCE_TOKEN}")
+    const s = kSource(body.name, body.kind, body.config, { ...body, status: 'new', last_sync_at: null, next_sync_at: null, created_by: viewerPerson().email || 'admin' })
+    audit('knowledge.add', s.id, { kind: s.kind }); return clone(s)
+  },
+  source: async (sid: string) => { needAdmin(); const s = kSources.find(x => x.id === sid)!; return clone({ ...s, docs: kDocs.filter(d => d.source_id === sid).map(({ passages_: _p, source_id: _s, ...d }) => d) }) },
+  updateSource: async (sid: string, body: Partial<SourceInput>) => { needAdmin(); const s = kSources.find(x => x.id === sid)!; Object.assign(s, body); return clone(s) },
+  deleteSource: async (sid: string) => { needAdmin(); kSources.splice(kSources.findIndex(x => x.id === sid), 1); for (let i = kDocs.length - 1; i >= 0; i--) if (kDocs[i].source_id === sid) kDocs.splice(i, 1) },
+  syncSource: async (sid: string) => {
+    needAdmin(); const s = kSources.find(x => x.id === sid)!
+    s.status = 'syncing'
+    setTimeout(() => {
+      if (s.kind === 'confluence' && !s.doc_count) kDoc(s, 'Getting started', `${String(s.config.base_url)}/wiki/spaces/${(s.config.spaces as string[])?.[0] ?? 'ENG'}/pages/1`, [['Welcome', 'This space holds the team\u2019s how-tos, decisions and runbooks.']])
+      if (s.kind === 'web' && !s.doc_count) kDoc(s, 'Handbook', (s.config.urls as string[])?.[0] ?? null, [['Overview', 'How the platform team works: environments, CI pipelines on Jenkins and release trains.']])
+      s.status = 'ok'; s.last_sync_at = now(); s.last_report = { added: s.doc_count, updated: 0, unchanged: 0, removed: 0, failed: [] }
+    }, 1500)
+    return { status: 'syncing' }
+  },
+  testSource: async (sid: string) => {
+    const s = kSources.find(x => x.id === sid)!
+    const docs = kDocs.filter(d => d.source_id === sid)
+    return { ok: true, message: `Connected. First ${Math.max(1, Math.min(5, docs.length))} documents:`, sample: docs.length ? docs.slice(0, 5).map(d => ({ title: d.title, url: d.url })) : [{ title: 'Getting started', url: String(s.config.base_url ?? '') || null }] }
+  },
+  uploadFiles: async (sid: string, files: File[]) => {
+    needAdmin(); const s = kSources.find(x => x.id === sid)!
+    const results = []
+    for (const f of files) {
+      if (!/\.(md|markdown|txt|html?|rst|adoc)$/i.test(f.name)) { results.push({ file: f.name, error: 'Preview reads text files only; the server also reads PDF and Word' }); continue }
+      const text = await f.text()
+      const parts = text.split(/\n(?=#{1,6} )/).map(p => p.trim()).filter(Boolean).slice(0, 40)
+      kDoc(s, f.name.replace(/\.[^.]+$/, ''), null, parts.map((p, i) => [p.match(/^#{1,6} (.*)/)?.[1] ?? `Part ${i + 1}`, p.replace(/^#{1,6} .*\n?/, '').slice(0, 1500)]))
+      results.push({ file: f.name, title: f.name, passages: Math.max(1, parts.length) })
+    }
+    return { results, source: clone(s) }
+  },
+  deleteDoc: async (sid: string, did: string) => { kDocs.splice(kDocs.findIndex(d => d.id === did), 1); const s = kSources.find(x => x.id === sid)!; s.doc_count = kDocs.filter(d => d.source_id === sid).length; s.chunk_count = kDocs.filter(d => d.source_id === sid).reduce((n, d) => n + d.passages, 0) },
+  searchKnowledge: async (_ws: string, query: string, source_ids?: string[]) => ({ results: kSearch(query, source_ids) }),
+  setKnowledgeIndex: async (_ws: string, body: KnowledgeIndexInput) => { needAdmin(); kIndex = body; return { ...body, fastembed: true, reembedding: false } },
+  testKnowledgeIndex: async (_ws: string, body: KnowledgeIndexInput): Promise<TestResult> => body.provider === 'none' ? { ok: true, message: 'Keyword search only; nothing to test' }
+    : body.provider === 'endpoint' && !body.endpoint_url ? { ok: false, message: "Give the embedding server's URL" }
+    : { ok: true, message: `Working: ${body.provider}:${body.model || 'BAAI/bge-small-en-v1.5'} gives 384-number vectors (preview)` },
   ask: async (_ws: string, question: string) => {
     await sleep(600)
+    const kh = kSearch(question).slice(0, 3)
     const q = words(question)
     const min = q.size > 2 ? 2 : 1
     const hits = [
       ...db.artifacts.map(a => ({ s: overlap(q, words(a.title + ' ' + a.content)), ref: `artifact:${a.id}`, title: a.title })),
       ...db.memory.filter(e => e.status !== 'retired').map(e => ({ s: overlap(q, words(e.content)) + 1, ref: `memory:${e.id}`, title: e.content })),
     ].filter(h => h.s >= min).sort((x, y) => y.s - x.s).slice(0, 3)
-    db.signals.push({ kind: hits.length ? 'question' : 'no_answer', text: question })
-    if (!hits.length) return { answer: 'Nothing in Ignite answers this yet. It has been logged as a gap.', citations: [], answered: false }
-    return { answer: `From what the team has recorded: ${hits.map(h => h.title).join(' · ')}`, citations: hits.map(h => h.ref), answered: true }
+    db.signals.push({ kind: hits.length || kh.length ? 'question' : 'no_answer', text: question })
+    if (!hits.length && !kh.length) return { answer: 'Nothing in Ignite answers this yet. It has been logged as a gap.', citations: [], answered: false }
+    for (const k of kh) { const s = kSources.find(x => x.id === k.source_id); if (s) s.hits++ }
+    const sources = Object.fromEntries([...kh.map(k => [`knowledge:${k.id}`, { title: k.title, heading: k.heading, url: k.url, source: k.source }]),
+      ...hits.map(h => [h.ref, { title: h.title.slice(0, 120), heading: '', url: null, source: h.ref.startsWith('memory:') ? 'Shared memory' : 'Project graph' }])])
+    const answer = kh.length ? `${kh[0].text}${kh[1] ? `\n\nAlso relevant: ${kh[1].text}` : ''}` : `From what the team has recorded: ${hits.map(h => h.title).join(' · ')}`
+    return { answer, citations: [...kh.map(k => `knowledge:${k.id}`), ...hits.map(h => h.ref)].slice(0, 4), answered: true, sources }
   },
   usage: async (_ws: string, by: string): Promise<UsageRow[]> => {
     const key = (r: Run & { project_id: string }) => by === 'project' ? (db.projects.find(p => p.id === r.project_id)?.name ?? r.project_id)
